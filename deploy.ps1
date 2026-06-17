@@ -144,31 +144,20 @@ Write-Host ""
 Read-Host "Tekan [ENTER] untuk restart layanan..."
 
 # -----------------------------------------------
-# LANGKAH 4: Restart Proses & Sync Caddy
+# LANGKAH 4: Restart Proses (PM2) & Sync Caddy
 # -----------------------------------------------
 Show-Header "4 / 4 - Restart Layanan & Sync Caddy"
 
-# Cari PID proses node licensing server
-Write-Host "Mencari proses licensing server di VPS..." -ForegroundColor Yellow
-$pidInfo = ssh -i $VPS_PEM -o StrictHostKeyChecking=no "${VPS_USER}@${VPS_IP}" "sudo ss -tulpn | grep ':5001' | grep -oP 'pid=\K[0-9]+' | head -1"
-
-if ($pidInfo -match "^\d+$") {
-    Write-Host "Proses ditemukan (PID: $pidInfo). Merestart dengan SIGHUP..." -ForegroundColor Yellow
-    ssh -i $VPS_PEM -o StrictHostKeyChecking=no "${VPS_USER}@${VPS_IP}" "sudo kill -HUP $pidInfo"
-    Start-Sleep -Seconds 3
-    # Verifikasi masih berjalan
-    $newPid = ssh -i $VPS_PEM -o StrictHostKeyChecking=no "${VPS_USER}@${VPS_IP}" "sudo ss -tulpn | grep ':5001' | grep -oP 'pid=\K[0-9]+' | head -1"
-    if ($newPid -match "^\d+$") {
-        Write-Host "Licensing server berhasil direstart! (PID baru: $newPid)" -ForegroundColor Green
-    } else {
-        Write-Host "PERINGATAN: Proses tidak ditemukan setelah restart. Coba start manual." -ForegroundColor Yellow
-        ssh -i $VPS_PEM -o StrictHostKeyChecking=no "${VPS_USER}@${VPS_IP}" "cd $REMOTE_DIR && sudo node server.js &"
-    }
-} else {
-    Write-Host "Proses licensing server tidak berjalan di port 5001. Mencoba start..." -ForegroundColor Yellow
-    ssh -i $VPS_PEM -o StrictHostKeyChecking=no "${VPS_USER}@${VPS_IP}" "cd $REMOTE_DIR && sudo nohup node server.js > /var/log/licensing-server.log 2>&1 &"
-    Start-Sleep -Seconds 2
-    Write-Host "Licensing server dimulai." -ForegroundColor Green
+Write-Host "Merestart layanan menggunakan PM2..." -ForegroundColor Yellow
+try {
+    $pm2Out = ssh -i $VPS_PEM -o StrictHostKeyChecking=no "${VPS_USER}@${VPS_IP}" "cd $REMOTE_DIR && sudo pm2 startOrReload ecosystem.config.js && sudo pm2 save && echo 'PM2_OK'"
+    Write-Host $pm2Out
+    if ($pm2Out -notmatch "PM2_OK") { throw "PM2 gagal merestart layanan" }
+    Write-Host "Layanan berhasil direstart via PM2!" -ForegroundColor Green
+} catch {
+    Write-Host "GAGAL: $_" -ForegroundColor Red
+    Write-Host "Mencoba start manual jika PM2 belum terpasang..." -ForegroundColor Yellow
+    ssh -i $VPS_PEM -o StrictHostKeyChecking=no "${VPS_USER}@${VPS_IP}" "cd $REMOTE_DIR && sudo npm install -g pm2 && sudo pm2 start ecosystem.config.js"
 }
 
 # Sync Caddy
