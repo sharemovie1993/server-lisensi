@@ -2200,6 +2200,98 @@ PersistentKeepalive = 25
   }
 });
 
+// ── UPDATE CUSTOM DOMAIN FOR TUNNEL ──
+router.post('/api/license/tunnel/custom-domain', async (req, res) => {
+  const { license_key, custom_domain } = req.body;
+  if (!license_key) {
+    return res.status(400).json({ success: false, message: 'License key wajib diisi.' });
+  }
+
+  try {
+    // 1. Verifikasi lisensi aktif di SQLite
+    const license = await db.get('SELECT * FROM licenses WHERE license_key = ? AND is_active = 1', [license_key.trim()]);
+    if (!license) {
+      return res.status(403).json({ success: false, message: 'Lisensi tidak ditemukan atau tidak aktif.' });
+    }
+
+    const slug = license.requested_slug;
+    if (!slug) {
+      return res.status(400).json({ success: false, message: 'Lisensi belum di-online-kan (belum memiliki slug/IP).' });
+    }
+
+    let targetDomain = null;
+    if (custom_domain) {
+      targetDomain = custom_domain.trim().toLowerCase();
+      // Validasi format domain
+      const domainRegex = /^[a-z0-9.-]+\.[a-z]{2,}$/;
+      if (!domainRegex.test(targetDomain)) {
+        return res.status(400).json({ success: false, message: 'Format domain kustom tidak valid. Contoh: zakat.sekolah.sch.id' });
+      }
+    }
+
+    // 2. Update Supabase tenants table via PostgREST
+    const https = require('https');
+    const updateSupabaseCustomDomain = (slugVal, dom) => {
+      return new Promise((resolve, reject) => {
+        // We use service_role key to bypass RLS
+        const apiKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q';
+        const data = JSON.stringify({ custom_domain: dom });
+
+        const options = {
+          hostname: 'supabaselocal.absenta.id',
+          port: 443,
+          path: `/rest/v1/tenants?domain_or_slug=eq.${encodeURIComponent(slugVal)}`,
+          method: 'PATCH',
+          headers: {
+            'apikey': apiKey,
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation'
+          },
+          timeout: 10000
+        };
+
+        const request = https.request(options, (response) => {
+          let body = '';
+          response.on('data', (chunk) => body += chunk);
+          response.on('end', () => {
+            if (response.statusCode >= 200 && response.statusCode < 300) {
+              resolve(body);
+            } else {
+              reject(new Error(`Supabase PATCH HTTP ${response.statusCode}: ${body}`));
+            }
+          });
+        });
+
+        request.on('error', (err) => reject(err));
+        request.on('timeout', () => {
+          request.destroy();
+          reject(new Error('Supabase API timeout'));
+        });
+        request.write(data);
+        request.end();
+      });
+    };
+
+    await updateSupabaseCustomDomain(slug, targetDomain);
+
+    // 3. Trigger Caddy sync
+    triggerCaddySync();
+
+    res.json({
+      success: true,
+      message: targetDomain 
+        ? `Domain kustom '${targetDomain}' berhasil disinkronkan ke cloud gateway.`
+        : 'Domain kustom berhasil dinonaktifkan di cloud gateway.',
+      custom_domain: targetDomain
+    });
+
+  } catch (err) {
+    console.error('[Tunnel Custom Domain Sync Error]', err.message);
+    res.status(500).json({ success: false, message: 'Gagal sinkronisasi domain kustom ke VPS: ' + err.message });
+  }
+});
+
 // Helper function to auto-provision VPN license addon
 async function activateVpnAddonIfNeeded(license, req) {
   if (license.include_vpn !== 1) return;
