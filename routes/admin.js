@@ -1258,31 +1258,6 @@ WGEOF
 fi
 
 wg syncconf wg0 <(wg-quick strip wg0) 2>/dev/null || true
-
-cat <<NGEOF > /etc/nginx/sites-available/\$DOMAIN
-server {
-    listen 80;
-    server_name \$DOMAIN;
-
-    location / {
-        proxy_pass http://\$CLIENT_IP:5002;
-        proxy_set_header Host \\\$host;
-        proxy_set_header X-Real-IP \\\$remote_addr;
-        proxy_set_header X-Forwarded-For \\\$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \\\$scheme;
-        proxy_connect_timeout 300;
-        proxy_send_timeout 300;
-        proxy_read_timeout 300;
-        send_timeout 300;
-    }
-}
-NGEOF
-
-ln -sf /etc/nginx/sites-available/\$DOMAIN /etc/nginx/sites-enabled/
-nginx -t && systemctl reload nginx
-
-# Registrasi SSL/HTTPS via Certbot
-certbot --nginx -d \$DOMAIN --non-interactive --agree-tos -m admin@absenta.id --redirect
 `;
 
     const tmpPath = path.join(__dirname, '../add-wg-peer.tmp');
