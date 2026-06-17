@@ -72,7 +72,7 @@ async function run() {
     });
 
     const activeLicenses = await db.all(
-      `SELECT license_key, requested_slug, wireguard_ip FROM licenses 
+      `SELECT license_key, requested_slug, wireguard_ip, custom_domain FROM licenses 
        WHERE is_active = 1 AND wireguard_ip IS NOT NULL AND wireguard_ip != ''`
     );
 
@@ -130,14 +130,19 @@ async function run() {
     });
 
     // Fallback/Add any licenses in SQLite that weren't in Supabase but have slugs
+    // Also picks up custom_domain stored directly in licenses.db (e.g. Project-Yatim tenants)
     activeLicenses.forEach(lic => {
       if (lic.requested_slug) {
         const slugClean = lic.requested_slug.trim().toLowerCase();
         const alreadyMapped = upstreams.some(u => u.slug.toLowerCase() === slugClean);
         if (!alreadyMapped) {
+          const domains = [`${slugClean}.absenta.id`];
+          if (lic.custom_domain) {
+            domains.push(lic.custom_domain.trim().toLowerCase());
+          }
           upstreams.push({
             slug: lic.requested_slug,
-            domains: [`${slugClean}.absenta.id`],
+            domains,
             wireguard_ip: lic.wireguard_ip
           });
         }

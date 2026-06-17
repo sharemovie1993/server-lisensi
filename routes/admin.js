@@ -1570,6 +1570,97 @@ router.post('/api/admin/caddy/sync', adminAuth, (req, res) => {
   });
 });
 
+// POST /api/license/tunnel/custom-domain
+// Called by tenant app (Project-Yatim) when admin saves a custom domain.
+// Updates licenses.db and triggers Caddy sync so SSL is issued automatically.
+router.post('/api/license/tunnel/custom-domain', async (req, res) => {
+  try {
+    const { license_key, custom_domain } = req.body;
+
+    if (!license_key) {
+      return res.status(400).json({ success: false, message: 'license_key wajib diisi.' });
+    }
+
+    const licenseKeyClean = license_key.trim();
+    const targetDomain = custom_domain ? custom_domain.trim().toLowerCase() : null;
+
+    // Validate domain format if provided
+    if (targetDomain) {
+      const domainRegex = /^[a-z0-9][a-z0-9.-]+\.[a-z]{2,}$/;
+      if (!domainRegex.test(targetDomain)) {
+        return res.status(400).json({ success: false, message: 'Format domain kustom tidak valid.' });
+      }
+    }
+
+    // Open SQLite database
+    const { open } = require('sqlite');
+    const sqlite3 = require('sqlite3');
+    const dbPath = path.join(__dirname, '../licenses.db');
+    const db = await open({ filename: dbPath, driver: sqlite3.Database });
+
+    try {
+      // Check license exists and is active
+      const license = await db.get(
+        `SELECT id, requested_slug, wireguard_ip FROM licenses WHERE license_key = ? AND is_active = 1`,
+        [licenseKeyClean]
+      );
+
+      if (!license) {
+        return res.status(404).json({ success: false, message: 'Kunci lisensi tidak ditemukan atau tidak aktif.' });
+      }
+
+      // If setting a custom domain, ensure it's not already used by another license
+      if (targetDomain) {
+        const existing = await db.get(
+          `SELECT id FROM licenses WHERE custom_domain = ? AND license_key != ?`,
+          [targetDomain, licenseKeyClean]
+        );
+        if (existing) {
+          return res.status(409).json({ success: false, message: 'Domain kustom sudah digunakan oleh lisensi lain.' });
+        }
+      }
+
+      // Update custom_domain in licenses.db
+      await db.run(
+        `UPDATE licenses SET custom_domain = ? WHERE license_key = ?`,
+        [targetDomain, licenseKeyClean]
+      );
+
+      console.log(`[Custom Domain] Updated custom_domain for license ${licenseKeyClean} (slug: ${license.requested_slug}) => ${targetDomain || 'NULL'}`);
+
+      // Trigger Caddy sync in background
+      const { exec } = require('child_process');
+      const scriptPath = path.join(__dirname, '../scripts/sync-caddy.js');
+      exec(`node "${scriptPath}"`, (syncErr, syncOut, syncStderr) => {
+        if (syncErr) {
+          console.warn('[Custom Domain] Caddy sync warning:', syncStderr || syncErr.message);
+        } else {
+          console.log('[Custom Domain] Caddy synced successfully after custom domain update.');
+        }
+      });
+
+      res.json({
+        success: true,
+        message: targetDomain
+          ? `Domain kustom '${targetDomain}' berhasil dihubungkan. SSL akan diterbitkan otomatis oleh Caddy.`
+          : 'Domain kustom berhasil dilepas dari lisensi.',
+        data: {
+          license_key: licenseKeyClean,
+          slug: license.requested_slug,
+          custom_domain: targetDomain
+        }
+      });
+
+    } finally {
+      await db.close().catch(() => {});
+    }
+
+  } catch (err) {
+    console.error('[Custom Domain Route Error]', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 module.exports = router;
 module.exports.adminAuth = adminAuth;
 
