@@ -590,11 +590,13 @@ async function pollUpdateStatus() {
 window.checkCaddyStatus = async () => {
   const badge = document.getElementById('caddyServiceBadge');
   const view = document.getElementById('caddyfileView');
+  const tbody = document.getElementById('caddyRoutesTableBody');
   if (!badge || !view) return;
 
   badge.className = "px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-slate-800 text-slate-400";
   badge.textContent = "Checking...";
   view.textContent = "Loading configuration...";
+  if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="px-5 py-8 text-center text-slate-500 font-medium">Memuat daftar rute...</td></tr>';
 
   try {
     const secret = localStorage.getItem('@license_admin_secret') || '';
@@ -612,17 +614,121 @@ window.checkCaddyStatus = async () => {
         badge.textContent = "● OFFLINE";
       }
       view.textContent = result.caddyfile || '# Caddyfile kosong atau tidak ditemukan.';
+
+      // Render Caddy routes table
+      if (tbody) {
+        tbody.innerHTML = '';
+        const routes = parseCaddyfile(result.caddyfile || '');
+        if (routes.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4" class="px-5 py-8 text-center text-slate-500 font-medium">Tidak ada rute Caddy terkonfigurasi.</td></tr>';
+        } else {
+          routes.forEach(r => {
+            const isTenant = r.type.startsWith('Tenant');
+            const badgeColor = isTenant 
+              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+              : 'bg-blue-500/10 text-blue-400 border border-blue-500/20';
+            const isSSLAuto = r.domain !== 'absenta.id' && r.domain !== 'www.absenta.id';
+            
+            tbody.innerHTML += `
+              <tr class="border-b border-slate-900 hover:bg-slate-900/40 transition-colors duration-150">
+                <td class="px-5 py-4 font-bold text-slate-200">
+                  <a href="https://${r.domain}" target="_blank" class="hover:underline text-emerald-400 flex items-center gap-1.5 font-bold">
+                    ${r.domain} <span class="text-[10px]">🔗</span>
+                  </a>
+                </td>
+                <td class="px-5 py-4">
+                  <span class="px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider border ${badgeColor}">
+                    ${r.type}
+                  </span>
+                </td>
+                <td class="px-5 py-4 font-mono text-slate-400 font-bold">
+                  ${r.target !== '-' ? `📡 ${r.target}` : '📂 Berkas Lokal'}
+                </td>
+                <td class="px-5 py-4">
+                  <span class="inline-flex items-center gap-1.5 text-[11px] font-bold ${isSSLAuto ? 'text-emerald-400' : 'text-slate-500'}">
+                    <span class="w-1.5 h-1.5 rounded-full ${isSSLAuto ? 'bg-emerald-400' : 'bg-slate-500'}"></span>
+                    ${isSSLAuto ? 'SSL Aktif (Auto)' : 'SSL Manual'}
+                  </span>
+                </td>
+              </tr>
+            `;
+          });
+        }
+      }
     } else {
       badge.className = "px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20";
       badge.textContent = "● ERROR";
       view.textContent = `Gagal memuat status: ${result.error || 'Unknown error'}`;
+      if (tbody) tbody.innerHTML = `<tr><td colspan="4" class="px-5 py-8 text-center text-rose-400 font-medium">Gagal memuat: ${result.error || 'Unknown error'}</td></tr>`;
     }
   } catch (err) {
     badge.className = "px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20";
     badge.textContent = "● ERROR";
     view.textContent = `Gagal terhubung ke API: ${err.message}`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="4" class="px-5 py-8 text-center text-rose-400 font-medium">Gagal terhubung ke API: ${err.message}</td></tr>`;
   }
 };
+
+// Helper function to parse Caddyfile lines into structured route objects
+function parseCaddyfile(caddyfileText) {
+  if (!caddyfileText) return [];
+  const lines = caddyfileText.split('\n');
+  const routes = [];
+  let currentTenant = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line.startsWith('# Tenant:')) {
+      currentTenant = line.replace('# Tenant:', '').trim();
+    }
+    
+    // Check if line defines a site block (ends with {)
+    if (line.endsWith('{')) {
+      const domainsStr = line.slice(0, -1).trim();
+      // Ignore main global/config blocks
+      if (domainsStr === '' || domainsStr.startsWith('email') || domainsStr.startsWith('on_demand_tls') || domainsStr === '{' || domainsStr === '#') {
+        continue;
+      }
+      
+      const domains = domainsStr.split(',').map(d => d.trim()).filter(Boolean);
+      
+      // Look inside the block for reverse_proxy IP
+      let targetIp = '-';
+      let blockDepth = 1;
+      let j = i + 1;
+      while (j < lines.length && blockDepth > 0) {
+        const subLine = lines[j].trim();
+        if (subLine.endsWith('{')) blockDepth++;
+        if (subLine === '}') blockDepth--;
+        
+        if (subLine.startsWith('reverse_proxy')) {
+          const proxyParts = subLine.split(/\s+/);
+          const lastPart = proxyParts[proxyParts.length - 1];
+          if (lastPart.includes('10.0.0.') || lastPart.includes('127.0.0.1') || lastPart.includes('10.0.0.2') || lastPart.includes('10.0.0.3')) {
+            targetIp = lastPart.replace('http://', '');
+          }
+        }
+        j++;
+      }
+      
+      domains.forEach(domain => {
+        routes.push({
+          domain,
+          type: currentTenant ? `Tenant (${currentTenant})` : 'Sistem Utama',
+          target: targetIp
+        });
+      });
+      
+      // Fast-forward outer loop index
+      i = j - 1;
+    }
+    
+    if (line === '') {
+      currentTenant = null;
+    }
+  }
+  return routes;
+}
 
 window.runCaddySync = async () => {
   if (!confirm('Apakah Anda yakin ingin menyinkronkan ulang konfigurasi rute Caddy? Tindakan ini akan memperbarui berkas Caddyfile dan memuat ulang service Caddy.')) {

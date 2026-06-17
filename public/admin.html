@@ -558,14 +558,41 @@
             </div>
           </div>
 
-          <!-- Active Routing Rules (Parsed Caddyfile) -->
+          <!-- Active Routing Rules Table -->
           <div class="space-y-3">
-            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest">📝 Konfigurasi Caddyfile Aktif di VPS:</h4>
-            <div class="bg-slate-950 border border-slate-800 rounded-2xl p-4 overflow-hidden">
-              <pre id="caddyfileView" class="font-mono text-xs text-slate-300 overflow-auto max-h-[350px] leading-relaxed">
-Loading configuration...
-              </pre>
+            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest block">🌐 Daftar Rute Aktif & Custom Domain (Gateway Routing):</h4>
+            <div class="overflow-x-auto bg-slate-950 border border-slate-800/80 rounded-2xl">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="border-b border-slate-800/80 bg-slate-900/40 text-slate-400 font-extrabold uppercase tracking-wider">
+                    <th class="px-5 py-3.5">Nama Domain (URL)</th>
+                    <th class="px-5 py-3.5">Tipe Akses</th>
+                    <th class="px-5 py-3.5">Tujuan IP Server Sekolah (WireGuard)</th>
+                    <th class="px-5 py-3.5">Status SSL</th>
+                  </tr>
+                </thead>
+                <tbody id="caddyRoutesTableBody" class="text-slate-300">
+                  <tr>
+                    <td colspan="4" class="px-5 py-8 text-center text-slate-500 font-medium">Memuat daftar rute...</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
+          </div>
+
+          <!-- Active Routing Rules (Parsed Caddyfile) Collapsible -->
+          <div class="space-y-3">
+            <details class="group bg-slate-950/30 border border-slate-800/50 rounded-2xl p-4 transition-all duration-300">
+              <summary class="flex justify-between items-center text-xs font-bold text-slate-400 uppercase tracking-widest cursor-pointer list-none select-none">
+                <span>📝 Lihat Konfigurasi Asli (Script Raw Caddyfile)</span>
+                <span class="transition-transform duration-300 group-open:rotate-180">▼</span>
+              </summary>
+              <div class="mt-4 bg-slate-950 border border-slate-900 rounded-xl p-4 overflow-hidden">
+                <pre id="caddyfileView" class="font-mono text-xs text-slate-300 overflow-auto max-h-[350px] leading-relaxed">
+Loading configuration...
+                </pre>
+              </div>
+            </details>
           </div>
         </section>
       </div>
