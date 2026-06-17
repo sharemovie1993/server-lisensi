@@ -211,14 +211,20 @@ ${domainListStr} {
 
     // 5. Reload Caddy if on Linux
     if (isLinux) {
-      exec('sudo systemctl reload caddy', (err, stdout, stderr) => {
-        if (err) {
-          console.error('[Caddy-Sync] Failed to reload Caddy service:', stderr || err.message);
-          process.exit(1);
-        } else {
-          console.log('[Caddy-Sync] Caddy service successfully reloaded.');
-          process.exit(0);
-        }
+      exec('sudo systemctl is-active caddy', (activeErr, activeStdout) => {
+        const isActive = !activeErr && activeStdout.trim() === 'active';
+        const reloadCmd = isActive ? 'sudo systemctl reload caddy' : 'sudo systemctl restart caddy';
+        console.log(`[Caddy-Sync] Caddy service is ${isActive ? 'active' : 'inactive'}. Running: ${reloadCmd}`);
+        
+        exec(reloadCmd, (err, stdout, stderr) => {
+          if (err) {
+            console.error('[Caddy-Sync] Failed to update Caddy service:', stderr || err.message);
+            process.exit(1);
+          } else {
+            console.log('[Caddy-Sync] Caddy service successfully updated.');
+            process.exit(0);
+          }
+        });
       });
     } else {
       console.log('[Caddy-Sync] Local Windows environment detected. Skipping Caddy service reload.');
