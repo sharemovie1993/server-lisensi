@@ -1065,6 +1065,17 @@ router.get('/api/license/print-invoice/:invoiceNumber', async (req, res) => {
 
 // 10. Webhook Callback receiver from Tripay
 router.post('/api/license/tripay-callback', async (req, res) => {
+  // --- HARDENING: IP WHITELISTING ---
+  // List of Tripay IP Addresses (as of documentation)
+  const tripayIps = ['103.119.145.161', '103.119.145.162', '103.119.145.163'];
+  const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  
+  // Optional: Uncomment the check below if you want strict IP validation
+  // if (!tripayIps.some(ip => clientIp.includes(ip)) && clientIp !== '127.0.0.1') {
+  //   console.warn(`[TRIPAY Webhook] Unauthorized IP access attempt: ${clientIp}`);
+  //   return res.status(403).json({ success: false, message: 'Unauthorized source IP.' });
+  // }
+
   const callbackSignature = req.headers['x-callback-signature'];
 
   if (!callbackSignature) {
@@ -1098,6 +1109,13 @@ router.post('/api/license/tripay-callback', async (req, res) => {
       if (!invoice) {
         console.error(`[TRIPAY Webhook] Invoice not found: ${merchant_ref}`);
         return res.status(404).json({ success: false, message: 'Invoice not found.' });
+      }
+
+      // --- HARDENING: DOUBLE VALIDATE AMOUNT ---
+      // Ensure the amount paid matches the amount in our record to prevent "Underpaid" attacks
+      if (req.body.total_amount && parseFloat(req.body.total_amount) < parseFloat(invoice.amount)) {
+        console.error(`[TRIPAY Webhook] Amount mismatch! Paid: ${req.body.total_amount}, Expected: ${invoice.amount}`);
+        return res.status(400).json({ success: false, message: 'Amount mismatch detected.' });
       }
 
       if (invoice.status === 'paid') {
