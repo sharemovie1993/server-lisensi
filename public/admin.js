@@ -18,7 +18,8 @@ import {
   loadSystemSettings,
   saveSystemSettings,
   uploadQris,
-  uploadInvoiceProof
+  uploadInvoiceProof,
+  forceRestartSystem
 } from './modules/admin-api.js';
 import {
   renderAllCachedTables,
@@ -152,6 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const openAddPackageModalBtn = document.getElementById('openAddPackageModalBtn');
   const closeAddPackageModalBtn = document.getElementById('closeAddPackageModalBtn');
   const addPackageForm = document.getElementById('addPackageForm');
+  const forceRestartBtn = document.getElementById('forceRestartBtn');
 
   // Event Listeners
   productFilterSelect.addEventListener('change', () => {
@@ -172,6 +174,37 @@ document.addEventListener('DOMContentLoaded', () => {
         genSchoolName.value = selectedOption.dataset.name || '';
       } else {
         genSchoolName.value = '';
+      }
+    });
+  }
+
+  if (forceRestartBtn) {
+    forceRestartBtn.addEventListener('click', async () => {
+      const confirmed = window.confirm(
+        '⚠️ PERINGATAN: Apakah Anda yakin ingin merestart Server Lisensi?\n\n' +
+        'Koneksi API akan terputus selama beberapa detik. Pastikan tidak ada transaksi penting yang sedang berjalan.'
+      );
+      if (!confirmed) return;
+
+      forceRestartBtn.disabled = true;
+      forceRestartBtn.textContent = '⏳ Merestart...';
+
+      try {
+        const res = await forceRestartSystem();
+        if (res.success) {
+          alert('✅ Perintah terkirim. Halaman akan disegarkan dalam 5 detik.');
+          setTimeout(() => {
+            window.location.reload();
+          }, 5000);
+        } else {
+          alert('❌ Gagal: ' + res.message);
+          forceRestartBtn.disabled = false;
+          forceRestartBtn.textContent = '⚡ Paksa Restart Server';
+        }
+      } catch (err) {
+        alert('❌ Terjadi kesalahan: ' + err.message);
+        forceRestartBtn.disabled = false;
+        forceRestartBtn.textContent = '⚡ Paksa Restart Server';
       }
     });
   }

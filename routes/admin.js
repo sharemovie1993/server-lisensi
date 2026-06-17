@@ -1585,6 +1585,28 @@ router.post('/api/license/tunnel/custom-domain', async (req, res) => {
   }
 });
 
+// 11. Force Restart System (PM2)
+router.post('/api/admin/restart', adminAuth, async (req, res) => {
+  const { exec } = require('child_process');
+  
+  res.json({ 
+    success: true, 
+    message: 'Perintah restart sistem telah dikirim. Server akan memuat ulang dalam beberapa detik.' 
+  });
+
+  console.log(`[Admin] Force restart triggered by admin at ${new Date().toISOString()}`);
+
+  // Wait a bit to allow the response to be sent
+  setTimeout(() => {
+    // We try to restart the specific process first, then fallback to all
+    exec('pm2 restart licensing-server || pm2 restart all', (err) => {
+      if (err) {
+        console.error('[Admin] Failed to execute pm2 restart:', err.message);
+      }
+    });
+  }, 1000);
+});
+
 module.exports = router;
 module.exports.adminAuth = adminAuth;
 

@@ -684,3 +684,18 @@ export function saveSystemSettings(payload, onComplete) {
     });
   });
 }
+
+export async function forceRestartSystem() {
+  if (!state.ADMIN_SECRET) return;
+  
+  try {
+    const res = await fetch(`${state.API_BASE}/api/admin/restart`, {
+      method: 'POST',
+      headers: { 'x-admin-secret': state.ADMIN_SECRET }
+    });
+    const data = await res.json();
+    return data;
+  } catch (err) {
+    throw new Error('Gagal menghubungi server: ' + err.message);
+  }
+}
