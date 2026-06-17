@@ -5,6 +5,7 @@ const path = require('path');
 const { initDatabase, db } = require('./config/db');
 const { PORT, TOTP_SECRET } = require('./config/keys');
 const { logLicenseActivity } = require('./utils/logger');
+const { triggerCaddySync } = require('./utils/caddy');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -58,6 +59,12 @@ async function checkExpirations() {
       
       // Audit Log
       await logLicenseActivity(lic.license_key, lic.product_id, null, 'system', 'CRON_EXPIRED');
+    }
+
+    // Trigger Caddy sync if there were expired licenses to clean up routing
+    if (expiredLicenses.length > 0) {
+      console.log(`[CRON] Triggering Caddy sync to remove routing for ${expiredLicenses.length} expired licenses...`);
+      triggerCaddySync();
     }
     
     // 2. Find licenses expiring soon (within 7 days) and log warning
