@@ -211,7 +211,7 @@ ${domainListStr} {
 
     // 5. Reload Caddy if on Linux
     if (isLinux) {
-      exec('sudo caddy reload', (err, stdout, stderr) => {
+      exec('sudo systemctl reload caddy', (err, stdout, stderr) => {
         if (err) {
           console.error('[Caddy-Sync] Failed to reload Caddy service:', stderr || err.message);
           process.exit(1);
