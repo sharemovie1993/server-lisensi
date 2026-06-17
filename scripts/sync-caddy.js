@@ -1,0 +1,238 @@
+// scripts/sync-caddy.js
+// Automatically syncs SQLite licenses and Supabase tenants into /etc/caddy/Caddyfile and reloads Caddy.
+
+const fs = require('fs');
+const path = require('path');
+const { exec } = require('child_process');
+const https = require('https');
+const sqlite3 = require('sqlite3');
+const { open } = require('sqlite');
+
+// Load environment variables
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
+
+const isLinux = process.platform === 'linux';
+const caddyfilePath = isLinux ? '/etc/caddy/Caddyfile' : path.join(__dirname, '../Caddyfile.generated');
+const dbPath = path.join(__dirname, '../licenses.db');
+
+const PORT_EXCEPTIONS = {
+  'cibinong': { backend: 5006, frontend: 5176 },
+  '2pwk': { backend: 5005, frontend: 5174 }
+};
+
+// Supabase Request Helper
+function getTenantsFromSupabase() {
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: 'supabaselocal.absenta.id',
+      port: 443,
+      path: '/rest/v1/tenants?select=id,domain_or_slug,license_key,custom_domain,is_active',
+      method: 'GET',
+      headers: {
+        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE',
+        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE'
+      },
+      timeout: 10000
+    };
+
+    const req = https.request(options, (res) => {
+      let body = '';
+      res.on('data', (chunk) => body += chunk);
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          try {
+            resolve(JSON.parse(body));
+          } catch (e) {
+            reject(new Error('Failed to parse Supabase response'));
+          }
+        } else {
+          reject(new Error(`Supabase HTTP ${res.statusCode}: ${body}`));
+        }
+      });
+    });
+
+    req.on('error', (err) => reject(err));
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('Supabase API timeout'));
+    });
+    req.end();
+  });
+}
+
+async function run() {
+  console.log('[Caddy-Sync] Starting Caddy configuration sync...');
+
+  let db;
+  try {
+    // 1. Fetch data from SQLite
+    db = await open({
+      filename: dbPath,
+      driver: sqlite3.Database
+    });
+
+    const activeLicenses = await db.all(
+      `SELECT license_key, requested_slug, wireguard_ip FROM licenses 
+       WHERE is_active = 1 AND wireguard_ip IS NOT NULL AND wireguard_ip != ''`
+    );
+
+    console.log(`[Caddy-Sync] Loaded ${activeLicenses.length} active licenses with WireGuard IPs from SQLite.`);
+
+    // Map license details by key & slug
+    const licenseMapByKey = {};
+    const licenseMapBySlug = {};
+    activeLicenses.forEach(lic => {
+      if (lic.license_key) licenseMapByKey[lic.license_key.trim()] = lic;
+      if (lic.requested_slug) licenseMapBySlug[lic.requested_slug.trim().toLowerCase()] = lic;
+    });
+
+    // 2. Fetch data from Supabase
+    let supabaseTenants = [];
+    try {
+      supabaseTenants = await getTenantsFromSupabase();
+      console.log(`[Caddy-Sync] Loaded ${supabaseTenants.length} tenants from Supabase.`);
+    } catch (sbErr) {
+      console.warn('[Caddy-Sync] Warning: Failed to query Supabase API. Falling back to SQLite-only routing.', sbErr.message);
+    }
+
+    // 3. Resolve mappings and hostnames
+    const upstreams = [];
+
+    // Map Supabase tenants to WireGuard IPs
+    supabaseTenants.forEach(tenant => {
+      if (!tenant.is_active) return;
+
+      let matchedLicense = null;
+      if (tenant.license_key) {
+        matchedLicense = licenseMapByKey[tenant.license_key.trim()];
+      }
+      if (!matchedLicense && tenant.domain_or_slug) {
+        matchedLicense = licenseMapBySlug[tenant.domain_or_slug.trim().toLowerCase()];
+      }
+
+      if (matchedLicense && matchedLicense.wireguard_ip) {
+        const domains = [];
+        if (tenant.domain_or_slug) {
+          domains.push(`${tenant.domain_or_slug.trim().toLowerCase()}.absenta.id`);
+        }
+        if (tenant.custom_domain) {
+          domains.push(tenant.custom_domain.trim().toLowerCase());
+        }
+
+        if (domains.length > 0) {
+          upstreams.push({
+            slug: tenant.domain_or_slug || matchedLicense.requested_slug,
+            domains,
+            wireguard_ip: matchedLicense.wireguard_ip
+          });
+        }
+      }
+    });
+
+    // Fallback/Add any licenses in SQLite that weren't in Supabase but have slugs
+    activeLicenses.forEach(lic => {
+      if (lic.requested_slug) {
+        const slugClean = lic.requested_slug.trim().toLowerCase();
+        const alreadyMapped = upstreams.some(u => u.slug.toLowerCase() === slugClean);
+        if (!alreadyMapped) {
+          upstreams.push({
+            slug: lic.requested_slug,
+            domains: [`${slugClean}.absenta.id`],
+            wireguard_ip: lic.wireguard_ip
+          });
+        }
+      }
+    });
+
+    // 4. Generate Caddyfile content
+    let caddyfile = `# Caddyfile - Generated automatically by sync-caddy.js
+# Do not edit this file directly, it will be overwritten.
+
+{
+    email sharemovie1993@gmail.com
+    on_demand_tls {
+        ask http://127.0.0.1:5001/api/public/validate-domain
+    }
+}
+
+# --- STATIC CENTRAL ROUTES ---
+
+# Central Landing/Portal Page
+absenta.id, www.absenta.id {
+    root * /var/www/absenta.id
+    file_server
+    try_files {path} {path}/ /index.html
+}
+
+# Central License Server API & admin UI
+api.absenta.id {
+    reverse_proxy 127.0.0.1:5001
+}
+
+# Local Supabase Kong Instance
+supabaselocal.absenta.id {
+    reverse_proxy 10.0.0.2:8000
+}
+
+# Central POS System
+pos.absenta.id {
+    reverse_proxy 10.0.0.3:3002
+}
+
+# Catch-all web client for selected subdomains (Serving static files directly)
+1pwk.absenta.id, 2krw.absenta.id, 1krw.absenta.id, 1subang.absenta.id, smkn1pld.absenta.id, 3cianjur.absenta.id, 1maniis.absenta.id {
+    root * /var/www/absenta.id
+    file_server
+    try_files {path} {path}/ /index.html
+}
+
+# --- DYNAMIC TENANT GATEWAYS ---
+`;
+
+    upstreams.forEach(up => {
+      const ports = PORT_EXCEPTIONS[up.slug.toLowerCase()] || { backend: 5002, frontend: 5174 };
+      const domainListStr = up.domains.join(', ');
+
+      caddyfile += `
+# Tenant: ${up.slug}
+${domainListStr} {
+    # Route backend API
+    reverse_proxy /api/* http://${up.wireguard_ip}:${ports.backend}
+    
+    # Route frontend Vite / Web client
+    reverse_proxy * http://${up.wireguard_ip}:${ports.frontend}
+}
+`;
+    });
+
+    // Write to Caddyfile
+    fs.writeFileSync(caddyfilePath, caddyfile, 'utf8');
+    console.log(`[Caddy-Sync] Successfully wrote Caddy configuration to ${caddyfilePath}`);
+
+    // 5. Reload Caddy if on Linux
+    if (isLinux) {
+      exec('sudo caddy reload', (err, stdout, stderr) => {
+        if (err) {
+          console.error('[Caddy-Sync] Failed to reload Caddy service:', stderr || err.message);
+          process.exit(1);
+        } else {
+          console.log('[Caddy-Sync] Caddy service successfully reloaded.');
+          process.exit(0);
+        }
+      });
+    } else {
+      console.log('[Caddy-Sync] Local Windows environment detected. Skipping Caddy service reload.');
+      process.exit(0);
+    }
+
+  } catch (err) {
+    console.error('[Caddy-Sync] Critical error during sync:', err.message);
+    process.exit(1);
+  } finally {
+    if (db) {
+      await db.close().catch(() => {});
+    }
+  }
+}
+
+run();

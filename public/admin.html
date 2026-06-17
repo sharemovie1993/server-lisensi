@@ -513,6 +513,64 @@
         </section>
       </div>
 
+      <!-- ========================================================
+         TAB CONTENT: CADDY GATEWAY MONITORING & AUTOMATION
+         ======================================================== -->
+      <div id="tab-caddy" class="hidden space-y-6">
+        <section class="bg-slate-800/40 backdrop-blur-xl border border-slate-700/40 rounded-2xl shadow-2xl p-6 space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 class="text-lg font-extrabold text-white uppercase tracking-wider">🛡️ Caddy HTTPS Gateway</h2>
+              <p class="text-xs text-slate-400 mt-1">Pantau rute custom domain dinamis, status sertifikat SSL otomatis, dan kondisi web server Caddy.</p>
+            </div>
+            <div class="flex gap-3">
+              <button onclick="checkCaddyStatus()" class="bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 border border-slate-700/60 font-black px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all duration-300 cursor-pointer">
+                🔄 Segarkan Status
+              </button>
+              <button onclick="runCaddySync()" class="bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all duration-300 shadow-lg shadow-emerald-600/15 whitespace-nowrap cursor-pointer">
+                ⚙️ Sinkronkan Caddy
+              </button>
+            </div>
+          </div>
+
+          <!-- Status Indicator Cards -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Card 1: Service Status -->
+            <div class="bg-slate-950/50 border border-slate-800/60 rounded-2xl p-5 flex items-center justify-between">
+              <div class="space-y-1">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Status Layanan Web Server</span>
+                <span class="text-sm font-extrabold text-slate-300">Caddy System Service</span>
+              </div>
+              <div id="caddyServiceBadge" class="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-slate-800 text-slate-400">
+                Checking...
+              </div>
+            </div>
+
+            <!-- Card 2: SSL & Automation Status -->
+            <div class="bg-slate-950/50 border border-slate-800/60 rounded-2xl p-5 flex items-center justify-between">
+              <div class="space-y-1">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Metode Penerbitan SSL</span>
+                <span class="text-sm font-extrabold text-slate-300">On-Demand TLS (Let's Encrypt)</span>
+              </div>
+              <div class="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                Otomatis
+              </div>
+            </div>
+          </div>
+
+          <!-- Active Routing Rules (Parsed Caddyfile) -->
+          <div class="space-y-3">
+            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest">📝 Konfigurasi Caddyfile Aktif di VPS:</h4>
+            <div class="bg-slate-950 border border-slate-800 rounded-2xl p-4 overflow-hidden">
+              <pre id="caddyfileView" class="font-mono text-xs text-slate-300 overflow-auto max-h-[350px] leading-relaxed">
+Loading configuration...
+              </pre>
+            </div>
+          </div>
+        </section>
+      </div>
+
+
     </main>
 
     <!-- Footer -->

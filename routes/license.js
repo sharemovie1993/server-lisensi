@@ -9,6 +9,7 @@ const { db } = require('../config/db');
 const { PUBLIC_KEY, PRIVATE_KEY, TRIPAY_API_KEY, TRIPAY_PRIVATE_KEY, TRIPAY_MERCHANT_CODE, TRIPAY_API_URL } = require('../config/keys');
 const { logLicenseActivity } = require('../utils/logger');
 const { generateKey, formatIndonesianDate } = require('../utils/helpers');
+const { triggerCaddySync } = require('../utils/caddy');
 const renderInvoiceTemplate = require('../views/invoice-template');
 
 // ── RATE LIMITING MIDDLEWARE ──
@@ -2168,6 +2169,8 @@ router.post('/api/license/tunnel/request', async (req, res) => {
 
     // 6. Update database settings
     await db.run('UPDATE licenses SET wireguard_ip = ?, requested_slug = ? WHERE id = ?', [clientIp, slugLower, license.id]);
+
+    triggerCaddySync();
 
     const clientConfig = `[Interface]
 PrivateKey = ${privateKey}

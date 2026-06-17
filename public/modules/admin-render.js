@@ -1109,7 +1109,8 @@ export const menuItems = [
   { id: 'tab-tenants', label: 'Monitoring Tenant', icon: '🏢', title: 'Database Tenants (Supabase)', desc: 'Pantau daftar sekolah terdaftar di database Supabase Cloud beserta status lisensi.' },
   { id: 'tab-logs', label: 'Log Audit Trail', icon: '🛡️', title: 'Log Audit Trail', desc: 'Audit trail aktivitas lisensi, IP Address, dan validasi device.' },
   { id: 'tab-settings', label: 'Pengaturan Sistem', icon: '⚙️', title: 'Pengaturan Sistem & Gateway', desc: 'Kelola gateway pembayaran aktif, toggle pembayaran manual, rekening bank, dan nomor support.' },
-  { id: 'tab-update', label: 'Pembaruan Server', icon: '🔄', title: 'Pembaruan Server Lisensi', desc: 'Periksa dan jalankan pembaruan server lisensi dari GitHub secara otomatis.' }
+  { id: 'tab-update', label: 'Pembaruan Server', icon: '🔄', title: 'Pembaruan Server Lisensi', desc: 'Periksa dan jalankan pembaruan server lisensi dari GitHub secara otomatis.' },
+  { id: 'tab-caddy', label: 'Caddy Gateway', icon: '🛡️', title: 'Caddy HTTPS Gateway', desc: 'Pantau rute custom domain dinamis, status sertifikat SSL otomatis, dan kondisi web server Caddy.' }
 ];
 
 export function renderSidebarMenu(activeTabId = 'tab-licenses') {
@@ -1143,6 +1144,9 @@ export function switchTab(tabId) {
   document.getElementById('tab-settings').classList.add('hidden');
   if (document.getElementById('tab-update')) {
     document.getElementById('tab-update').classList.add('hidden');
+  }
+  if (document.getElementById('tab-caddy')) {
+    document.getElementById('tab-caddy').classList.add('hidden');
   }
 
   // Show targeted tab pane

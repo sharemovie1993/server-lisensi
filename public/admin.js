@@ -586,3 +586,84 @@ async function pollUpdateStatus() {
     console.error('Failed to poll update status:', err);
   }
 }
+
+window.checkCaddyStatus = async () => {
+  const badge = document.getElementById('caddyServiceBadge');
+  const view = document.getElementById('caddyfileView');
+  if (!badge || !view) return;
+
+  badge.className = "px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-slate-800 text-slate-400";
+  badge.textContent = "Checking...";
+  view.textContent = "Loading configuration...";
+
+  try {
+    const secret = localStorage.getItem('@license_admin_secret') || '';
+    const res = await fetch(`/api/admin/caddy/status?secret=${encodeURIComponent(secret)}`, {
+      headers: { 'x-admin-secret': secret }
+    });
+    const result = await res.json();
+
+    if (result.success) {
+      if (result.status === 'online') {
+        badge.className = "px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+        badge.textContent = "● ONLINE";
+      } else {
+        badge.className = "px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20 animate-pulse";
+        badge.textContent = "● OFFLINE";
+      }
+      view.textContent = result.caddyfile || '# Caddyfile kosong atau tidak ditemukan.';
+    } else {
+      badge.className = "px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20";
+      badge.textContent = "● ERROR";
+      view.textContent = `Gagal memuat status: ${result.error || 'Unknown error'}`;
+    }
+  } catch (err) {
+    badge.className = "px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20";
+    badge.textContent = "● ERROR";
+    view.textContent = `Gagal terhubung ke API: ${err.message}`;
+  }
+};
+
+window.runCaddySync = async () => {
+  if (!confirm('Apakah Anda yakin ingin menyinkronkan ulang konfigurasi rute Caddy? Tindakan ini akan memperbarui berkas Caddyfile dan memuat ulang service Caddy.')) {
+    return;
+  }
+
+  const badge = document.getElementById('caddyServiceBadge');
+  const view = document.getElementById('caddyfileView');
+  if (!badge || !view) return;
+
+  view.textContent = "Running sync and reloading Caddy... Please wait...";
+
+  try {
+    const secret = localStorage.getItem('@license_admin_secret') || '';
+    const res = await fetch(`/api/admin/caddy/sync`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-admin-secret': secret 
+      }
+    });
+    const result = await res.json();
+
+    if (result.success) {
+      alert(result.message || 'Sinkronisasi Caddy berhasil!');
+      checkCaddyStatus();
+    } else {
+      alert(`Gagal sinkronisasi: ${result.error || 'Unknown error'}`);
+      checkCaddyStatus();
+    }
+  } catch (err) {
+    alert(`Error: ${err.message}`);
+    checkCaddyStatus();
+  }
+};
+
+// Auto check Caddy status on loading tab
+const originalSwitchTab = window.switchTab;
+window.switchTab = (tabId) => {
+  if (originalSwitchTab) originalSwitchTab(tabId);
+  if (tabId === 'tab-caddy') {
+    checkCaddyStatus();
+  }
+};

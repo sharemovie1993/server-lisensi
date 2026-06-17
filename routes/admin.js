@@ -10,6 +10,7 @@ const { ADMIN_SECRET, TOTP_SECRET } = require('../config/keys');
 const { verifyTOTP } = require('../utils/totp');
 const { logLicenseActivity } = require('../utils/logger');
 const { generateKey } = require('../utils/helpers');
+const { triggerCaddySync } = require('../utils/caddy');
 
 // ── ADMIN AUTHENTICATION MIDDLEWARE ──
 function adminAuth(req, res, next) {
@@ -295,6 +296,8 @@ router.post('/api/license/generate', adminAuth, async (req, res) => {
     }
 
     await logLicenseActivity(newKey, prodId, null, req.ip, 'MANUAL_GENERATED');
+
+    triggerCaddySync();
 
     res.json({
       success: true,
@@ -708,6 +711,8 @@ router.post('/api/admin/invoices/pay/:id', adminAuth, async (req, res) => {
 
     await logLicenseActivity(license.license_key, license.product_id, null, req.ip, 'ADMIN_MANUAL_PAY');
 
+    triggerCaddySync();
+
     res.json({
       success: true,
       message: `Invoice ${invoice.invoice_number} berhasil disetujui secara manual! Masa aktif sekolah ${license.school_name} aktif hingga ${expiresStr}.`
@@ -963,6 +968,8 @@ router.post('/api/license/approve/:id', adminAuth, async (req, res) => {
       }
     }
 
+    triggerCaddySync();
+
     res.json({
       success: true,
       message: `Lisensi untuk ${license.school_name} berhasil disetujui! Masa aktif disetel dinamis (${plan.duration || 'Setahun'}) hingga ${expiresStr}.`
@@ -992,6 +999,9 @@ router.delete('/api/license/delete/:id', adminAuth, async (req, res) => {
       
       console.log(`[License Delete] Cascading cleanup successful for license ID: ${id} (${license.school_name})`);
     }
+
+    triggerCaddySync();
+
     res.json({ success: true, message: 'Lisensi beserta riwayat langganan & tagihan terkait berhasil dibersihkan dari server secara permanen.' });
   } catch (err) {
     console.error('[License Delete Error]', err);
@@ -1487,7 +1497,106 @@ async function executeUpdateInBackground() {
   }
 }
 
+// ── CADDY GATEWAY AUTOMATION ENDPOINTS ──
+
+// 1. GET /api/public/validate-domain (Public, local call only)
+router.get('/api/public/validate-domain', async (req, res) => {
+  const domain = req.query.domain;
+  if (!domain) return res.status(400).send('Domain parameter required');
+  
+  const cleanDomain = domain.trim().toLowerCase();
+  
+  // A. Check standard subdomain (e.g. *.absenta.id)
+  if (cleanDomain.endsWith('.absenta.id')) {
+    const slug = cleanDomain.replace('.absenta.id', '');
+    try {
+      const lic = await db.get("SELECT id FROM licenses WHERE requested_slug = ? AND is_active = 1", [slug]);
+      if (lic) return res.status(200).send('OK');
+    } catch (e) {}
+  }
+  
+  // B. Check Supabase for custom domain
+  try {
+    const https = require('https');
+    const checkCustomDomainSupabase = (dom) => {
+      return new Promise((resolve) => {
+        const options = {
+          hostname: 'supabaselocal.absenta.id',
+          port: 443,
+          path: `/rest/v1/tenants?custom_domain=eq.${encodeURIComponent(dom)}&is_active=eq.true&select=id`,
+          method: 'GET',
+          headers: {
+            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE',
+            'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE'
+          }
+        };
+        const request = https.request(options, (response) => {
+          let body = '';
+          response.on('data', (chunk) => body += chunk);
+          response.on('end', () => {
+            if (response.statusCode === 200) {
+              try {
+                const arr = JSON.parse(body);
+                resolve(arr.length > 0);
+              } catch (e) { resolve(false); }
+            } else { resolve(false); }
+          });
+        });
+        request.on('error', () => resolve(false));
+        request.end();
+      });
+    };
+    
+    const isValidCustom = await checkCustomDomainSupabase(cleanDomain);
+    if (isValidCustom) return res.status(200).send('OK');
+  } catch (err) {
+    console.error('[Validate Domain] Error:', err.message);
+  }
+  
+  res.status(404).send('Domain not allowed');
+});
+
+// 2. GET /api/admin/caddy/status (Protected)
+router.get('/api/admin/caddy/status', adminAuth, (req, res) => {
+  const { exec } = require('child_process');
+  
+  const checkCmd = process.platform === 'linux' ? 'systemctl is-active caddy' : 'echo active';
+  exec(checkCmd, (err, stdout) => {
+    const isActive = !err && stdout.trim() === 'active';
+    
+    let caddyfileContent = '';
+    try {
+      const caddyPath = process.platform === 'linux' ? '/etc/caddy/Caddyfile' : path.join(__dirname, '../Caddyfile.generated');
+      if (fs.existsSync(caddyPath)) {
+        caddyfileContent = fs.readFileSync(caddyPath, 'utf8');
+      }
+    } catch(e){}
+    
+    res.json({
+      success: true,
+      status: isActive ? 'online' : 'offline',
+      caddyfile: caddyfileContent
+    });
+  });
+});
+
+// 3. POST /api/admin/caddy/sync (Protected)
+router.post('/api/admin/caddy/sync', adminAuth, (req, res) => {
+  const { exec } = require('child_process');
+  const scriptPath = path.join(__dirname, '../scripts/sync-caddy.js');
+  
+  exec(`node "${scriptPath}"`, (err, stdout, stderr) => {
+    if (err) {
+      console.error('[Caddy Sync API] Manual sync failed:', stderr || err.message);
+      res.status(500).json({ success: false, error: stderr || err.message });
+    } else {
+      res.json({ success: true, message: 'Sinkronisasi konfigurasi Caddy berhasil dan Caddy telah dimuat ulang.' });
+    }
+  });
+});
+
 module.exports = router;
 module.exports.adminAuth = adminAuth;
+
 
  // Export for potential server.js usage
