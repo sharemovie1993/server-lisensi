@@ -29,6 +29,10 @@ try {
     Deploy-File "config/db.js" "config/db.js"
     Deploy-File ".env" ".env"
     
+    # 2b. Deploy Caddy sync scripts & utilities
+    Deploy-File "scripts/sync-caddy.js" "scripts/sync-caddy.js"
+    Deploy-File "utils/caddy.js" "utils/caddy.js"
+    
     # 3. Deploy Views & Assets
     Deploy-File "views/invoice-template.js" "views/invoice-template.js"
     Deploy-File "public/admin.html" "public/admin.html"
