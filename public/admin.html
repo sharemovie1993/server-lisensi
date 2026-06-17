@@ -467,6 +467,52 @@
         </section>
       </div>
 
+      <!-- ========================================================
+         TAB CONTENT: AUTOMATED LICENSE SERVER UPDATE
+         ======================================================== -->
+      <div id="tab-update" class="hidden space-y-6">
+        <section class="bg-slate-800/40 backdrop-blur-xl border border-slate-700/40 rounded-2xl shadow-2xl p-6 space-y-6">
+          <div>
+            <h2 class="text-lg font-extrabold text-white uppercase tracking-wider">🔄 Pembaruan Server Lisensi</h2>
+            <p class="text-xs text-slate-400 mt-1">Periksa dan jalankan pembaruan sistem secara otomatis dari GitHub tanpa perlu melakukan deploy manual.</p>
+          </div>
+
+          <div class="bg-slate-950/60 border border-slate-700/50 rounded-2xl p-5 space-y-4">
+            <h4 class="text-xs font-black text-blue-400 uppercase tracking-widest">ℹ️ Status Pembaruan Terkini:</h4>
+            <div id="updateStatusInfo" class="text-xs text-slate-300 space-y-2">
+              Menghubungkan ke server untuk mengecek status...
+            </div>
+          </div>
+
+          <!-- Commit log updates container -->
+          <div id="updateCommitsContainer" class="hidden bg-slate-950/40 border border-slate-800 rounded-2xl p-5 space-y-3">
+            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest">📝 Riwayat Commit Baru di GitHub:</h4>
+            <div id="updateCommitsList" class="space-y-2 max-h-[180px] overflow-y-auto font-mono text-[11px] text-slate-300">
+              <!-- Commits log rendered dynamically -->
+            </div>
+          </div>
+
+          <div class="flex flex-col sm:flex-row gap-4 items-center justify-between">
+            <p class="text-xs text-slate-500 font-semibold leading-relaxed max-w-xl">
+              *Proses pembaruan akan melakukan <code>git pull</code>, <code>npm install</code>, dan merestart proses PM2 <code>licensing-server</code> secara otomatis.
+            </p>
+            <div class="flex gap-3">
+              <button id="checkUpdateBtn" onclick="checkServerUpdate()" class="bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 border border-slate-700/60 font-black px-5 py-3.5 rounded-xl text-xs uppercase tracking-wider transition-all duration-300 cursor-pointer">
+                🔍 Periksa Pembaruan
+              </button>
+              <button id="executeUpdateBtn" onclick="runServerUpdate()" disabled class="bg-blue-600/50 cursor-not-allowed text-slate-400 font-black px-6 py-4 rounded-xl text-xs uppercase tracking-wider transition-all duration-300 shadow-lg whitespace-nowrap cursor-pointer">
+                🚀 Jalankan Pembaruan
+              </button>
+            </div>
+          </div>
+
+          <!-- Live Log Console for Update progress -->
+          <div id="updateLogConsole" class="hidden bg-slate-950 border border-slate-800 rounded-2xl p-4 font-mono text-xs text-slate-300 overflow-y-auto max-h-[200px] space-y-1">
+            <div class="text-blue-400 font-bold">[UPDATE] Menunggu eksekusi pembaruan...</div>
+          </div>
+        </section>
+      </div>
+
     </main>
 
     <!-- Footer -->

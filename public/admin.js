@@ -410,3 +410,179 @@ window.provisionVpsServer = () => {
     consoleLog.scrollTop = consoleLog.scrollHeight;
   };
 };
+
+let updateInterval = null;
+
+window.checkServerUpdate = async () => {
+  const statusInfo = document.getElementById('updateStatusInfo');
+  const commitsContainer = document.getElementById('updateCommitsContainer');
+  const commitsList = document.getElementById('updateCommitsList');
+  const executeBtn = document.getElementById('executeUpdateBtn');
+  const checkBtn = document.getElementById('checkUpdateBtn');
+
+  if (!statusInfo || !checkBtn) return;
+
+  statusInfo.innerHTML = '<span class="text-blue-400 animate-pulse">🔄 Menghubungi server dan memeriksa repositori GitHub...</span>';
+  checkBtn.disabled = true;
+  checkBtn.textContent = 'Mengecek...';
+
+  try {
+    const secret = localStorage.getItem('@license_admin_secret') || '';
+    const res = await fetch(`/api/admin/update/check?secret=${encodeURIComponent(secret)}`, {
+      headers: { 'x-admin-secret': secret }
+    });
+    const result = await res.json();
+    
+    checkBtn.disabled = false;
+    checkBtn.textContent = '🔍 Periksa Pembaruan';
+
+    if (result.success) {
+      if (result.isBehind) {
+        statusInfo.innerHTML = `<span class="text-amber-500 font-bold">⚠️ Ditemukan ${result.commits.length} pembaruan baru di GitHub!</span> Silakan klik "Jalankan Pembaruan" di bawah ini.`;
+        
+        if (commitsContainer && commitsList) {
+          commitsContainer.classList.remove('hidden');
+          commitsList.innerHTML = result.commits.map(c => `
+            <div class="border-b border-slate-800/80 pb-1.5 flex gap-2">
+              <span class="text-blue-400 font-bold">${c.hash}</span>
+              <span class="text-slate-300">&mdash; ${c.message}</span>
+            </div>
+          `).join('');
+        }
+
+        if (executeBtn) {
+          executeBtn.disabled = false;
+          executeBtn.className = "bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-black px-6 py-4 rounded-xl text-xs uppercase tracking-wider transition-all duration-300 shadow-lg shadow-blue-600/15 whitespace-nowrap cursor-pointer";
+        }
+      } else {
+        statusInfo.innerHTML = '<span class="text-emerald-400 font-bold">✓ Server Lisensi Anda sudah menggunakan versi terbaru!</span>';
+        if (commitsContainer) commitsContainer.classList.add('hidden');
+        if (executeBtn) {
+          executeBtn.disabled = true;
+          executeBtn.className = "bg-blue-600/50 cursor-not-allowed text-slate-400 font-black px-6 py-4 rounded-xl text-xs uppercase tracking-wider transition-all duration-300 shadow-lg whitespace-nowrap";
+        }
+      }
+    } else {
+      statusInfo.innerHTML = `<span class="text-red-400 font-bold">❌ Gagal memeriksa pembaruan: ${result.error || 'Unknown error'}</span>`;
+    }
+  } catch (err) {
+    checkBtn.disabled = false;
+    checkBtn.textContent = '🔍 Periksa Pembaruan';
+    statusInfo.innerHTML = `<span class="text-red-400 font-bold">❌ Gagal terhubung ke API server: ${err.message}</span>`;
+  }
+};
+
+window.runServerUpdate = async () => {
+  if (!confirm('Apakah Anda yakin ingin memperbarui Server Lisensi sekarang? Layanan server akan tidak dapat diakses selama beberapa detik saat proses restart.')) {
+    return;
+  }
+
+  const statusInfo = document.getElementById('updateStatusInfo');
+  const executeBtn = document.getElementById('executeUpdateBtn');
+  const checkBtn = document.getElementById('checkUpdateBtn');
+  const logConsole = document.getElementById('updateLogConsole');
+
+  if (executeBtn) {
+    executeBtn.disabled = true;
+    executeBtn.className = "bg-blue-600/50 cursor-not-allowed text-slate-400 font-black px-6 py-4 rounded-xl text-xs uppercase tracking-wider transition-all duration-300 shadow-lg whitespace-nowrap";
+  }
+  if (checkBtn) checkBtn.disabled = true;
+
+  if (logConsole) {
+    logConsole.classList.remove('hidden');
+    logConsole.innerHTML = '<div class="text-blue-400 font-bold">[UPDATE] Mengirim perintah pembaruan ke server...</div>';
+  }
+
+  try {
+    const secret = localStorage.getItem('@license_admin_secret') || '';
+    const res = await fetch(`/api/admin/update/execute`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-admin-secret': secret 
+      }
+    });
+    const result = await res.json();
+
+    if (result.success) {
+      if (logConsole) logConsole.innerHTML += `<div class="text-emerald-400">[SYSTEM] ${result.message}</div>`;
+      
+      // Start polling status
+      if (updateInterval) clearInterval(updateInterval);
+      updateInterval = setInterval(pollUpdateStatus, 2000);
+    } else {
+      if (logConsole) logConsole.innerHTML += `<div class="text-red-500 font-bold">❌ Gagal memicu pembaruan: ${result.error || 'Unknown error'}</div>`;
+      if (executeBtn) {
+        executeBtn.disabled = false;
+        executeBtn.className = "bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-black px-6 py-4 rounded-xl text-xs uppercase tracking-wider transition-all duration-300 shadow-lg shadow-blue-600/15 whitespace-nowrap cursor-pointer";
+      }
+      if (checkBtn) checkBtn.disabled = false;
+    }
+  } catch (err) {
+    if (logConsole) logConsole.innerHTML += `<div class="text-red-500 font-bold">❌ Error: ${err.message}</div>`;
+    if (checkBtn) checkBtn.disabled = false;
+  }
+};
+
+async function pollUpdateStatus() {
+  const logConsole = document.getElementById('updateLogConsole');
+  const statusInfo = document.getElementById('updateStatusInfo');
+  const executeBtn = document.getElementById('executeUpdateBtn');
+  const checkBtn = document.getElementById('checkUpdateBtn');
+
+  try {
+    const secret = localStorage.getItem('@license_admin_secret') || '';
+    const res = await fetch(`/api/admin/update/status?secret=${encodeURIComponent(secret)}`, {
+      headers: { 'x-admin-secret': secret }
+    });
+    const result = await res.json();
+
+    if (result.success && result.data) {
+      const p = result.data;
+      
+      const logLine = document.createElement('div');
+      if (p.status === 'running') {
+        logLine.className = 'text-amber-400';
+        logLine.innerHTML = `[${p.step.toUpperCase()}] ${p.message}`;
+        if (statusInfo) statusInfo.innerHTML = `<span class="text-amber-500 font-bold animate-pulse">🔄 Sedang memperbarui: ${p.message}</span>`;
+      } else if (p.status === 'success') {
+        logLine.className = 'text-emerald-400 font-bold mt-2';
+        logLine.innerHTML = `✓ ${p.message}`;
+        if (statusInfo) statusInfo.innerHTML = '<span class="text-emerald-400 font-bold">✓ Server Lisensi berhasil diperbarui!</span>';
+        
+        clearInterval(updateInterval);
+        
+        if (logConsole) {
+          const reloadLine = document.createElement('div');
+          reloadLine.className = 'text-blue-400 font-bold mt-2 animate-pulse';
+          reloadLine.textContent = '[RELOAD] Server sedang dimuat ulang. Halaman akan disegarkan dalam 5 detik...';
+          logConsole.appendChild(reloadLine);
+          logConsole.scrollTop = logConsole.scrollHeight;
+        }
+
+        setTimeout(() => {
+          window.location.reload();
+        }, 5000);
+        return;
+      } else if (p.status === 'failed') {
+        logLine.className = 'text-red-500 font-black mt-2';
+        logLine.innerHTML = `❌ ${p.message} ${p.error ? `<br>Error: ${p.error}` : ''}`;
+        if (statusInfo) statusInfo.innerHTML = `<span class="text-red-400 font-bold">❌ Pembaruan gagal: ${p.message}</span>`;
+        
+        clearInterval(updateInterval);
+        if (checkBtn) checkBtn.disabled = false;
+        if (executeBtn) {
+          executeBtn.disabled = false;
+          executeBtn.className = "bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-black px-6 py-4 rounded-xl text-xs uppercase tracking-wider transition-all duration-300 shadow-lg shadow-blue-600/15 whitespace-nowrap cursor-pointer";
+        }
+      }
+
+      if (logConsole) {
+        logConsole.appendChild(logLine);
+        logConsole.scrollTop = logConsole.scrollHeight;
+      }
+    }
+  } catch (err) {
+    console.error('Failed to poll update status:', err);
+  }
+}
