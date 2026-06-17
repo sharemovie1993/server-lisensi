@@ -86,14 +86,16 @@ async function run() {
       if (lic.requested_slug) licenseMapBySlug[lic.requested_slug.trim().toLowerCase()] = lic;
     });
 
-    // 2. Fetch data from Supabase
+    // 2. Fetch data from Supabase (DISABLED - Using Local SQLite only)
     let supabaseTenants = [];
+    /*
     try {
       supabaseTenants = await getTenantsFromSupabase();
       console.log(`[Caddy-Sync] Loaded ${supabaseTenants.length} tenants from Supabase.`);
     } catch (sbErr) {
       console.warn('[Caddy-Sync] Warning: Failed to query Supabase API. Falling back to SQLite-only routing.', sbErr.message);
     }
+    */
 
     // 3. Resolve mappings and hostnames
     const upstreams = [];

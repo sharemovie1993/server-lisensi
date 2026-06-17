@@ -2229,51 +2229,11 @@ router.post('/api/license/tunnel/custom-domain', async (req, res) => {
       }
     }
 
-    // 2. Update Supabase tenants table via PostgREST
-    const https = require('https');
-    const updateSupabaseCustomDomain = (slugVal, dom) => {
-      return new Promise((resolve, reject) => {
-        // We use service_role key to bypass RLS
-        const apiKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q';
-        const data = JSON.stringify({ custom_domain: dom });
-
-        const options = {
-          hostname: 'supabaselocal.absenta.id',
-          port: 443,
-          path: `/rest/v1/tenants?domain_or_slug=eq.${encodeURIComponent(slugVal)}`,
-          method: 'PATCH',
-          headers: {
-            'apikey': apiKey,
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=representation'
-          },
-          timeout: 10000
-        };
-
-        const request = https.request(options, (response) => {
-          let body = '';
-          response.on('data', (chunk) => body += chunk);
-          response.on('end', () => {
-            if (response.statusCode >= 200 && response.statusCode < 300) {
-              resolve(body);
-            } else {
-              reject(new Error(`Supabase PATCH HTTP ${response.statusCode}: ${body}`));
-            }
-          });
-        });
-
-        request.on('error', (err) => reject(err));
-        request.on('timeout', () => {
-          request.destroy();
-          reject(new Error('Supabase API timeout'));
-        });
-        request.write(data);
-        request.end();
-      });
-    };
-
-    await updateSupabaseCustomDomain(slug, targetDomain);
+    // 2. Update Local SQLite database instead of Supabase
+    await db.run(
+      'UPDATE licenses SET custom_domain = ? WHERE license_key = ?',
+      [targetDomain, license_key.trim()]
+    );
 
     // 3. Trigger Caddy sync
     triggerCaddySync();

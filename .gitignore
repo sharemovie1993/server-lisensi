@@ -3,3 +3,9 @@ node_modules/
 licenses.db
 licenses.db-shm
 licenses.db-wal
+licenses.db.bak*
+public/uploads/
+public/build-meta.json
+*.log
+vps_*.js
+get_schema.js

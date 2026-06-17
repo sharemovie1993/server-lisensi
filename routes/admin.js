@@ -77,103 +77,27 @@ router.get('/api/admin/products', adminAuth, async (req, res) => {
   }
 });
 
-// 3. Get Supabase tenants list cross-referenced with SQLite licenses
+// 3. Get Tenants list from Local SQLite (Replaces Supabase)
 router.get('/api/admin/tenants', adminAuth, async (req, res) => {
   try {
-    const https = require('https');
-    const getTenantsFromSupabase = () => {
-      return new Promise((resolve, reject) => {
-        const options = {
-          hostname: 'supabaselocal.absenta.id',
-          port: 443,
-          path: '/rest/v1/tenants?select=id,name,domain_or_slug,license_key,created_at,is_active&order=created_at.desc',
-          method: 'GET',
-          headers: {
-            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE',
-            'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE'
-          }
-        };
-
-        const request = https.request(options, (response) => {
-          let body = '';
-          response.on('data', (chunk) => body += chunk);
-          response.on('end', () => {
-            if (response.statusCode >= 200 && response.statusCode < 300) {
-              try {
-                resolve(JSON.parse(body));
-              } catch (e) {
-                reject(new Error('Gagal mengurai respon Supabase.'));
-              }
-            } else {
-              reject(new Error(`HTTP ${response.statusCode}: ${body}`));
-            }
-          });
-        });
-
-        request.on('error', (err) => reject(err));
-        request.end();
-      });
-    };
-
-    const supabaseTenants = await getTenantsFromSupabase();
-    
-    // Cross reference with SQLite licenses database
-    const enrichedTenants = await Promise.all(
-      supabaseTenants.map(async (tenant) => {
-        let licenseStatus = 'unlicensed'; // default
-        let expiryDate = '-';
-        let licenseDetails = null;
-
-        // 1. Cek berdasarkan license_key jika terisi di Supabase
-        if (tenant.license_key) {
-          const lic = await db.get(
-            'SELECT id, status, expires_at, device_limit, is_active FROM licenses WHERE license_key = ?',
-            [tenant.license_key.trim()]
-          );
-          if (lic) {
-            licenseStatus = lic.status; // 'active', 'pending', 'expired'
-            expiryDate = lic.expires_at || '-';
-            licenseDetails = {
-              status: lic.status,
-              expires_at: lic.expires_at,
-              device_limit: lic.device_limit,
-              is_active: lic.is_active
-            };
-          }
-        }
-
-        // 2. Fallback check berdasarkan domain_or_slug atau nama sekolah jika data lisensi masih kosong
-        if (licenseStatus === 'unlicensed') {
-          const licBySlug = await db.get(
-            'SELECT id, status, license_key, expires_at, device_limit, is_active FROM licenses WHERE requested_slug = ? OR school_name = ? ORDER BY id DESC LIMIT 1',
-            [tenant.domain_or_slug, tenant.name]
-          );
-          if (licBySlug) {
-            licenseStatus = licBySlug.status;
-            expiryDate = licBySlug.expires_at || '-';
-            tenant.license_key = licBySlug.license_key; // Sync key dari SQLite ke data display
-            licenseDetails = {
-              status: licBySlug.status,
-              expires_at: licBySlug.expires_at,
-              device_limit: licBySlug.device_limit,
-              is_active: licBySlug.is_active
-            };
-          }
-        }
-
-        return {
-          ...tenant,
-          license_status: licenseStatus,
-          license_expiry: expiryDate,
-          license_details: licenseDetails
-        };
-      })
+    // Fetch all records from licenses table that have a slug (indicating they are tenants)
+    const rows = await db.all(
+      'SELECT id, school_name as name, requested_slug as domain_or_slug, license_key, created_at, is_active, status as license_status, expires_at as license_expiry, custom_domain FROM licenses WHERE requested_slug IS NOT NULL AND requested_slug != "" ORDER BY created_at DESC'
     );
+    
+    const enrichedTenants = rows.map(tenant => ({
+      ...tenant,
+      license_details: {
+        status: tenant.license_status,
+        expires_at: tenant.license_expiry,
+        is_active: tenant.is_active
+      }
+    }));
 
     res.json({ success: true, count: enrichedTenants.length, data: enrichedTenants });
   } catch (err) {
-    console.error('[Admin Tenants] Error fetching tenants:', err.message);
-    res.status(500).json({ success: false, message: 'Gagal mengambil daftar tenant dari Supabase: ' + err.message });
+    console.error('[Admin Tenants] Error fetching tenants from SQLite:', err.message);
+    res.status(500).json({ success: false, message: 'Gagal mengambil daftar tenant: ' + err.message });
   }
 });
 

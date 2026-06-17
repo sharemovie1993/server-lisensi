@@ -1,7 +1,7 @@
 {
-  "name": "gform-license-server",
-  "version": "1.0.0",
-  "description": "Lightweight, secure, and production-ready license server for Orkestrator Ujian application",
+  "name": "central-licensing-server",
+  "version": "1.1.0",
+  "description": "Centralized, lightweight license server for Absenta ID ecosystem (Yatim, Absenta, Orkestrator)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
