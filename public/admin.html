@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SERVER LISENSI ABSENTA.ID</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts Outfit & Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;800;900&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    h1, h2, h3, .font-display {
+      font-family: 'Outfit', sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex">
+
+  <!-- ========================================================
+     SIDEBAR MENU NAVIGATION (SaaS Grade)
+     ======================================================== -->
+  <aside class="w-64 bg-slate-950 border-r border-slate-800/80 flex flex-col shrink-0 min-h-screen sticky top-0 z-30">
+    <!-- Branding Header -->
+    <div class="p-6 border-b border-slate-800/80 flex items-center space-x-3">
+      <span class="text-3xl">🛡️</span>
+      <div>
+        <h1 class="text-sm font-black text-blue-500 tracking-wider">ABSENTA.ID</h1>
+        <p class="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Server Lisensi</p>
+      </div>
+    </div>
+
+    <!-- Navigation Menu -->
+    <nav id="sidebarMenuNav" class="flex-grow p-4 space-y-1.5">
+      <!-- Dynamically generated via admin-render.js -->
+    </nav>
+
+    <!-- Footer Profile & Logout -->
+    <div class="p-4 border-t border-slate-800/80 flex flex-col gap-3 bg-slate-950">
+      <div class="flex items-center space-x-3">
+        <div class="w-8 h-8 rounded-full bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-xs font-bold text-blue-400">AD</div>
+        <div>
+          <p class="text-xs font-bold text-white">Administrator</p>
+          <p class="text-[10px] text-slate-500 font-semibold">Absenta Portal</p>
+        </div>
+      </div>
+      <button id="logoutBtn" class="w-full bg-slate-800/85 hover:bg-red-600/90 hover:text-white border border-slate-700/60 text-slate-300 font-extrabold text-xs py-2.5 rounded-xl transition-all duration-200 cursor-pointer">
+        🔑 Keluar Panel
+      </button>
+    </div>
+  </aside>
+
+  <!-- ========================================================
+     MAIN CONTENT WORKSPACE
+     ======================================================== -->
+  <div class="flex-grow flex flex-col min-w-0">
+    <!-- Top Sticky Header -->
+    <header class="bg-slate-900/60 backdrop-blur-md border-b border-slate-800/60 px-6 py-4 flex flex-wrap justify-between items-center sticky top-0 z-20 gap-4">
+      <div>
+        <h2 id="pageTitle" class="text-lg font-black text-white uppercase tracking-wider">Kunci Lisensi</h2>
+        <p id="pageDescription" class="text-xs text-slate-400">Kelola validasi kunci dan aktivasi perangkat sekolah secara live.</p>
+      </div>
+
+      <!-- Controls Header -->
+      <div class="flex items-center flex-wrap gap-3">
+        <!-- Pencarian Global -->
+        <div class="relative">
+          <input type="text" id="globalSearchInput" placeholder="Cari sekolah, kunci, invoice..." class="bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-4 py-2.5 text-xs font-medium text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 w-64 transition-all duration-300">
+          <span class="absolute left-3 top-3 text-[10px] text-slate-500">🔍</span>
+        </div>
+
+        <!-- Filter Produk -->
+        <div class="flex items-center space-x-2">
+          <select id="productFilterSelect" class="bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs font-bold text-blue-400 focus:outline-none focus:border-blue-500 cursor-pointer">
+            <option value="all">🌐 SEMUA PRODUK / APLIKASI</option>
+            <option value="gform-orkestrator" selected>🔒 G-Form Orkestrator</option>
+            <option value="absenta">📅 Absenta Premium</option>
+            <option value="project-yatim">🌙 Mustahiq Care</option>
+            <option value="vpn-tunnel">🌐 VPN Tunneling Gateway</option>
+          </select>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Workspace Content -->
+    <main class="flex-grow p-6 space-y-6">
+
+      <!-- ========================================================
+         STATISTICS COUNTERS CARD
+         ======================================================== -->
+      <section class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+        <div class="bg-slate-800/80 border border-slate-700/50 rounded-2xl p-6 flex items-center space-x-5 shadow-lg">
+          <div class="bg-blue-500/10 text-blue-500 p-4 rounded-xl text-2xl">🔑</div>
+          <div>
+            <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">Kunci Aktif</p>
+            <h3 id="statActiveKeys" class="text-3xl font-black text-white mt-1">0</h3>
+          </div>
+        </div>
+
+        <div class="bg-slate-800/80 border border-slate-700/50 rounded-2xl p-6 flex items-center space-x-5 shadow-lg">
+          <div class="bg-amber-500/10 text-amber-500 p-4 rounded-xl text-2xl">⏳</div>
+          <div>
+            <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">Pending Gateway</p>
+            <h3 id="statPendingKeys" class="text-3xl font-black text-amber-500 mt-1">0</h3>
+          </div>
+        </div>
+
+        <div class="bg-slate-800/80 border border-slate-700/50 rounded-2xl p-6 flex items-center space-x-5 shadow-lg">
+          <div class="bg-emerald-500/10 text-emerald-500 p-4 rounded-xl text-2xl">📱</div>
+          <div>
+            <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">Perangkat Aktif</p>
+            <h3 id="statActiveDevices" class="text-3xl font-black text-emerald-500 mt-1">0</h3>
+          </div>
+        </div>
+
+        <div class="bg-slate-800/80 border border-slate-700/50 rounded-2xl p-6 flex items-center space-x-5 shadow-lg">
+          <div class="bg-violet-500/10 text-violet-500 p-4 rounded-xl text-2xl">💰</div>
+          <div>
+            <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">Total Pendapatan</p>
+            <h3 id="statTotalRevenue" class="text-3xl font-black text-violet-400 mt-1">Rp 0</h3>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================
+         TAB CONTENT: LICENSES & ACTIVATION
+         ======================================================== -->
+      <div id="tab-licenses" class="space-y-6">
+
+
+        <!-- Pending Request section -->
+        <section class="space-y-4">
+          <div class="flex justify-between items-center">
+            <h3 class="text-base font-black text-white uppercase tracking-wider">Transaksi Pending (Menunggu Pembayaran Gateway)</h3>
+          </div>
+          <div id="pendingContainer" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Dynamically populated pending cards -->
+          </div>
+          <div id="pendingEmptyState" class="bg-slate-800/30 border border-slate-700/30 rounded-2xl p-8 text-center hidden">
+            <span class="text-4xl block mb-2">🎉</span>
+            <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Semua pembayaran Gateway sudah disetujui / Bersih.</p>
+          </div>
+        </section>
+
+        <!-- Active Licenses list section -->
+        <section class="bg-slate-800/40 backdrop-blur-xl border border-slate-700/40 rounded-2xl shadow-2xl overflow-hidden">
+          <div class="p-6 border-b border-slate-700/50 flex justify-between items-center flex-wrap gap-4">
+            <div>
+              <h2 class="text-lg font-extrabold text-white uppercase tracking-wider">Kunci Lisensi Aktif Terdaftar</h2>
+              <p class="text-xs text-slate-400 mt-1">Daftar seluruh kunci lisensi berbayar dan manual yang terdaftar aktif.</p>
+            </div>
+            <button id="openGenerateModalBtn" class="bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-extrabold text-xs px-5 py-3 rounded-xl transition-all duration-300 shadow-md shadow-blue-500/20 cursor-pointer">
+              ➕ BUAT LISENSI MANUAL
+            </button>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-slate-300">
+              <thead class="bg-slate-900/60 text-xs font-bold text-slate-400 uppercase tracking-widest border-b border-slate-700/50">
+                <tr>
+                  <th class="p-4">Nama Sekolah / Lembaga</th>
+                  <th class="p-4">Kunci Lisensi</th>
+                  <th class="p-4">Kuota Perangkat</th>
+                  <th class="p-4">Masa Kedaluwarsa</th>
+                  <th class="p-4">Status</th>
+                  <th class="p-4 text-right">Tindakan</th>
+                </tr>
+              </thead>
+              <tbody id="licenseTableBody" class="divide-y divide-slate-700/40">
+                <tr>
+                  <td colspan="6" class="p-8 text-center text-slate-500 font-medium">Memuat data lisensi...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+      </div> <!-- Close tab-licenses -->
+
+      <!-- ========================================================
+         TAB CONTENT: PACKAGES & PRICING
+         ======================================================== -->
+      <div id="tab-packages" class="hidden space-y-6">
+        <!-- Packages Pricing Configurations -->
+        <section class="bg-slate-800/40 backdrop-blur-xl border border-slate-700/40 rounded-2xl shadow-2xl p-6 space-y-6">
+          <div class="flex justify-between items-center flex-wrap gap-4 border-b border-slate-700/50 pb-4">
+            <div>
+              <h2 class="text-lg font-extrabold text-white uppercase tracking-wider">Konfigurasi Harga &amp; Paket SaaS</h2>
+              <p class="text-xs text-slate-400 mt-1">Pengaturan produk, harga tampil, kuota kapasitas, dan durasi aktif paket checkout.</p>
+            </div>
+            <button id="openAddPackageModalBtn" class="bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-extrabold text-xs px-5 py-3 rounded-xl transition-all duration-300 shadow-md shadow-blue-500/20 cursor-pointer">
+              ➕ BUAT PAKET BARU
+            </button>
+          </div>
+          <div id="packagesConfigContainer" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Dynamic Pricing Package cards -->
+          </div>
+        </section>
+      </div>
+
+      <!-- ========================================================
+         TAB CONTENT: SUBSCRIPTIONS
+         ======================================================== -->
+      <div id="tab-subscriptions" class="hidden space-y-6">
+        <section class="bg-slate-800/40 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden">
+          <div class="p-6 border-b border-slate-700/50">
+            <h2 class="text-lg font-extrabold text-white uppercase tracking-wider">Riwayat Langganan Sekolah (Subscriptions)</h2>
+            <p class="text-xs text-slate-400 mt-1">Daftar sinkronisasi histori langganan aktif, masa tenggang, dan status sekolah.</p>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-slate-300">
+              <thead class="bg-slate-900/60 text-xs font-bold text-slate-400 uppercase tracking-widest border-b border-slate-700/50">
+                <tr>
+                  <th class="p-4">Nama Sekolah / Lembaga</th>
+                  <th class="p-4">Produk / Aplikasi</th>
+                  <th class="p-4">Paket ID</th>
+                  <th class="p-4">Masa Durasi Langganan</th>
+                  <th class="p-4">Status</th>
+                </tr>
+              </thead>
+              <tbody id="subscriptionTableBody" class="divide-y divide-slate-700/40">
+                <!-- Dynamic subscription rows -->
+                <tr>
+                  <td colspan="5" class="p-8 text-center text-slate-500 font-medium">Memuat data langganan...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <!-- ========================================================
+         TAB CONTENT: INVOICES & REVENUE
+         ======================================================== -->
+      <div id="tab-invoices" class="hidden space-y-6">
+        <section class="bg-slate-800/40 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden">
+          <div class="p-6 border-b border-slate-700/50">
+            <h2 class="text-lg font-extrabold text-white uppercase tracking-wider">Riwayat Tagihan &amp; Keuangan (Invoices)</h2>
+            <p class="text-xs text-slate-400 mt-1">Daftar transaksi keuangan terbit, tagihan QRIS, dan metode bayar manual offline.</p>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-slate-300">
+              <thead class="bg-slate-900/60 text-xs font-bold text-slate-400 uppercase tracking-widest border-b border-slate-700/50">
+                <tr>
+                  <th class="p-4">Nomor Invoice</th>
+                  <th class="p-4">Sekolah / Lembaga</th>
+                  <th class="p-4">Produk / Aplikasi</th>
+                  <th class="p-4">Paket</th>
+                  <th class="p-4">Nominal</th>
+                  <th class="p-4">Metode Bayar</th>
+                  <th class="p-4">Status</th>
+                  <th class="p-4 text-right">Tindakan</th>
+                </tr>
+              </thead>
+              <tbody id="invoiceTableBody" class="divide-y divide-slate-700/40">
+                <!-- Dynamic invoice rows -->
+                <tr>
+                  <td colspan="8" class="p-8 text-center text-slate-500 font-medium">Memuat data tagihan...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <!-- ========================================================
+         TAB CONTENT: SAAS TENANTS MONITORING (SUPABASE INTEGRATED)
+         ======================================================== -->
+      <div id="tab-tenants" class="hidden space-y-6">
+        <section class="bg-slate-800/40 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden">
+          <div class="p-6 border-b border-slate-700/50 flex justify-between items-center flex-wrap gap-4">
+            <div>
+              <h2 class="text-lg font-extrabold text-white uppercase tracking-wider">Monitoring Database Tenants (Supabase Cloud)</h2>
+              <p class="text-xs text-slate-400 mt-1">Daftar seluruh database sekolah terdaftar di server Supabase beserta kecocokan status lisensinya.</p>
+            </div>
+            <button onclick="loadSupabaseTenants()" class="bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl transition-all duration-300 shadow-md shadow-blue-500/20 cursor-pointer flex items-center gap-1.5">
+              🔄 Sinkronkan Database
+            </button>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-slate-300">
+              <thead class="bg-slate-900/60 text-xs font-bold text-slate-400 uppercase tracking-widest border-b border-slate-700/50">
+                <tr>
+                  <th class="p-4">Nama Sekolah / Lembaga</th>
+                  <th class="p-4">Subdomain / Slug</th>
+                  <th class="p-4">Kunci Lisensi Terkait</th>
+                  <th class="p-4">Tanggal Terdaftar</th>
+                  <th class="p-4">Masa Berlaku</th>
+                  <th class="p-4">Status Lisensi</th>
+                  <th class="p-4 text-right">Tindakan</th>
+                </tr>
+              </thead>
+              <tbody id="tenantsTableBody" class="divide-y divide-slate-700/40">
+                <tr>
+                  <td colspan="7" class="p-8 text-center text-slate-500 font-medium">Memuat database tenant Supabase...</td>
+
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <!-- ========================================================
+         TAB CONTENT: LOGS AKTIVITAS & AUDIT TRAIL
+         ======================================================== -->
+      <div id="tab-logs" class="hidden space-y-6">
+        <section class="bg-slate-800/40 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden">
+          <div class="p-6 border-b border-slate-700/50 flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <h2 class="text-lg font-extrabold text-white uppercase tracking-wider">Log Audit &amp; Aktivitas Server Lisensi</h2>
+              <p class="text-xs text-slate-400 mt-1">Rekaman audit aktivitas check-in lisensi, validasi perangkat, dan tindakan administrasi secara real-time.</p>
+            </div>
+            <button onclick="loadActivityLogs()" class="bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl transition-all duration-300 shadow-md shadow-blue-500/20 cursor-pointer flex items-center gap-1.5">
+              🔄 Refresh Logs
+            </button>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-slate-300">
+              <thead class="bg-slate-900/60 text-xs font-bold text-slate-400 uppercase tracking-widest border-b border-slate-700/50">
+                <tr>
+                  <th class="p-4">Waktu (WIB)</th>
+                  <th class="p-4">Produk</th>
+                  <th class="p-4">Kunci Lisensi</th>
+                  <th class="p-4">Device ID</th>
+                  <th class="p-4">IP Address</th>
+                  <th class="p-4">Aktivitas / Status</th>
+                </tr>
+              </thead>
+              <tbody id="logsTableBody" class="divide-y divide-slate-700/40">
+                <tr>
+                  <td colspan="6" class="p-8 text-center text-slate-500 font-medium">Memuat log aktivitas...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <!-- ========================================================
+         TAB CONTENT: SYSTEM & GATEWAY SETTINGS
+         ======================================================== -->
+      <div id="tab-settings" class="hidden space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <!-- Main Settings Form Card -->
+          <section class="md:col-span-2 bg-slate-800/40 backdrop-blur-xl border border-slate-700/40 rounded-2xl shadow-2xl p-6 space-y-6">
+            <div>
+              <h2 class="text-lg font-extrabold text-white uppercase tracking-wider">⚙️ Pengaturan Pembayaran & Gateway</h2>
+              <p class="text-xs text-slate-400 mt-1">Konfigurasi prioritas gerbang pembayaran otomatis dan rekening transfer manual.</p>
+            </div>
+            
+            <form id="systemSettingsForm" class="space-y-5">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label class="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Gateway Utama Aktif</label>
+                  <select id="setactive_gateway" required class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-slate-200 text-sm font-semibold focus:outline-none focus:border-blue-500 cursor-pointer">
+                    <option value="tripay">⚡ TRIPAY (Default QRIS/VA/Retail)</option>
+                    <option value="xendit">💳 XENDIT (Alternatif Invoice Link)</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Metode Transfer Manual / QRIS Lokal</label>
+                  <select id="setmanual_payment_enabled" required class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-slate-200 text-sm font-semibold focus:outline-none focus:border-blue-500 cursor-pointer">
+                    <option value="1">🟢 AKTIF (Tampilkan Opsi Manual di Client)</option>
+                    <option value="0">🔴 NON-AKTIF (Hanya Metode Otomatis)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="border-t border-slate-700/40 pt-4 space-y-4">
+                <h4 class="text-xs font-black text-blue-400 uppercase tracking-widest">Detail Rekening Transfer Manual</h4>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Nama Bank</label>
+                    <input type="text" id="setmanual_bank_name" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 text-sm font-semibold focus:outline-none focus:border-blue-500" placeholder="Contoh: BCA">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Nomor Rekening</label>
+                    <input type="text" id="setmanual_account_number" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 text-sm font-semibold focus:outline-none focus:border-blue-500" placeholder="Contoh: 8123-049-182">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Atas Nama Pemilik</label>
+                    <input type="text" id="setmanual_account_name" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 text-sm font-semibold focus:outline-none focus:border-blue-500" placeholder="Contoh: Baraya Teknologi">
+                  </div>
+                </div>
+              </div>
+
+              <div class="border-t border-slate-700/40 pt-4 space-y-4">
+                <h4 class="text-xs font-black text-emerald-400 uppercase tracking-widest">Kontak Support (Konfirmasi WhatsApp)</h4>
+                <div>
+                  <label class="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Nomor WhatsApp Konfirmasi (Gunakan Kode Negara tanpa +/spasi)</label>
+                  <input type="text" id="setwhatsapp_number" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-slate-200 text-sm font-semibold focus:outline-none focus:border-blue-500" placeholder="Contoh: 6287779937341">
+                </div>
+              </div>
+
+              <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 active:scale-98 text-white font-black py-4 rounded-xl text-xs uppercase tracking-wider transition-all duration-300 shadow-lg shadow-blue-600/10 cursor-pointer">
+                💾 SIMPAN PENGATURAN SYSTEM
+              </button>
+            </form>
+          </section>
+
+          <!-- QRIS Upload Card (Owner Local QRIS) -->
+          <section class="bg-slate-800/40 backdrop-blur-xl border border-slate-700/40 rounded-2xl shadow-2xl p-6 flex flex-col justify-between">
+            <div class="space-y-4">
+              <div>
+                <h3 class="text-sm font-extrabold text-white uppercase tracking-wider">🖼️ QRIS Merchant Platform</h3>
+                <p class="text-[10px] text-slate-400 mt-1">Ubah atau unggah gambar QRIS merchant lokal Anda secara dinamis untuk metode manual.</p>
+              </div>
+
+              <!-- QRIS Preview Frame -->
+              <div class="relative bg-slate-950/80 border border-slate-700/50 rounded-2xl p-4 flex flex-col items-center justify-center min-h-[220px]">
+                <img id="adminQrisPreview" src="/qris.png" class="max-w-[160px] object-contain rounded-lg shadow-md" alt="QRIS Merchant">
+                <div id="qrisStatusOverlay" class="absolute inset-0 bg-slate-950/80 rounded-2xl flex flex-col items-center justify-center space-y-2 opacity-0 pointer-events-none transition-all duration-300">
+                  <span class="text-3xl animate-bounce">⚡</span>
+                  <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mengunggah QRIS...</p>
+                </div>
+              </div>
+
+              <!-- Upload File Picker -->
+              <div>
+                <label for="qrisFileInput" class="w-full bg-slate-900 border border-slate-700/60 hover:bg-slate-800 rounded-xl p-3.5 text-xs text-slate-400 font-semibold cursor-pointer flex items-center justify-center gap-2 border-dashed border-slate-700">
+                  📁 PILIH GAMBAR BARU (.PNG)
+                </label>
+                <input type="file" id="qrisFileInput" accept="image/png" class="hidden">
+              </div>
+            </div>
+
+            <button id="uploadQrisBtn" disabled class="w-full bg-blue-600/50 cursor-not-allowed text-slate-400 font-bold py-3.5 rounded-xl text-xs tracking-wider uppercase transition-all duration-300 flex items-center justify-center gap-2 mt-4">
+              ☁️ UNGGAH QRIS BARU
+            </button>
+          </section>
+        </div>
+
+        <!-- VPS VPN Infrastructure Auto-Provisioning Card -->
+        <section class="bg-slate-800/40 backdrop-blur-xl border border-slate-700/40 rounded-2xl shadow-2xl p-6 space-y-6 mt-6">
+          <div>
+            <h2 class="text-lg font-extrabold text-white uppercase tracking-wider">🔧 Inisialisasi Otomatis Infrastruktur VPN VPS</h2>
+            <p class="text-xs text-slate-400 mt-1">Siapkan VPS baru secara otomatis: install WireGuard, Nginx, Certbot, IP Forwarding, dan buat skrip tunnel otomatis. Jalankan ini sekali saja pada VPS yang baru di-deploy.</p>
+          </div>
+          
+          <div class="bg-slate-950/60 border border-slate-700/50 rounded-2xl p-5 space-y-4">
+            <h4 class="text-xs font-black text-blue-400 uppercase tracking-widest">📋 Daftar Komponen yang Akan Dipasang & Dikonfigurasi:</h4>
+            <ul class="text-xs text-slate-300 space-y-2.5 list-disc pl-5">
+              <li>Pemasangan Paket Sistem: <strong>Wireguard, Nginx, Certbot, Python3-Certbot-Nginx</strong> via APT</li>
+              <li>Aktivasi Forwarding IP: Konfigurasi <code>net.ipv4.ip_forward = 1</code> di Kernel Linux</li>
+              <li>Konfigurasi Awal Wireguard: Membuat key pasang peer dan mengaktifkan interface <code>wg0</code> (Port: <code>51820</code> UDP)</li>
+              <li>Pembuatan Skrip Otomasi: Menulis berkas pembantu <code>/usr/local/bin/add-wg-peer.sh</code></li>
+              <li>Isolasi Firewall Klien: Menerapkan aturan <code>iptables</code> isolasi peer agar sesama tenant terisolasi penuh</li>
+            </ul>
+          </div>
+          
+          <div class="flex flex-col sm:flex-row gap-4 items-center justify-between">
+            <p class="text-xs text-slate-500 font-semibold leading-relaxed max-w-xl">
+              *Proses ini memakan waktu sekitar 1-2 menit. Halaman web akan menampilkan log progress secara real-time. Pastikan VPS terhubung ke internet.
+            </p>
+            <button id="provisionVpsBtn" onclick="provisionVpsServer()" class="bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black px-6 py-4 rounded-xl text-xs uppercase tracking-wider transition-all duration-300 shadow-lg shadow-emerald-600/15 whitespace-nowrap cursor-pointer">
+              ⚡ INISIALISASI VPS SEKARANG
+            </button>
+          </div>
+          
+          <!-- Live Log Console -->
+          <div id="provisionLogConsole" class="hidden bg-slate-950 border border-slate-800 rounded-2xl p-4 font-mono text-xs text-slate-300 overflow-y-auto max-h-[200px] space-y-1">
+            <div class="text-emerald-400 font-bold">[SYSTEM] Inisialisasi Konsol Log...</div>
+          </div>
+        </section>
+      </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-950 border-t border-slate-800/80 py-6 text-center text-xs text-slate-500 font-semibold tracking-wide mt-auto">
+      <p>powered by BARAYA TEKNOLOGI &copy; 2026. All rights reserved.</p>
+    </footer>
+  </div> <!-- Close main content workspace flex container -->
+
+  <!-- ========================================================
+     MODAL: GENERATE LICENSE MANUAL
+     ======================================================== -->
+  <div id="generateModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+      <div class="px-6 py-5 border-b border-slate-700/50 flex justify-between items-center">
+        <h3 class="text-base font-extrabold text-white uppercase tracking-wider">Buat Lisensi Baru (Manual)</h3>
+        <button id="closeGenerateModalBtn" class="text-slate-400 hover:text-white text-lg font-bold">✕</button>
+      </div>
+      <form id="generateForm" class="p-6 space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Produk / Aplikasi</label>
+          <select id="genProductId" required class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 text-sm font-semibold focus:outline-none focus:border-blue-500 cursor-pointer">
+            <option value="gform-orkestrator">🔒 G-Form Orkestrator</option>
+            <option value="absenta">📅 Absenta Premium</option>
+            <option value="project-yatim">🌙 Mustahiq Care</option>
+            <option value="vpn-tunnel">🌐 VPN Tunneling Gateway</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Hubungkan ke Tenant/Sekolah Supabase (Opsional)</label>
+          <select id="genTenantId" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 text-sm font-semibold focus:outline-none focus:border-blue-500 cursor-pointer">
+            <option value="">-- Hubungkan dengan Tenant Baru / Tidak Ada --</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Nama Sekolah / Lembaga</label>
+          <input type="text" id="genSchoolName" required class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 text-sm font-semibold focus:outline-none focus:border-blue-500" placeholder="Contoh: SMKN 1 Bandung">
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Kapasitas HP (99999 = Unlimited)</label>
+            <input type="number" id="genDeviceLimit" value="99999" min="1" required class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 text-sm font-semibold focus:outline-none focus:border-blue-500">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Masa Aktif (Hari)</label>
+            <input type="number" id="genDurationDays" value="365" min="1" required class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 text-sm font-semibold focus:outline-none focus:border-blue-500">
+          </div>
+        </div>
+        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl text-xs uppercase tracking-wider transition-all duration-300 mt-2 shadow-lg shadow-blue-600/10">
+          💾 BUAT KUNCI LISENSI
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================
+     MODAL: ADD PRICING PLAN PACKAGE
+     ======================================================== -->
+  <div id="addPackageModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+      <div class="px-6 py-5 border-b border-slate-700/50 flex justify-between items-center">
+        <h3 class="text-base font-extrabold text-white uppercase tracking-wider">Tambah Paket Harga Baru</h3>
+        <button id="closeAddPackageModalBtn" class="text-slate-400 hover:text-white text-lg font-bold">✕</button>
+      </div>
+      <form id="addPackageForm" class="p-6 space-y-4">
+        
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">ID Paket (Unique)</label>
+            <input type="text" id="addPkgId" required class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 text-sm font-semibold focus:outline-none focus:border-blue-500" placeholder="Contoh: annual_plan">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Pilih Produk</label>
+            <select id="addPkgProductId" required class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 text-sm font-semibold focus:outline-none focus:border-blue-500">
+              <!-- Dynamically populated -->
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Nama Paket</label>
+            <input type="text" id="addPkgTitle" required class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 text-sm font-semibold focus:outline-none focus:border-blue-500" placeholder="Contoh: Bulanan Orkestrator">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Badge (Opsional)</label>
+            <input type="text" id="addPkgBadge" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 text-sm font-semibold focus:outline-none focus:border-blue-500" placeholder="Contoh: Terpopuler">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Harga Tampil</label>
+            <input type="text" id="addPkgPrice" required class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 text-sm font-semibold focus:outline-none focus:border-blue-500" placeholder="Contoh: Rp 299.000">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Durasi Aktif</label>
+            <input type="text" id="addPkgDuration" required class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 text-sm font-semibold focus:outline-none focus:border-blue-500" placeholder="Contoh: 30 Hari">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 items-center pt-2">
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Limit Perangkat (HP)</label>
+            <input type="number" id="addPkgDeviceLimit" min="0" value="0" required class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 text-sm font-semibold focus:outline-none focus:border-blue-500">
+          </div>
+          <div class="flex items-center space-x-2 pt-6">
+            <input type="checkbox" id="addPkgIsUnlimited" class="w-4 h-4 rounded bg-slate-950 border-slate-800 text-blue-600 focus:ring-blue-500 focus:ring-offset-slate-900">
+            <label for="addPkgIsUnlimited" class="text-xs font-bold text-slate-300 uppercase tracking-wider cursor-pointer">Unlimited HP</label>
+          </div>
+        </div>
+
+        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl text-xs uppercase tracking-wider transition-all duration-300 mt-4 shadow-lg shadow-blue-600/10">
+          ➕ SIMPAN PAKET BARU
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================
+     MODAL: EDIT PRICING PLAN PACKAGE
+     ======================================================== -->
+  <div id="editPackageModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+      <div class="px-6 py-5 border-b border-slate-700/50 flex justify-between items-center">
+        <h3 class="text-base font-extrabold text-white uppercase tracking-wider">✏️ Edit Paket Harga</h3>
+        <button id="closeEditPackageModalBtn" class="text-slate-400 hover:text-white text-lg font-bold">✕</button>
+      </div>
+      <form id="editPackageForm" class="p-6 space-y-4">
+        <input type="hidden" id="editPkgId">
+        <input type="hidden" id="editPkgProductId">
+        
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Nama Paket</label>
+            <input type="text" id="editPkgTitle" required class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 text-sm font-semibold focus:outline-none focus:border-blue-500">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Badge (Opsional)</label>
+            <input type="text" id="editPkgBadge" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 text-sm font-semibold focus:outline-none focus:border-blue-500" placeholder="Terpopuler, Terbaik, dll.">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Harga Tampil (IDR)</label>
+            <input type="text" id="editPkgPrice" required class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 text-sm font-semibold focus:outline-none focus:border-blue-500" placeholder="Contoh: Rp 150.000">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Durasi Masa Aktif</label>
+            <input type="text" id="editPkgDuration" required class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 text-sm font-semibold focus:outline-none focus:border-blue-500" placeholder="Contoh: 30 Hari">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 items-end">
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Kapasitas HP</label>
+            <input type="number" id="editPkgDeviceLimit" min="1" required class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 text-sm font-semibold focus:outline-none focus:border-blue-500">
+          </div>
+          <div class="flex items-center gap-3 pb-1">
+            <input type="checkbox" id="editPkgIsUnlimited" class="w-4 h-4 rounded border-slate-600 bg-slate-900 text-blue-500 focus:ring-blue-500 cursor-pointer">
+            <label for="editPkgIsUnlimited" class="text-xs font-bold text-slate-300 uppercase tracking-wider cursor-pointer">Unlimited HP</label>
+          </div>
+        </div>
+
+        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl text-xs uppercase tracking-wider transition-all duration-300 mt-2 shadow-lg shadow-blue-600/10">
+          💾 SIMPAN PERUBAHAN PAKET
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================
+     MODAL: ADD NEW PRICING PLAN PACKAGE
+     ======================================================== -->
+  <div id="addPackageModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+      <div class="px-6 py-5 border-b border-slate-700/50 flex justify-between items-center">
+        <h3 class="text-base font-extrabold text-white uppercase tracking-wider">➕ Tambah Paket Harga Baru</h3>
+        <button id="closeAddPackageModalBtn" class="text-slate-400 hover:text-white text-lg font-bold">✕</button>
+      </div>
+      <form id="addPackageForm" class="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Produk</label>
+          <select id="addPkgProductId" required class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 text-sm font-semibold focus:outline-none focus:border-blue-500">
+            <option value="">-- Pilih Produk --</option>
+            <option value="gform-orkestrator">🔒 G-Form Orkestrator</option>
+            <option value="absenta">📅 Absenta</option>
+            <option value="project-yatim">🌙 Mustahiq Care</option>
+            <option value="vpn-tunnel">🌐 VPN Tunneling Gateway</option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Nama Paket</label>
+            <input type="text" id="addPkgTitle" required class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 text-sm font-semibold focus:outline-none focus:border-blue-500" placeholder="Contoh: Paket Starter">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Badge (Opsional)</label>
+            <input type="text" id="addPkgBadge" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 text-sm font-semibold focus:outline-none focus:border-blue-500" placeholder="Terpopuler, dll.">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Harga Tampil</label>
+            <input type="text" id="addPkgPrice" required class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 text-sm font-semibold focus:outline-none focus:border-blue-500" placeholder="Rp 150.000">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Durasi Masa Aktif</label>
+            <input type="text" id="addPkgDuration" required class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 text-sm font-semibold focus:outline-none focus:border-blue-500" placeholder="30 Hari">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 items-end">
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Kapasitas HP</label>
+            <input type="number" id="addPkgDeviceLimit" min="1" value="1" required class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 text-sm font-semibold focus:outline-none focus:border-blue-500">
+          </div>
+          <div class="flex items-center gap-3 pb-1">
+            <input type="checkbox" id="addPkgIsUnlimited" class="w-4 h-4 rounded border-slate-600 bg-slate-900 text-blue-500 focus:ring-blue-500 cursor-pointer">
+            <label for="addPkgIsUnlimited" class="text-xs font-bold text-slate-300 uppercase tracking-wider cursor-pointer">Unlimited HP</label>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Urutan Tampil (Sort Order)</label>
+          <input type="number" id="addPkgSortOrder" min="0" value="0" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 text-sm font-semibold focus:outline-none focus:border-blue-500">
+        </div>
+
+        <button type="submit" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3.5 rounded-xl text-xs uppercase tracking-wider transition-all duration-300 mt-2 shadow-lg shadow-green-600/10">
+          ✅ SIMPAN PAKET BARU
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================
+     MODAL: AUTHENTICATION SHIELD (PIN LOGIN)
+     ======================================================== -->
+  <div id="authModal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700/80 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl p-6 text-center space-y-6">
+      <div>
+        <span class="text-5xl block mb-2">🔐</span>
+        <h3 class="text-xl font-black text-white">Security Shield</h3>
+        <p class="text-xs text-slate-400 mt-1">Masukkan PIN Rahasia Admin untuk membuka dasbor lisensi.</p>
+      </div>
+      
+      <div class="space-y-4">
+        <input type="password" id="adminPinInput" class="w-full bg-slate-900 border border-slate-700 rounded-2xl p-4 text-center text-slate-100 text-lg tracking-widest font-black focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="PIN ADMIN" maxlength="20">
+        <input type="text" id="admin2faInput" class="w-full bg-slate-900 border border-slate-700 rounded-2xl p-4 text-center text-slate-100 text-lg tracking-widest font-black focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="KODE 2FA (6 DIGIT)" maxlength="6">
+        <p id="authErrorMsg" class="text-red-500 text-xs font-bold hidden">⚠️ PIN Admin atau Kode 2FA tidak valid!</p>
+        <button id="authSubmitBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-2xl text-xs tracking-wider uppercase transition-all duration-300 shadow-lg shadow-blue-600/10">
+          MASUK DASBOR
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================
+     MODAL: PREMIUM DIALOG MODAL (ALERT & CONFIRM)
+     ======================================================== -->
+  <div id="premiumDialogModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4 transition-all duration-300 opacity-0">
+    <div id="premiumDialogCard" class="bg-slate-800 border border-slate-700/80 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl p-6 text-center space-y-5 transform scale-95 transition-all duration-300">
+      <div id="dialogIconContainer" class="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mx-auto">
+        <!-- Injected icon -->
+      </div>
+      <div>
+        <h4 id="dialogTitle" class="text-base font-extrabold text-white uppercase tracking-wider"><!-- Title --></h4>
+        <p id="dialogMessage" class="text-xs text-slate-400 mt-2 leading-relaxed"><!-- Message --></p>
+      </div>
+      <div id="dialogActions" class="flex gap-3 pt-2">
+        <!-- Injected buttons -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Link external JavaScript controller (UI Hardened & Modularized) -->
+  <script type="module" src="admin.js?v=1.0.4"></script>
+</body>
+</html>
