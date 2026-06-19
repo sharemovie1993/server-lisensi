@@ -699,3 +699,80 @@ export async function forceRestartSystem() {
     throw new Error('Gagal menghubungi server: ' + err.message);
   }
 }
+
+export function loadWAStatus(onComplete) {
+  if (!state.ADMIN_SECRET) return;
+
+  fetch(`${state.API_BASE}/api/admin/wa/status`, {
+    headers: { 'x-admin-secret': state.ADMIN_SECRET }
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success && data.data) {
+      if (onComplete) onComplete(data.data);
+    }
+  })
+  .catch(err => console.error('Gagal memuat status WA:', err));
+}
+
+export function loadWAQR(onComplete) {
+  if (!state.ADMIN_SECRET) return;
+
+  fetch(`${state.API_BASE}/api/admin/wa/qr`, {
+    headers: { 'x-admin-secret': state.ADMIN_SECRET }
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (onComplete) onComplete(data);
+  })
+  .catch(err => console.error('Gagal memuat QR WA:', err));
+}
+
+export function reconnectWA(onComplete) {
+  if (!state.ADMIN_SECRET) return;
+
+  fetch(`${state.API_BASE}/api/admin/wa/reconnect`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-admin-secret': state.ADMIN_SECRET
+    }
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (onComplete) onComplete(data);
+  })
+  .catch(err => {
+    console.error('Gagal memicu reconnect WA:', err);
+    showPremiumDialog({
+      type: 'error',
+      title: 'Koneksi Gagal',
+      message: 'Gagal terhubung dengan server.'
+    });
+  });
+}
+
+export function sendTestWA(nomor, pesan, onComplete) {
+  if (!state.ADMIN_SECRET) return;
+
+  fetch(`${state.API_BASE}/api/admin/wa/send-test`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-admin-secret': state.ADMIN_SECRET
+    },
+    body: JSON.stringify({ nomor, pesan })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (onComplete) onComplete(data);
+  })
+  .catch(err => {
+    console.error('Gagal mengirim pesan WA test:', err);
+    showPremiumDialog({
+      type: 'error',
+      title: 'Pengiriman Gagal',
+      message: 'Gagal menghubungi server.'
+    });
+  });
+}

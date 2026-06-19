@@ -285,6 +285,11 @@ async function initDatabase() {
   try {
     await db.exec("ALTER TABLE licenses ADD COLUMN app_name TEXT");
   } catch (e) {}
+  // Easy-Tunnel: tambah kolom operator_phone untuk mengasosiasikan nomor WhatsApp ke lisensi
+  try {
+    await db.exec("ALTER TABLE licenses ADD COLUMN operator_phone TEXT");
+  } catch (e) {}
+
 
   try {
     await db.exec("ALTER TABLE products ADD COLUMN key_prefix TEXT");

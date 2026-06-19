@@ -6,6 +6,7 @@ const { initDatabase, db } = require('./config/db');
 const { PORT, TOTP_SECRET } = require('./config/keys');
 const { logLicenseActivity } = require('./utils/logger');
 const { triggerCaddySync } = require('./utils/caddy');
+const waGateway = require('./services/waGateway');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -119,6 +120,11 @@ function initVpnFirewall() {
 
 // Start Server after DB init
 initDatabase().then(async () => {
+  // Inisialisasi WhatsApp Gateway
+  waGateway.init().catch(err => {
+    console.error('[WA GATEWAY ERROR] Gagal inisialisasi WA Gateway saat startup:', err.message);
+  });
+
   // Run checkExpirations immediately on startup
   await checkExpirations();
   

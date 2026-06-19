@@ -520,6 +520,72 @@
       </div>
 
       <!-- ========================================================
+         TAB CONTENT: WHATSAPP GATEWAY
+         ======================================================== -->
+      <div id="tab-wa" class="hidden space-y-6">
+        <section class="bg-slate-800/40 backdrop-blur-xl border border-slate-700/40 rounded-2xl shadow-2xl p-6 space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-700/50 pb-4">
+            <div>
+              <h2 class="text-lg font-extrabold text-white uppercase tracking-wider">📱 WhatsApp Gateway (Self-Hosted)</h2>
+              <p class="text-xs text-slate-400 mt-1">Status koneksi bot pengirim OTP lisensi sekolah.</p>
+            </div>
+            <button onclick="checkWAStatus()" class="bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 border border-slate-700/60 font-black px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all duration-300 cursor-pointer">
+              🔄 Segarkan Status
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Left: Connection Status & Action -->
+            <div class="bg-slate-950/50 border border-slate-800/60 rounded-2xl p-5 flex flex-col justify-between space-y-6">
+              <div class="space-y-4">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Status Koneksi WA</span>
+                <div id="waStatusBadge" class="px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wider text-center border bg-slate-800 text-slate-400">
+                  Checking...
+                </div>
+                <div id="waConnectedNumberContainer" class="hidden text-xs text-slate-300">
+                  Nomor Bot Aktif: <strong id="waConnectedNumber" class="text-emerald-400"></strong>
+                </div>
+              </div>
+              <button id="waReconnectBtn" onclick="runWAReconnect()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-3 rounded-xl text-xs uppercase tracking-wider transition-all duration-300 shadow-md shadow-blue-500/20 cursor-pointer">
+                🔌 Hubungkan Ulang (Scan Ulang)
+              </button>
+            </div>
+
+            <!-- Middle: QR Code display -->
+            <div class="bg-slate-950/50 border border-slate-800/60 rounded-2xl p-5 flex flex-col items-center justify-center min-h-[260px] text-center">
+              <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4 block">WhatsApp Web QR Code</span>
+              <div id="waQrContainer" class="bg-white p-3 rounded-xl shadow-md border border-slate-200 flex items-center justify-center w-[200px] h-[200px]">
+                <div class="text-xs text-slate-500 font-bold uppercase animate-pulse">Menunggu Status...</div>
+              </div>
+              <div id="waQrHelpText" class="text-[10px] text-slate-500 font-semibold mt-3 max-w-[200px]">
+                Buka WhatsApp di ponsel Anda &rarr; Perangkat Tertaut &rarr; Tautkan Perangkat &rarr; Scan QR.
+              </div>
+            </div>
+
+            <!-- Right: Test message delivery -->
+            <div class="bg-slate-950/50 border border-slate-800/60 rounded-2xl p-5 flex flex-col justify-between space-y-4">
+              <div>
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Uji Coba Kirim Pesan</span>
+                <div class="space-y-3">
+                  <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Nomor WA Tujuan</label>
+                    <input type="text" id="waTestNumber" class="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-slate-200 text-xs font-semibold focus:outline-none focus:border-blue-500 placeholder-slate-600" placeholder="Contoh: 6281234567890">
+                  </div>
+                  <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Pesan Teks</label>
+                    <textarea id="waTestMessage" class="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-slate-200 text-xs font-semibold focus:outline-none focus:border-blue-500 placeholder-slate-600 h-20 resize-none" placeholder="Masukkan isi pesan test..."></textarea>
+                  </div>
+                </div>
+              </div>
+              <button id="waSendTestBtn" onclick="runWASendTest()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3 rounded-xl text-xs uppercase tracking-wider transition-all duration-300 shadow-md shadow-emerald-500/20 cursor-pointer">
+                ✉️ Kirim Pesan Test
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ========================================================
          TAB CONTENT: CADDY GATEWAY MONITORING & AUTOMATION
          ======================================================== -->
       <div id="tab-caddy" class="hidden space-y-6">

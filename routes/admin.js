@@ -1607,6 +1607,49 @@ router.post('/api/admin/restart', adminAuth, async (req, res) => {
   }, 1000);
 });
 
+// ── WA GATEWAY ADMIN ENDPOINTS ──
+const waGateway = require('../services/waGateway');
+
+// GET /api/admin/wa/status -> getStatus()
+router.get('/api/admin/wa/status', adminAuth, (req, res) => {
+  res.json({ success: true, data: waGateway.getStatus() });
+});
+
+// GET /api/admin/wa/qr -> qr code image (base64)
+router.get('/api/admin/wa/qr', adminAuth, (req, res) => {
+  const qrBase64 = waGateway.getQRBase64();
+  if (qrBase64) {
+    res.json({ success: true, qr: qrBase64 });
+  } else {
+    const status = waGateway.getStatus();
+    res.json({ success: false, message: 'QR Code belum tersedia atau WA sudah terhubung.', status: status.status });
+  }
+});
+
+// POST /api/admin/wa/reconnect -> reconnect
+router.post('/api/admin/wa/reconnect', adminAuth, async (req, res) => {
+  try {
+    await waGateway.reconnect();
+    res.json({ success: true, message: 'Menghubungkan ulang WhatsApp...' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Gagal menghubungkan ulang: ' + err.message });
+  }
+});
+
+// POST /api/admin/wa/send-test -> kirim pesan test
+router.post('/api/admin/wa/send-test', adminAuth, async (req, res) => {
+  const { nomor, pesan } = req.body;
+  if (!nomor || !pesan) {
+    return res.status(400).json({ success: false, message: 'Nomor dan pesan wajib diisi.' });
+  }
+  try {
+    await waGateway.sendMessage(nomor, pesan);
+    res.json({ success: true, message: `Pesan test berhasil dikirim ke ${nomor}` });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Gagal mengirim pesan: ' + err.message });
+  }
+});
+
 module.exports = router;
 module.exports.adminAuth = adminAuth;
 

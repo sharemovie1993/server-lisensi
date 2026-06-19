@@ -19,7 +19,11 @@ import {
   saveSystemSettings,
   uploadQris,
   uploadInvoiceProof,
-  forceRestartSystem
+  forceRestartSystem,
+  loadWAStatus,
+  loadWAQR,
+  reconnectWA,
+  sendTestWA
 } from './modules/admin-api.js';
 import {
   renderAllCachedTables,
@@ -31,15 +35,164 @@ import {
 } from './modules/admin-render.js?v=1.0.4';
 
 // Setup global functions for legacy inline HTML handlers
+let waPollInterval = null;
+
+function loadWAStatusUI() {
+  window.checkWAStatus();
+  if (waPollInterval) clearInterval(waPollInterval);
+  waPollInterval = setInterval(window.checkWAStatus, 5000);
+}
+
 window.switchTab = (tabId) => {
   switchTab(tabId);
+  if (tabId !== 'tab-wa' && waPollInterval) {
+    clearInterval(waPollInterval);
+    waPollInterval = null;
+  }
+
   if (tabId === 'tab-logs') {
     loadActivityLogs(renderAllCachedTables);
   } else if (tabId === 'tab-tenants') {
     loadSupabaseTenants(renderAllCachedTables);
   } else if (tabId === 'tab-settings') {
     loadSettingsUI();
+  } else if (tabId === 'tab-wa') {
+    loadWAStatusUI();
   }
+};
+
+window.checkWAStatus = () => {
+  if (!state.ADMIN_SECRET) return;
+  loadWAStatus((data) => {
+    const badge = document.getElementById('waStatusBadge');
+    const numContainer = document.getElementById('waConnectedNumberContainer');
+    const botNum = document.getElementById('waConnectedNumber');
+    const qrContainer = document.getElementById('waQrContainer');
+    const reconnectBtn = document.getElementById('waReconnectBtn');
+    
+    if (!badge) return;
+
+    if (data.status === 'connected') {
+      badge.className = "px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wider text-center bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+      badge.textContent = "● TERHUBUNG";
+      
+      if (numContainer && botNum) {
+        numContainer.classList.remove('hidden');
+        botNum.textContent = data.number || 'N/A';
+      }
+      
+      if (qrContainer) {
+        qrContainer.innerHTML = '<div class="text-xs text-emerald-500 font-bold uppercase">WhatsApp Terhubung!</div>';
+      }
+      if (reconnectBtn) {
+        reconnectBtn.textContent = "🔌 Putuskan Sesi (Logout)";
+        reconnectBtn.className = "w-full bg-rose-600 hover:bg-rose-500 text-white font-black py-3 rounded-xl text-xs uppercase tracking-wider transition-all duration-300 shadow-md shadow-rose-500/20 cursor-pointer";
+      }
+    } else if (data.status === 'connecting') {
+      badge.className = "px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wider text-center bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse";
+      badge.textContent = "● MENGHUBUNGKAN...";
+      
+      if (numContainer) numContainer.classList.add('hidden');
+      
+      if (data.has_qr) {
+        // Load QR Code
+        loadWAQR((qrData) => {
+          if (qrData.success && qrData.qr && qrContainer) {
+            qrContainer.innerHTML = `<img src="${qrData.qr}" class="w-full h-full object-contain" alt="WA QR">`;
+          }
+        });
+      } else {
+        if (qrContainer) {
+          qrContainer.innerHTML = '<div class="text-xs text-slate-500 font-bold uppercase animate-pulse">Menghasilkan QR...</div>';
+        }
+      }
+      if (reconnectBtn) {
+        reconnectBtn.textContent = "🔌 Hubungkan Ulang (Scan Ulang)";
+        reconnectBtn.className = "w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-3 rounded-xl text-xs uppercase tracking-wider transition-all duration-300 shadow-md shadow-blue-500/20 cursor-pointer";
+      }
+    } else {
+      badge.className = "px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wider text-center bg-rose-500/10 text-rose-400 border border-rose-500/20";
+      badge.textContent = "● TERPUTUS";
+      
+      if (numContainer) numContainer.classList.add('hidden');
+      if (qrContainer) {
+        qrContainer.innerHTML = '<div class="text-xs text-slate-500 font-bold uppercase">QR Code Tidak Tersedia. Silakan Reconnect.</div>';
+      }
+      if (reconnectBtn) {
+        reconnectBtn.textContent = "🔌 Hubungkan Ulang (Scan Ulang)";
+        reconnectBtn.className = "w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-3 rounded-xl text-xs uppercase tracking-wider transition-all duration-300 shadow-md shadow-blue-500/20 cursor-pointer";
+      }
+    }
+  });
+};
+
+window.runWAReconnect = () => {
+  const btn = document.getElementById('waReconnectBtn');
+  if (btn) btn.disabled = true;
+  reconnectWA((res) => {
+    if (btn) btn.disabled = false;
+    if (res.success) {
+      showPremiumDialog({
+        type: 'success',
+        title: 'Koneksi Direset',
+        message: 'WhatsApp Gateway berhasil direset. Silakan scan QR Code baru.'
+      });
+      window.checkWAStatus();
+    } else {
+      showPremiumDialog({
+        type: 'error',
+        title: 'Reset Gagal',
+        message: res.message
+      });
+    }
+  });
+};
+
+window.runWASendTest = () => {
+  const numberInput = document.getElementById('waTestNumber');
+  const messageInput = document.getElementById('waTestMessage');
+  const btn = document.getElementById('waSendTestBtn');
+  
+  if (!numberInput || !messageInput) return;
+  
+  const nomor = numberInput.value.trim();
+  const pesan = messageInput.value.trim();
+  
+  if (!nomor || !pesan) {
+    showPremiumDialog({
+      type: 'error',
+      title: 'Validasi Gagal',
+      message: 'Nomor tujuan dan pesan wajib diisi!'
+    });
+    return;
+  }
+  
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Mengirim...';
+  }
+  
+  sendTestWA(nomor, pesan, (res) => {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '✉️ Kirim Pesan Test';
+    }
+    
+    if (res.success) {
+      showPremiumDialog({
+        type: 'success',
+        title: 'Pesan Terkirim',
+        message: res.message
+      });
+      messageInput.value = '';
+    } else {
+      showPremiumDialog({
+        type: 'error',
+        title: 'Gagal Kirim',
+        message: res.message
+      });
+    }
+  });
 };
 
 function loadSettingsUI() {

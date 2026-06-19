@@ -24,7 +24,7 @@ function generateKey(productId, customPrefix = null) {
   if (customPrefix) {
     prefix = customPrefix.slice(0, 4).toUpperCase();
   } else if (productId) {
-    if (productId === 'absenta') prefix = 'ABS';
+    if (productId === 'platform-absenta') prefix = 'ABS';
     else if (productId === 'gform-orkestrator') prefix = 'ORK';
     else if (productId === 'project-yatim') prefix = 'YTM';
     else prefix = productId.slice(0, 3).toUpperCase();

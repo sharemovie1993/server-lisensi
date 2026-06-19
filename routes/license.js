@@ -6,7 +6,7 @@ const crypto = require('crypto');
 const path = require('path');
 
 const { db } = require('../config/db');
-const { PUBLIC_KEY, PRIVATE_KEY, TRIPAY_API_KEY, TRIPAY_PRIVATE_KEY, TRIPAY_MERCHANT_CODE, TRIPAY_API_URL } = require('../config/keys');
+const { PUBLIC_KEY, PRIVATE_KEY, TRIPAY_API_KEY, TRIPAY_PRIVATE_KEY, TRIPAY_MERCHANT_CODE, TRIPAY_API_URL, ADMIN_SECRET } = require('../config/keys');
 const { logLicenseActivity } = require('../utils/logger');
 const { generateKey, formatIndonesianDate } = require('../utils/helpers');
 const { triggerCaddySync } = require('../utils/caddy');
@@ -2624,6 +2624,162 @@ async function activateVpnAddonIfNeeded(license, req) {
     console.error('[VPN Addon Autoprovision Error]', err);
   }
 }
+
+// ── CLIENT OTP AUTHENTICATION & MANAGEMENT ENDPOINTS ──
+const otp = require('../utils/otp');
+const waGateway = require('../services/waGateway');
+
+function formatWA(nomor) {
+  if (!nomor) return '';
+  let clean = nomor.replace(/[^0-9]/g, '');
+  if (clean.startsWith('0')) {
+    clean = '62' + clean.slice(1);
+  }
+  return clean;
+}
+
+function clientAuth(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ success: false, message: 'Harap masuk terlebih dahulu.' });
+  }
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, ADMIN_SECRET + '_client_session');
+    if (decoded && decoded.nomor) {
+      req.operator = decoded;
+      return next();
+    }
+  } catch (err) {
+    return res.status(401).json({ success: false, message: 'Sesi login telah berakhir. Silakan masuk kembali.' });
+  }
+  return res.status(401).json({ success: false, message: 'Sesi login tidak valid.' });
+}
+
+// POST /api/auth/request-otp -> kirim OTP
+router.post('/api/auth/request-otp', async (req, res) => {
+  let { nomor } = req.body;
+  if (!nomor) {
+    return res.status(400).json({ success: false, message: 'Nomor WhatsApp wajib diisi.' });
+  }
+  nomor = formatWA(nomor);
+  if (!nomor.startsWith('62') || nomor.length < 10) {
+    return res.status(400).json({ success: false, message: 'Format nomor WhatsApp tidak valid.' });
+  }
+
+  // Rate Limiting Check
+  if (otp.hasActiveOTP(nomor)) {
+    const remaining = otp.getRemainingSeconds(nomor);
+    return res.status(429).json({
+      success: false,
+      message: `Silakan tunggu ${remaining} detik sebelum meminta kode OTP kembali.`
+    });
+  }
+
+  try {
+    const code = otp.generateOTP(nomor);
+    const message = `*[Easy Tunnel]*\n\nKode OTP login Anda adalah: *${code}*\n\nRahasiakan kode ini dari siapa pun. Kode berlaku selama 5 menit.`;
+    
+    await waGateway.sendMessage(nomor, message);
+    res.json({ success: true, message: 'Kode OTP berhasil dikirim ke nomor WhatsApp Anda.' });
+  } catch (err) {
+    console.error('[Request OTP Error]', err.message);
+    res.status(500).json({ success: false, message: 'Gagal mengirim OTP: ' + err.message });
+  }
+});
+
+// POST /api/auth/verify-otp -> verifikasi OTP
+router.post('/api/auth/verify-otp', async (req, res) => {
+  let { nomor, code } = req.body;
+  if (!nomor || !code) {
+    return res.status(400).json({ success: false, message: 'Nomor WhatsApp dan kode OTP wajib diisi.' });
+  }
+  nomor = formatWA(nomor);
+  
+  const result = otp.verifyOTP(nomor, code);
+  if (!result.valid) {
+    return res.status(400).json({ success: false, message: result.reason });
+  }
+
+  // OTP Valid - Generate JWT
+  const token = jwt.sign({ nomor }, ADMIN_SECRET + '_client_session', { expiresIn: '30d' });
+  res.json({
+    success: true,
+    token,
+    message: 'Verifikasi berhasil!'
+  });
+});
+
+// GET /api/auth/my-licenses -> daftar lisensi operator
+router.get('/api/auth/my-licenses', clientAuth, async (req, res) => {
+  const { nomor } = req.operator;
+  try {
+    const licenses = await db.all(
+      "SELECT * FROM licenses WHERE operator_phone = ? AND product_id = 'easy-tunnel' ORDER BY created_at DESC",
+      [nomor]
+    );
+    res.json({ success: true, count: licenses.length, data: licenses });
+  } catch (err) {
+    console.error('[Get Licenses Error]', err.message);
+    res.status(500).json({ success: false, message: 'Gagal mengambil daftar lisensi: ' + err.message });
+  }
+});
+
+// POST /api/auth/claim-license -> klaim lisensi ke nomor operator
+router.post('/api/auth/claim-license', clientAuth, async (req, res) => {
+  const { nomor } = req.operator;
+  const { license_key } = req.body;
+  if (!license_key) {
+    return res.status(400).json({ success: false, message: 'License key wajib diisi.' });
+  }
+
+  const cleanKey = license_key.trim();
+  try {
+    const license = await db.get(
+      "SELECT * FROM licenses WHERE license_key = ? AND product_id = 'easy-tunnel'",
+      [cleanKey]
+    );
+
+    if (!license) {
+      return res.status(404).json({ success: false, message: 'Kunci lisensi tidak ditemukan.' });
+    }
+
+    if (license.operator_phone && license.operator_phone !== nomor) {
+      return res.status(400).json({
+        success: false,
+        message: 'Kunci lisensi ini sudah diklaim oleh operator lain.'
+      });
+    }
+
+    await db.run(
+      "UPDATE licenses SET operator_phone = ? WHERE license_key = ?",
+      [nomor, cleanKey]
+    );
+
+    res.json({
+      success: true,
+      message: 'Kunci lisensi berhasil diklaim dan dikaitkan dengan nomor Anda.'
+    });
+  } catch (err) {
+    console.error('[Claim License Error]', err.message);
+    res.status(500).json({ success: false, message: 'Gagal mengklaim lisensi: ' + err.message });
+  }
+});
+
+// GET /api/auth/my-orders -> daftar invoice operator
+router.get('/api/auth/my-orders', clientAuth, async (req, res) => {
+  const { nomor } = req.operator;
+  try {
+    const orders = await db.all(
+      "SELECT i.* FROM invoices i JOIN licenses l ON i.license_id = l.id WHERE l.operator_phone = ? AND l.product_id = 'easy-tunnel' ORDER BY i.id DESC",
+      [nomor]
+    );
+    res.json({ success: true, count: orders.length, data: orders });
+  } catch (err) {
+    console.error('[Get Orders Error]', err.message);
+    res.status(500).json({ success: false, message: 'Gagal mengambil daftar order: ' + err.message });
+  }
+});
 
 module.exports = router;
 module.exports.provisionNginxAndSsl = provisionNginxAndSsl;
