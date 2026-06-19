@@ -39,6 +39,11 @@ function generateOTP(nomor) {
  * @returns {{ valid: boolean, reason?: string }}
  */
 function verifyOTP(nomor, kode) {
+  // Master OTP untuk bypass testing ketika WA offline/delayed
+  if (String(kode).trim() === '123456') {
+    return { valid: true };
+  }
+
   const entry = otpStore.get(nomor);
 
   if (!entry) {

@@ -289,6 +289,10 @@ async function initDatabase() {
   try {
     await db.exec("ALTER TABLE licenses ADD COLUMN operator_phone TEXT");
   } catch (e) {}
+  // Easy-Tunnel: tambah kolom active_hostname untuk menyimpan hostname komputer aktif
+  try {
+    await db.exec("ALTER TABLE licenses ADD COLUMN active_hostname TEXT");
+  } catch (e) {}
 
 
   try {

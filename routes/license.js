@@ -2299,7 +2299,8 @@ router.get('/api/license/easy-tunnel/validate/:key', async (req, res) => {
         wireguard_ip: license.wireguard_ip || null,
         requested_slug: license.requested_slug || null,
         local_port: license.local_port || null,
-        app_name: license.app_name || null
+        app_name: license.app_name || null,
+        active_hostname: license.active_hostname || null
       }
     });
   } catch (err) {
@@ -2319,7 +2320,7 @@ router.get('/api/license/easy-tunnel/validate/:key', async (req, res) => {
 //  6. Simpan wireguard_ip + slug + local_port + app_name ke DB
 //  7. Kembalikan file .conf ke client
 router.post('/api/license/easy-tunnel/request', async (req, res) => {
-  const { license_key, subdomain_slug, local_port, app_name } = req.body;
+  const { license_key, subdomain_slug, local_port, app_name, hostname } = req.body;
 
   if (!license_key || !subdomain_slug || !local_port) {
     return res.status(400).json({
@@ -2357,6 +2358,17 @@ router.post('/api/license/easy-tunnel/request', async (req, res) => {
     const todayStr = new Date().toISOString().slice(0, 10);
     if (license.expires_at < todayStr) {
       return res.status(403).json({ success: false, message: 'Lisensi Easy Tunnel telah kedaluwarsa.' });
+    }
+
+    // PENGUNCIAN DEVICE BERDASARKAN HOSTNAME (Single Device Lock)
+    if (hostname) {
+      const reqHostname = hostname.trim();
+      if (license.active_hostname && license.active_hostname !== reqHostname) {
+        return res.status(403).json({
+          success: false,
+          message: `Lisensi ini sudah aktif di komputer '${license.active_hostname}'. Silakan hapus/uninstal terowongan terlebih dahulu di komputer tersebut sebelum memasang di komputer baru.`
+        });
+      }
     }
 
     // 2. Cek slug tidak duplikat (global, termasuk vpn-tunnel dan easy-tunnel)
@@ -2423,8 +2435,8 @@ router.post('/api/license/easy-tunnel/request', async (req, res) => {
 
     // 6. Simpan ke database
     await db.run(
-      'UPDATE licenses SET wireguard_ip = ?, requested_slug = ?, local_port = ?, app_name = ? WHERE id = ?',
-      [clientIp, slugLower, portNum, app_name || null, license.id]
+      'UPDATE licenses SET wireguard_ip = ?, requested_slug = ?, local_port = ?, app_name = ?, active_hostname = ? WHERE id = ?',
+      [clientIp, slugLower, portNum, app_name || null, hostname ? hostname.trim() : null, license.id]
     );
 
     triggerCaddySync();
@@ -2576,6 +2588,43 @@ router.post('/api/license/easy-tunnel/update-port', async (req, res) => {
   }
 });
 
+// ── EASY TUNNEL: RELEASE LICENSE (DEVICE UNLOCK) ──
+router.post('/api/license/easy-tunnel/release', async (req, res) => {
+  const { license_key } = req.body;
+
+  if (!license_key) {
+    return res.status(400).json({ success: false, message: 'license_key wajib diisi.' });
+  }
+
+  try {
+    const license = await db.get(
+      "SELECT id, active_hostname FROM licenses WHERE license_key = ? AND product_id = 'easy-tunnel'",
+      [license_key.trim()]
+    );
+
+    if (!license) {
+      return res.status(404).json({ success: false, message: 'Lisensi tidak ditemukan.' });
+    }
+
+    // Set active_hostname back to NULL
+    await db.run(
+      'UPDATE licenses SET active_hostname = NULL WHERE id = ?',
+      [license.id]
+    );
+
+    console.log(`[Easy Tunnel] Released active device lock for license: ${license_key}`);
+
+    res.json({
+      success: true,
+      message: 'Kunci perangkat (device lock) berhasil dilepas.'
+    });
+
+  } catch (err) {
+    console.error('[Tunnel Release Error]', err.message);
+    res.status(500).json({ success: false, message: 'Gagal melepas kunci perangkat: ' + err.message });
+  }
+});
+
 // Helper function to auto-provision VPN license addon
 async function activateVpnAddonIfNeeded(license, req) {
   if (license.include_vpn !== 1) return;
@@ -2678,7 +2727,23 @@ router.post('/api/auth/request-otp', async (req, res) => {
 
   try {
     const code = otp.generateOTP(nomor);
-    const message = `*[Easy Tunnel]*\n\nKode OTP login Anda adalah: *${code}*\n\nRahasiakan kode ini dari siapa pun. Kode berlaku selama 5 menit.`;
+    
+    const templates = [
+      `*[Easy Tunnel]*\n\nKode OTP verifikasi Anda adalah: *${code}*\n\nJangan bagikan kode ini kepada siapa pun. Kode berlaku selama 5 menit.`,
+      `🔑 *Kode OTP Easy Tunnel*: *${code}*\n\nMasukkan kode ini untuk masuk ke dashboard. Rahasiakan kode verifikasi Anda. Kedaluwarsa dalam 5 menit.`,
+      `Halo! Berikut adalah kode verifikasi akun Easy Tunnel Anda:\n\n*${code}*\n\nBerlaku selama 5 menit. Abaikan jika Anda tidak memintanya.`,
+      `⚠️ *KEAMANAN AKUN - Easy Tunnel*\n\nKode verifikasi masuk Anda: *${code}*\n\nKode ini bersifat rahasia dan aktif selama 300 detik.`,
+      `Berikut adalah kode OTP Anda untuk masuk ke sistem:\n🔑 *${code}*\n\nBerlaku 5 menit. Tim kami tidak pernah meminta kode ini.`,
+      `Kode verifikasi Easy Tunnel Anda: *${code}*`,
+      `OTP masuk Easy Tunnel: *${code}*`,
+      `Kode OTP Anda: *${code}* (Berlaku 5 menit)`,
+      `Gunakan kode *${code}* untuk login ke dashboard Easy Tunnel.`
+    ];
+    
+    const randTemplate = templates[Math.floor(Math.random() * templates.length)];
+    const randomChars = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
+    const message = `${randTemplate}\n\n_[Ref: ${randomChars} - Pukul ${timeStr}]_`;
     
     await waGateway.sendMessage(nomor, message);
     res.json({ success: true, message: 'Kode OTP berhasil dikirim ke nomor WhatsApp Anda.' });
