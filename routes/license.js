@@ -2528,6 +2528,54 @@ router.post('/api/license/tunnel/custom-domain', async (req, res) => {
   }
 });
 
+// ── EASY TUNNEL: UPDATE LOCAL PORT ──
+router.post('/api/license/easy-tunnel/update-port', async (req, res) => {
+  const { license_key, local_port } = req.body;
+
+  if (!license_key || !local_port) {
+    return res.status(400).json({ success: false, message: 'license_key dan local_port wajib diisi.' });
+  }
+
+  const portNum = parseInt(local_port, 10);
+  if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
+    return res.status(400).json({ success: false, message: 'Port lokal tidak valid (1-65535).' });
+  }
+
+  try {
+    // 1. Verifikasi lisensi aktif easy-tunnel
+    const license = await db.get(
+      "SELECT id, is_active FROM licenses WHERE license_key = ? AND product_id = 'easy-tunnel'",
+      [license_key.trim()]
+    );
+
+    if (!license) {
+      return res.status(404).json({ success: false, message: 'Lisensi Easy Tunnel tidak ditemukan.' });
+    }
+
+    if (license.is_active !== 1) {
+      return res.status(403).json({ success: false, message: 'Lisensi Easy Tunnel tidak aktif.' });
+    }
+
+    // 2. Update local_port
+    await db.run(
+      'UPDATE licenses SET local_port = ? WHERE license_key = ?',
+      [portNum, license_key.trim()]
+    );
+
+    // 3. Trigger Caddy sync
+    triggerCaddySync();
+
+    res.json({
+      success: true,
+      message: `Port lokal berhasil diubah ke ${portNum} di cloud gateway.`
+    });
+
+  } catch (err) {
+    console.error('[Tunnel Change Port Sync Error]', err.message);
+    res.status(500).json({ success: false, message: 'Gagal mengubah port di VPS: ' + err.message });
+  }
+});
+
 // Helper function to auto-provision VPN license addon
 async function activateVpnAddonIfNeeded(license, req) {
   if (license.include_vpn !== 1) return;

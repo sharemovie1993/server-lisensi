@@ -72,7 +72,7 @@ async function run() {
     });
 
     const activeLicenses = await db.all(
-      `SELECT license_key, requested_slug, wireguard_ip, custom_domain FROM licenses 
+      `SELECT license_key, requested_slug, wireguard_ip, custom_domain, product_id, local_port FROM licenses 
        WHERE is_active = 1 AND wireguard_ip IS NOT NULL AND wireguard_ip != ''`
     );
 
@@ -145,7 +145,9 @@ async function run() {
           upstreams.push({
             slug: lic.requested_slug,
             domains,
-            wireguard_ip: lic.wireguard_ip
+            wireguard_ip: lic.wireguard_ip,
+            product_id: lic.product_id,
+            local_port: lic.local_port
           });
         }
       }
@@ -200,7 +202,15 @@ pos.absenta.id {
       const ports = PORT_EXCEPTIONS[up.slug.toLowerCase()] || { backend: 5002, frontend: 5174 };
       const domainListStr = up.domains.join(', ');
 
-      caddyfile += `
+      if (up.product_id === 'easy-tunnel') {
+        caddyfile += `
+# Tenant: ${up.slug} (Easy Tunnel)
+${domainListStr} {
+    reverse_proxy * http://${up.wireguard_ip}:${up.local_port || 5002}
+}
+`;
+      } else {
+        caddyfile += `
 # Tenant: ${up.slug}
 ${domainListStr} {
     # Route backend API
@@ -210,6 +220,7 @@ ${domainListStr} {
     reverse_proxy * http://${up.wireguard_ip}:${ports.frontend}
 }
 `;
+      }
     });
 
     // Write to Caddyfile
