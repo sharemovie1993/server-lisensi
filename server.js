@@ -81,6 +81,44 @@ async function checkExpirations() {
     for (const lic of warningLicenses) {
       console.log(`[CRON] WARNING: License ${lic.license_key} for ${lic.school_name} expires soon on ${lic.expires_at}.`);
       await logLicenseActivity(lic.license_key, lic.product_id, null, 'system', 'CRON_WARN_EXPIRING_SOON');
+
+      // Kirim Notifikasi WhatsApp Otomatis jika sisa hari <= 3 hari
+      const expDate = new Date(lic.expires_at);
+      const today = new Date();
+      const d1 = Date.UTC(expDate.getFullYear(), expDate.getMonth(), expDate.getDate());
+      const d2 = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+      const diffDays = Math.floor((d1 - d2) / (1000 * 60 * 60 * 24));
+
+      if (diffDays >= 0 && diffDays <= 3 && lic.operator_phone) {
+        // Cek apakah hari ini sudah pernah kirim WA warning untuk lisensi ini
+        const todayStart = currentDate + ' 00:00:00';
+        const todayEnd = currentDate + ' 23:59:59';
+        const alreadySent = await db.get(
+          "SELECT id FROM license_logs WHERE license_key = ? AND status = 'WA_WARN_EXPIRING_SOON' AND timestamp >= ? AND timestamp <= ?",
+          [lic.license_key, todayStart, todayEnd]
+        );
+
+        if (!alreadySent) {
+          try {
+            const formattedExp = expDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+            let productName = lic.product_id === 'easy-tunnel' ? 'Easy Tunnel Gateway' : 'Absenta Service';
+
+            const message = `⚠️ *[PERINGATAN LAYANAN ${productName.toUpperCase()}]*\n\n` +
+              `Yth. Operator *${lic.school_name}*,\n` +
+              `Lisensi Anda dengan kunci:\n` +
+              `🔑 \`${lic.license_key}\`\n\n` +
+              `akan *KEDALUWARSA* dalam *${diffDays === 0 ? 'Hari ini' : `${diffDays} hari lagi`}* (pada tanggal *${formattedExp}*).\n\n` +
+              `Silakan lakukan perpanjangan lisensi agar koneksi tunnel Anda tetap berjalan lancar tanpa hambatan.\n\n` +
+              `Terima kasih.`;
+
+            await waGateway.sendMessage(lic.operator_phone, message);
+            await logLicenseActivity(lic.license_key, lic.product_id, null, 'system', 'WA_WARN_EXPIRING_SOON');
+            console.log(`[CRON] WA notification sent successfully to ${lic.operator_phone} for license ${lic.license_key}`);
+          } catch (waErr) {
+            console.error(`[CRON] Gagal kirim WA warning ke ${lic.operator_phone}:`, waErr.message);
+          }
+        }
+      }
     }
     
     console.log(`[CRON] Expiration check complete. Expired: ${expiredLicenses.length}, Expiring Soon (7d): ${warningLicenses.length}`);
