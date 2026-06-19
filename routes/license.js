@@ -346,12 +346,57 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
       }
     }
 
-    let basePrice = parseInt(plan.price.replace(/[^\d]/g, ''), 10) || 299000;
+    let basePrice = parseInt(plan.price.replace(/[^\d]/g, ''), 10) || 0;
     if (vpnPrice > 0) {
       basePrice += vpnPrice;
     }
+
     const randomPrefix = Math.floor(1000 + Math.random() * 9000);
     const invoiceNumber = `INV-ORK-${randomPrefix}-${new Date().getFullYear()}`;
+
+    // ──────── MANAJEMEN PRODUK GRATIS (REGISTRASI SAJA) ────────
+    if (basePrice === 0 || prodId === 'platform-absenta') {
+      await db.run(
+        "INSERT INTO licenses (license_key, product_id, school_name, device_limit, is_unlimited, expires_at, status, is_active, plan_id, requested_slug, requested_supabase_url, requested_supabase_anon_key, is_recovery, include_vpn) VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, ?, ?, ?, ?)",
+        [newKey, prodId, school_name.trim(), limit, isUnlimited, expiresStr, plan.id, requested_slug || null, requested_supabase_url || null, requested_supabase_anon_key || null, isRecovery, vpnPlan ? 1 : 0]
+      );
+
+      const insertedLicense = await db.get("SELECT id FROM licenses WHERE license_key = ?", [newKey]);
+      const licenseId = insertedLicense ? insertedLicense.id : null;
+
+      await db.run(
+        "INSERT INTO subscriptions (license_id, school_name, product_id, plan_id, status) VALUES (?, ?, ?, ?, 'pending')",
+        [licenseId, school_name.trim(), prodId, plan.id]
+      );
+
+      await db.run(
+        "INSERT INTO invoices (invoice_number, license_id, school_name, product_id, plan_title, amount, status, payment_method, payment_instructions, expired_time, paid_at) VALUES (?, ?, ?, ?, ?, 0, 'paid', 'Gateway', ?, ?, (datetime('now', 'localtime')))",
+        [
+          invoiceNumber,
+          licenseId,
+          school_name.trim(),
+          prodId,
+          plan.title,
+          JSON.stringify([{ title: "Registrasi Berhasil", steps: ["Lisensi Anda telah terdaftar sebagai produk Platform-Absenta.", "Status: Menunggu Persetujuan Admin.", "Anda dapat langsung mengaktifkan lisensi ini di dashboard admin."] }]),
+          Math.floor(Date.now() / 1000) + (365 * 24 * 3600)
+        ]
+      );
+
+      await logLicenseActivity(newKey, prodId, null, req.ip, 'REQUEST_FREE_REGISTRATION_SUCCESS');
+
+      return res.json({
+        success: true,
+        message: 'Registrasi Platform-Absenta berhasil. Silakan hubungi admin untuk aktivasi (Tanpa Bukti Bayar).',
+        data: {
+          license_key: newKey,
+          invoice_number: invoiceNumber,
+          amount: 0,
+          payment_method: 'Free Registration',
+          status: 'pending_approval',
+          is_free_product: true
+        }
+      });
+    }
 
     // ──────── MANAJEMEN TRANSAKSI MANUAL ────────
     if (payment_method === 'manual' || payment_method === 'Manual') {
@@ -2215,6 +2260,219 @@ PersistentKeepalive = 25
   } catch (err) {
     console.error('[VPN Tunnel Request Error]', err);
     res.status(500).json({ success: false, message: 'Gagal memproses pembuatan VPN Tunnel: ' + err.message });
+  }
+});
+
+// ── EASY TUNNEL: GET PACKAGES ──
+router.get('/api/license/easy-tunnel/packages', async (req, res) => {
+  try {
+    const plans = await db.all("SELECT * FROM pricing_plans WHERE product_id = 'easy-tunnel' ORDER BY id ASC");
+    res.json({ success: true, data: plans });
+  } catch (err) {
+    console.error('[Easy Tunnel Packages Error]', err);
+    res.status(500).json({ success: false, message: 'Gagal mengambil paket Easy Tunnel.' });
+  }
+});
+
+// ── EASY TUNNEL: VALIDATE LICENSE KEY ──
+router.get('/api/license/easy-tunnel/validate/:key', async (req, res) => {
+  const { key } = req.params;
+  try {
+    const license = await db.get(
+      "SELECT * FROM licenses WHERE license_key = ? AND is_active = 1 AND product_id = 'easy-tunnel'",
+      [key.trim()]
+    );
+    if (!license) {
+      return res.status(404).json({ success: false, message: 'Kunci lisensi Easy Tunnel tidak ditemukan atau tidak aktif.' });
+    }
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const expired = license.expires_at < todayStr;
+    if (expired) {
+      return res.status(403).json({ success: false, message: 'Lisensi Easy Tunnel telah kedaluwarsa.' });
+    }
+    res.json({
+      success: true,
+      data: {
+        license_key: license.license_key,
+        school_name: license.school_name,
+        expires_at: license.expires_at,
+        wireguard_ip: license.wireguard_ip || null,
+        requested_slug: license.requested_slug || null,
+        local_port: license.local_port || null,
+        app_name: license.app_name || null
+      }
+    });
+  } catch (err) {
+    console.error('[Easy Tunnel Validate Error]', err);
+    res.status(500).json({ success: false, message: 'Gagal memvalidasi lisensi Easy Tunnel.' });
+  }
+});
+
+// ── EASY TUNNEL: REQUEST TUNNEL CONFIG (ENDPOINT TERPISAH) ──
+// Dipanggil oleh aplikasi Project-Easy-Tunnel setelah license key aktif.
+// Workflow:
+//  1. Verifikasi license key (product_id = 'easy-tunnel')
+//  2. Cek slug tidak duplikat
+//  3. Assign WireGuard IP dari pool (10.0.0.10+)
+//  4. Generate keypair WireGuard
+//  5. Hot-add peer via add-wg-peer.sh
+//  6. Simpan wireguard_ip + slug + local_port + app_name ke DB
+//  7. Kembalikan file .conf ke client
+router.post('/api/license/easy-tunnel/request', async (req, res) => {
+  const { license_key, subdomain_slug, local_port, app_name } = req.body;
+
+  if (!license_key || !subdomain_slug || !local_port) {
+    return res.status(400).json({
+      success: false,
+      message: 'license_key, subdomain_slug, dan local_port wajib diisi.'
+    });
+  }
+
+  try {
+    const slugLower = subdomain_slug.trim().toLowerCase();
+    if (!/^[a-z0-9-]+$/.test(slugLower)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Subdomain slug hanya boleh huruf kecil, angka, dan strip (-).'
+      });
+    }
+
+    const portNum = parseInt(local_port, 10);
+    if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
+      return res.status(400).json({ success: false, message: 'Port lokal tidak valid (1-65535).' });
+    }
+
+    // 1. Verifikasi lisensi aktif easy-tunnel
+    const license = await db.get(
+      "SELECT * FROM licenses WHERE license_key = ? AND is_active = 1 AND product_id = 'easy-tunnel'",
+      [license_key.trim()]
+    );
+    if (!license) {
+      return res.status(403).json({
+        success: false,
+        message: 'Lisensi Easy Tunnel tidak ditemukan atau tidak aktif.'
+      });
+    }
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    if (license.expires_at < todayStr) {
+      return res.status(403).json({ success: false, message: 'Lisensi Easy Tunnel telah kedaluwarsa.' });
+    }
+
+    // 2. Cek slug tidak duplikat (global, termasuk vpn-tunnel dan easy-tunnel)
+    const existingSlug = await db.get(
+      "SELECT id, school_name FROM licenses WHERE requested_slug = ? AND id != ?",
+      [slugLower, license.id]
+    );
+    if (existingSlug) {
+      return res.status(400).json({
+        success: false,
+        message: `Subdomain '${slugLower}' sudah digunakan oleh instansi lain. Silakan pilih subdomain yang berbeda.`
+      });
+    }
+
+    // 3. Assign IP — gunakan IP yang sudah ada jika key ini sudah pernah request
+    let clientIp = license.wireguard_ip;
+    if (!clientIp) {
+      const activeIps = await db.all('SELECT wireguard_ip FROM licenses WHERE wireguard_ip IS NOT NULL');
+      let maxOctet = 9;
+      activeIps.forEach(row => {
+        const parts = row.wireguard_ip.split('.');
+        if (parts.length === 4) {
+          const octet = parseInt(parts[3], 10);
+          if (!isNaN(octet) && octet > maxOctet) maxOctet = octet;
+        }
+      });
+      clientIp = `10.0.0.${maxOctet + 1}`;
+    }
+
+    // 4. Generate WireGuard keypair di server
+    const { execSync } = require('child_process');
+    const privateKey = execSync('wg genkey').toString().trim();
+    const publicKey = execSync(`echo "${privateKey}" | wg pubkey`).toString().trim();
+
+    // 5. Hot-add peer via secure sudo script
+    const safeSchoolName = (license.school_name || '').replace(/[^a-zA-Z0-9 ]/g, '');
+    const safeAppName = (app_name || 'EasyTunnel').replace(/[^a-zA-Z0-9 ]/g, '');
+
+    // Untuk easy-tunnel: hanya 1 port (local_port) — tidak ada "frontend port"
+    // Script add-wg-peer.sh akan buat Nginx/Caddy config untuk single port
+    const execCmd = `sudo /usr/local/bin/add-wg-peer.sh "${safeSchoolName} - ${safeAppName}" "${publicKey}" "${clientIp}" "${slugLower}" "${portNum}" "${portNum}"`;
+
+    console.log(`[Easy Tunnel] Running system command: ${execCmd}`);
+    execSync(execCmd);
+
+    // 5b. Pastikan aturan isolasi firewall client-to-client aktif
+    try {
+      execSync(
+        'sudo iptables -C FORWARD -i wg0 -o wg0 -m iprange --src-range 10.0.0.10-10.0.0.254 -j REJECT --reject-with icmp-port-unreachable',
+        { stdio: 'ignore' }
+      );
+    } catch (checkErr) {
+      try {
+        execSync(
+          'sudo iptables -A FORWARD -i wg0 -o wg0 -m iprange --src-range 10.0.0.10-10.0.0.254 -j REJECT --reject-with icmp-port-unreachable && ' +
+          'sudo iptables -A FORWARD -i wg0 -o wg0 -m iprange --dst-range 10.0.0.10-10.0.0.254 -j REJECT --reject-with icmp-port-unreachable'
+        );
+        execSync("if [ -d /etc/iptables ]; then sudo sh -c 'iptables-save > /etc/iptables/rules.v4'; fi", { stdio: 'ignore' });
+        console.log('[Easy Tunnel] Firewall isolation rules applied.');
+      } catch (applyErr) {
+        console.warn('[Easy Tunnel WARNING] Failed to apply iptables rules:', applyErr.message);
+      }
+    }
+
+    // 6. Simpan ke database
+    await db.run(
+      'UPDATE licenses SET wireguard_ip = ?, requested_slug = ?, local_port = ?, app_name = ? WHERE id = ?',
+      [clientIp, slugLower, portNum, app_name || null, license.id]
+    );
+
+    triggerCaddySync();
+
+    // 7. Generate konfigurasi WireGuard client
+    // Baca server public key dari file (jika ada) atau gunakan hardcoded
+    let serverPublicKey = 'SP47bTGqXxN4Qqe2DewpONtYEOh2qcXPTj7dt1g1x2o=';
+    try {
+      const fs = require('fs');
+      if (fs.existsSync('/etc/wireguard/publickey')) {
+        serverPublicKey = fs.readFileSync('/etc/wireguard/publickey', 'utf8').trim();
+      }
+    } catch (e) {}
+
+    const serverEndpoint = process.env.VPS_IP || '103.129.148.127';
+    const clientConfig = `[Interface]
+PrivateKey = ${privateKey}
+Address = ${clientIp}/24
+DNS = 1.1.1.1
+
+[Peer]
+PublicKey = ${serverPublicKey}
+Endpoint = ${serverEndpoint}:51820
+AllowedIPs = 10.0.0.0/24
+PersistentKeepalive = 25
+`;
+
+    console.log(`[Easy Tunnel] Tunnel created: ${slugLower}.absenta.id → ${clientIp}:${portNum} (App: ${app_name})`);
+
+    res.json({
+      success: true,
+      message: 'Easy Tunnel WireGuard berhasil dibuat.',
+      data: {
+        license_key,
+        client_ip: clientIp,
+        subdomain: `${slugLower}.absenta.id`,
+        local_port: portNum,
+        app_name: app_name || null,
+        config: clientConfig
+      }
+    });
+
+  } catch (err) {
+    console.error('[Easy Tunnel Request Error]', err);
+    res.status(500).json({
+      success: false,
+      message: 'Gagal memproses Easy Tunnel: ' + err.message
+    });
   }
 });
 

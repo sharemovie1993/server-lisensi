@@ -277,6 +277,15 @@ async function initDatabase() {
     await db.exec("ALTER TABLE invoices ADD COLUMN payment_proof TEXT");
   } catch (e) {}
 
+  // Easy-Tunnel: tambah kolom local_port untuk menyimpan port aplikasi lokal setiap tunnel
+  try {
+    await db.exec("ALTER TABLE licenses ADD COLUMN local_port INTEGER DEFAULT 5002");
+  } catch (e) {}
+  // Easy-Tunnel: tambah kolom app_name untuk label nama aplikasi (e.g. 'Dapodik', 'E-Rapor')
+  try {
+    await db.exec("ALTER TABLE licenses ADD COLUMN app_name TEXT");
+  } catch (e) {}
+
   try {
     await db.exec("ALTER TABLE products ADD COLUMN key_prefix TEXT");
   } catch (e) {}
@@ -315,6 +324,15 @@ async function initDatabase() {
     console.log('[SEED] Registered VPN Tunneling product.');
   } else {
     await db.run("UPDATE products SET key_prefix = 'VPN', display_name = 'VPN Tunneling Gateway', capacity_label = 'Bandwidth Tanpa Batas' WHERE id = 'vpn-tunnel'");
+  }
+
+  // Ensure easy-tunnel product exists
+  const easyTunnelProd = await db.get("SELECT id FROM products WHERE id = 'easy-tunnel'");
+  if (!easyTunnelProd) {
+    await db.run("INSERT INTO products (id, name, description, key_prefix, display_name, capacity_label) VALUES ('easy-tunnel', 'Easy Tunnel', 'Layanan terowongan VPN untuk mengekspos layanan lokal (Dapodik, E-Rapor, dll) ke internet secara publik', 'ETN', 'Easy Tunnel Gateway', '1 Port per Aplikasi')");
+    console.log('[SEED] Registered Easy Tunnel product.');
+  } else {
+    await db.run("UPDATE products SET key_prefix = 'ETN', display_name = 'Easy Tunnel Gateway', capacity_label = '1 Port per Aplikasi' WHERE id = 'easy-tunnel'");
   }
 
   // Seeding Demo License
@@ -362,6 +380,11 @@ async function initDatabase() {
   await db.run("INSERT INTO pricing_plans (id, product_id, title, price, duration, device_limit, is_unlimited, badge) VALUES ('vpn_monthly', 'vpn-tunnel', 'VPN Tunneling Bulanan', 'Rp 50.000', '30 Hari', 1, 0, null)");
   await db.run("INSERT INTO pricing_plans (id, product_id, title, price, duration, device_limit, is_unlimited, badge) VALUES ('vpn_semester', 'vpn-tunnel', 'VPN Tunneling Semester', 'Rp 250.000', '180 Hari', 1, 0, 'Terpopuler')");
   await db.run("INSERT INTO pricing_plans (id, product_id, title, price, duration, device_limit, is_unlimited, badge) VALUES ('vpn_annual', 'vpn-tunnel', 'VPN Tunneling Tahunan', 'Rp 480.000', '365 Hari', 1, 0, 'Terbaik')");
+
+  // Seed pricing plans for easy-tunnel (Rp 50.000/bulan per port/aplikasi)
+  await db.run("INSERT INTO pricing_plans (id, product_id, title, price, duration, device_limit, is_unlimited, badge) VALUES ('easy_tunnel_monthly', 'easy-tunnel', 'Easy Tunnel Bulanan', 'Rp 50.000', '30 Hari', 1, 0, null)");
+  await db.run("INSERT INTO pricing_plans (id, product_id, title, price, duration, device_limit, is_unlimited, badge) VALUES ('easy_tunnel_semester', 'easy-tunnel', 'Easy Tunnel Semester', 'Rp 250.000', '180 Hari', 1, 0, 'Hemat 17%')");
+  await db.run("INSERT INTO pricing_plans (id, product_id, title, price, duration, device_limit, is_unlimited, badge) VALUES ('easy_tunnel_annual', 'easy-tunnel', 'Easy Tunnel Tahunan', 'Rp 480.000', '365 Hari', 1, 0, 'Terbaik')");
   console.log('[SEED] Premium school-grade pricing plans seeded/refreshed successfully.');
 
   // Seeding System Settings
