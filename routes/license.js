@@ -2407,6 +2407,15 @@ router.post('/api/license/easy-tunnel/request', async (req, res) => {
     const safeSchoolName = (license.school_name || '').replace(/[^a-zA-Z0-9 ]/g, '');
     const safeAppName = (app_name || 'EasyTunnel').replace(/[^a-zA-Z0-9 ]/g, '');
 
+    // Hapus peer lama yang memiliki IP atau Public Key yang sama untuk menghindari konflik
+    try {
+      const removeCmd = `sudo python3 /var/www/licensing-server/scripts/remove-wg-peer.py "${clientIp}" "${publicKey}"`;
+      console.log(`[Easy Tunnel] Cleaning up old peers: ${removeCmd}`);
+      execSync(removeCmd);
+    } catch (cleanupErr) {
+      console.warn('[Easy Tunnel WARNING] Failed to clean up old peers:', cleanupErr.message);
+    }
+
     // Untuk easy-tunnel: hanya 1 port (local_port) — tidak ada "frontend port"
     // Script add-wg-peer.sh akan buat Nginx/Caddy config untuk single port
     const execCmd = `sudo /usr/local/bin/add-wg-peer.sh "${safeSchoolName} - ${safeAppName}" "${publicKey}" "${clientIp}" "${slugLower}" "${portNum}" "${portNum}"`;
