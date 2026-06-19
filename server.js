@@ -163,7 +163,13 @@ initDatabase().then(async () => {
     console.error('[WA GATEWAY ERROR] Gagal inisialisasi WA Gateway saat startup:', err.message);
   });
 
-  // Run checkExpirations immediately on startup
+  // Jalankan checkExpirations saat WA terhubung agar pengiriman notifikasi sukses
+  waGateway.on('connected', async (num) => {
+    console.log(`[WA] WA Gateway terhubung ke ${num}. Menjalankan checkExpirations...`);
+    await checkExpirations();
+  });
+
+  // Run checkExpirations immediately on startup (fallback)
   await checkExpirations();
   
   // Inisialisasi otomatis firewall VPN
