@@ -34,13 +34,23 @@ app.use('/', require('./routes/license'));
 // ── AUTOMATED EXPIRATION SCHEDULER (CRON JOB) ──
 async function checkExpirations() {
   console.log('[CRON] Running automatic license & subscription expiration check...');
-  const currentDate = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  
+  const nowLocal = new Date();
+  const year = nowLocal.getFullYear();
+  const month = String(nowLocal.getMonth() + 1).padStart(2, '0');
+  const date = String(nowLocal.getDate()).padStart(2, '0');
+  const hours = String(nowLocal.getHours()).padStart(2, '0');
+  const minutes = String(nowLocal.getMinutes()).padStart(2, '0');
+  const seconds = String(nowLocal.getSeconds()).padStart(2, '0');
+  
+  const currentTimestamp = `${year}-${month}-${date} ${hours}:${minutes}:${seconds}`;
+  const currentDate = `${year}-${month}-${date}`;
   
   try {
     // 1. Find newly expired active licenses
     const expiredLicenses = await db.all(
       "SELECT * FROM licenses WHERE expires_at < ? AND (status = 'active' OR is_active = 1)",
-      [currentDate]
+      [currentTimestamp]
     );
     
     for (const lic of expiredLicenses) {
@@ -60,6 +70,26 @@ async function checkExpirations() {
       
       // Audit Log
       await logLicenseActivity(lic.license_key, lic.product_id, null, 'system', 'CRON_EXPIRED');
+
+      // Kirim Notifikasi WhatsApp bahwa lisensi TELAH KEDALUWARSA
+      if (lic.operator_phone) {
+        try {
+          let productName = lic.product_id === 'easy-tunnel' ? 'Easy Tunnel Gateway' : 'Absenta Service';
+          const message = `🔴 *[PEMBERITAHUAN KEDALUWARSA ${productName.toUpperCase()}]*\n\n` +
+            `Yth. Operator *${lic.school_name}*,\n` +
+            `Lisensi Anda dengan kunci:\n` +
+            `🔑 \`${lic.license_key}\`\n\n` +
+            `telah *NONAKTIF / KEDALUWARSA* pada tanggal/waktu *${lic.expires_at}*.\n\n` +
+            `Rute tunnel Anda telah dinonaktifkan secara otomatis. Silakan lakukan perpanjangan lisensi agar layanan dapat aktif kembali.\n\n` +
+            `Terima kasih.`;
+          
+          await waGateway.sendMessage(lic.operator_phone, message);
+          await logLicenseActivity(lic.license_key, lic.product_id, null, 'system', 'WA_EXPIRED_NOTIFICATION_SENT');
+          console.log(`[CRON] WA expiration notification sent successfully to ${lic.operator_phone} for license ${lic.license_key}`);
+        } catch (waErr) {
+          console.error(`[CRON] Gagal kirim WA expiration ke ${lic.operator_phone}:`, waErr.message);
+        }
+      }
     }
 
     // Trigger Caddy sync if there were expired licenses to clean up routing
@@ -175,8 +205,8 @@ initDatabase().then(async () => {
   // Inisialisasi otomatis firewall VPN
   initVpnFirewall();
   
-  // Set interval to run checkExpirations every hour (3600000 ms)
-  setInterval(checkExpirations, 3600 * 1000);
+  // Set interval to run checkExpirations every 30 seconds (30000 ms) for quick testing
+  setInterval(checkExpirations, 30 * 1000);
 
   // Jalankan sinkronisasi APK otomatis di latar belakang dari Expo ke SSD VPS
   try {
