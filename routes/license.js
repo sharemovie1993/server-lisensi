@@ -2888,6 +2888,79 @@ router.get('/api/auth/my-licenses', clientAuth, async (req, res) => {
   }
 });
 
+// GET /api/license/easy-tunnel/check-vnc-port/:license_key -> check reachability of VNC port (5900) on WireGuard IP
+router.get('/api/license/easy-tunnel/check-vnc-port/:license_key', async (req, res) => {
+  const { license_key } = req.params;
+  if (!license_key) {
+    return res.status(400).json({ success: false, message: 'License key wajib diisi.' });
+  }
+
+  const cleanKey = license_key.trim();
+  try {
+    const license = await db.get(
+      "SELECT wireguard_ip, is_active FROM licenses WHERE license_key = ? AND product_id = 'easy-tunnel'",
+      [cleanKey]
+    );
+
+    if (!license) {
+      return res.status(404).json({ success: false, message: 'Kunci lisensi tidak ditemukan.' });
+    }
+
+    if (!license.is_active) {
+      return res.status(400).json({ success: false, message: 'Lisensi tidak aktif.' });
+    }
+
+    if (!license.wireguard_ip) {
+      return res.status(400).json({ success: false, message: 'Tunnel WireGuard belum diaktifkan (IP WireGuard kosong).' });
+    }
+
+    const net = require('net');
+    const checkTcpPort = (ip, port, timeoutMs = 2500) => {
+      return new Promise((resolve) => {
+        const socket = new net.Socket();
+        let resolved = false;
+
+        socket.setTimeout(timeoutMs);
+
+        socket.connect(port, ip, () => {
+          if (!resolved) {
+            resolved = true;
+            socket.destroy();
+            resolve(true);
+          }
+        });
+
+        socket.on('error', () => {
+          if (!resolved) {
+            resolved = true;
+            socket.destroy();
+            resolve(false);
+          }
+        });
+
+        socket.on('timeout', () => {
+          if (!resolved) {
+            resolved = true;
+            socket.destroy();
+            resolve(false);
+          }
+        });
+      });
+    };
+
+    const isReachable = await checkTcpPort(license.wireguard_ip, 5900, 2500);
+
+    return res.json({
+      success: true,
+      wireguard_ip: license.wireguard_ip,
+      reachable: isReachable
+    });
+  } catch (err) {
+    console.error('[Check VNC Port Error]', err.message);
+    res.status(500).json({ success: false, message: 'Gagal memeriksa port VNC: ' + err.message });
+  }
+});
+
 // POST /api/auth/claim-license -> klaim lisensi ke nomor operator
 router.post('/api/auth/claim-license', clientAuth, async (req, res) => {
   const { nomor } = req.operator;

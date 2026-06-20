@@ -221,12 +221,16 @@ initDatabase().then(async () => {
     console.error('[APK Sync Startup Error]', err.message);
   }
 
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`[LICENSE SERVER] SaaS Monolithic Engine running securely on port ${PORT}`);
     console.log(`[SECURITY] 2FA/2-Step Verification is active!`);
     console.log(`[SECURITY] 2FA Secret Key: ${TOTP_SECRET}`);
     console.log(`[SECURITY] Google Authenticator Setup URI: otpauth://totp/Absenta:Admin?secret=${TOTP_SECRET}&issuer=Absenta.id`);
   });
+
+  // Inisialisasi VNC WebSocket-to-TCP Proxy
+  const setupVncProxy = require('./services/vncProxy');
+  setupVncProxy(server);
 }).catch(err => {
   console.error('[DATABASE] Critical error initializing database:', err);
 });
