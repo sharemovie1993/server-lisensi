@@ -225,15 +225,37 @@ router.get('/api/license/payment-channels', async (req, res) => {
 
 // 4. Request license key creation with billing (Tripay QRIS / Bank Transfer)
 router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
-  const { school_name, device_limit, is_unlimited, product_id, plan_id, payment_method, requested_slug, requested_supabase_url, requested_supabase_anon_key, include_vpn } = req.body;
+  const { school_name, device_limit, is_unlimited, product_id, plan_id, payment_method, requested_slug, requested_supabase_url, requested_supabase_anon_key, include_vpn, renew_license_key } = req.body;
 
-  if (!school_name || device_limit === undefined || device_limit === null) {
+  let existingLicense = null;
+  let resolvedSchoolName = school_name;
+  let resolvedLimit = device_limit;
+
+  if (renew_license_key) {
+    try {
+      existingLicense = await db.get("SELECT * FROM licenses WHERE license_key = ?", [renew_license_key.trim()]);
+      if (!existingLicense) {
+        return res.status(404).json({ success: false, message: 'Lisensi yang akan diperpanjang tidak ditemukan.' });
+      }
+      resolvedSchoolName = existingLicense.school_name;
+      resolvedLimit = existingLicense.device_limit;
+    } catch (err) {
+      console.error('[License Renewal Check Error]', err);
+      return res.status(500).json({ success: false, message: 'Terjadi kesalahan sistem saat memeriksa lisensi perpanjangan.' });
+    }
+  }
+
+  if (!resolvedSchoolName || resolvedLimit === undefined || resolvedLimit === null) {
     return res.status(400).json({ success: false, message: 'Nama Sekolah dan Limit Perangkat wajib diisi.' });
   }
 
-  const prodId = product_id || 'gform-orkestrator';
-  const limit = (device_limit !== undefined && device_limit !== null) ? parseInt(device_limit, 10) : 10;
-  const isUnlimited = (is_unlimited === 1 || is_unlimited === true || limit >= 9999) ? 1 : 0;
+  const prodId = existingLicense ? existingLicense.product_id : (product_id || 'gform-orkestrator');
+  const limit = (resolvedLimit !== undefined && resolvedLimit !== null) ? parseInt(resolvedLimit, 10) : 10;
+  const isUnlimited = existingLicense ? existingLicense.is_unlimited : ((is_unlimited === 1 || is_unlimited === true || limit >= 9999) ? 1 : 0);
+  const resolvedSlug = existingLicense ? existingLicense.requested_slug : requested_slug;
+  const resolvedSupabaseUrl = existingLicense ? existingLicense.requested_supabase_url : requested_supabase_url;
+  const resolvedSupabaseAnonKey = existingLicense ? existingLicense.requested_supabase_anon_key : requested_supabase_anon_key;
+  const resolvedIncludeVpn = existingLicense ? existingLicense.include_vpn : (include_vpn === 1 || include_vpn === true || include_vpn === '1');
   
   let productPrefix = null;
   try {
@@ -244,18 +266,18 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
   } catch (e) {
     console.error('[License Request] Failed to fetch product key prefix:', e.message);
   }
-  const newKey = generateKey(prodId, productPrefix);
+  const newKey = existingLicense ? existingLicense.license_key : generateKey(prodId, productPrefix);
   
   const placeholderExpire = new Date();
   placeholderExpire.setFullYear(placeholderExpire.getFullYear() + 1);
   const expiresStr = placeholderExpire.toISOString().slice(0, 10);
 
   try {
-    let isRecovery = 0;
+    let isRecovery = existingLicense ? 1 : 0;
 
     // Validasi domain/slug yang sudah ada untuk menghindari redundansi domain registrasi
-    if (requested_slug) {
-      const cleanSlug = requested_slug.trim().toLowerCase();
+    if (resolvedSlug && !existingLicense) {
+      const cleanSlug = resolvedSlug.trim().toLowerCase();
       
       const getTenantFromSupabase = (slug) => {
         return new Promise((resolve) => {
@@ -339,7 +361,7 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
 
     let vpnPlan = null;
     let vpnPrice = 0;
-    if (include_vpn === 1 || include_vpn === true || include_vpn === '1') {
+    if (resolvedIncludeVpn) {
       vpnPlan = await db.get("SELECT * FROM pricing_plans WHERE id = 'vpn_monthly'");
       if (vpnPlan) {
         vpnPrice = parseInt(vpnPlan.price.replace(/[^\d]/g, ''), 10) || 50000;
@@ -356,29 +378,35 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
 
     // ──────── MANAJEMEN PRODUK GRATIS (REGISTRASI SAJA) ────────
     if (basePrice === 0 || prodId === 'platform-absenta') {
-      await db.run(
-        "INSERT INTO licenses (license_key, product_id, school_name, device_limit, is_unlimited, expires_at, status, is_active, plan_id, requested_slug, requested_supabase_url, requested_supabase_anon_key, is_recovery, include_vpn) VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, ?, ?, ?, ?)",
-        [newKey, prodId, school_name.trim(), limit, isUnlimited, expiresStr, plan.id, requested_slug || null, requested_supabase_url || null, requested_supabase_anon_key || null, isRecovery, vpnPlan ? 1 : 0]
-      );
+      let licenseId;
+      if (existingLicense) {
+        licenseId = existingLicense.id;
+      } else {
+        await db.run(
+          "INSERT INTO licenses (license_key, product_id, school_name, device_limit, is_unlimited, expires_at, status, is_active, plan_id, requested_slug, requested_supabase_url, requested_supabase_anon_key, is_recovery, include_vpn) VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, ?, ?, ?, ?)",
+          [newKey, prodId, resolvedSchoolName.trim(), limit, isUnlimited, expiresStr, plan.id, resolvedSlug || null, resolvedSupabaseUrl || null, resolvedSupabaseAnonKey || null, isRecovery, vpnPlan ? 1 : 0]
+        );
 
-      const insertedLicense = await db.get("SELECT id FROM licenses WHERE license_key = ?", [newKey]);
-      const licenseId = insertedLicense ? insertedLicense.id : null;
+        const insertedLicense = await db.get("SELECT id FROM licenses WHERE license_key = ?", [newKey]);
+        licenseId = insertedLicense ? insertedLicense.id : null;
+
+        await db.run(
+          "INSERT INTO subscriptions (license_id, school_name, product_id, plan_id, status) VALUES (?, ?, ?, ?, 'pending')",
+          [licenseId, resolvedSchoolName.trim(), prodId, plan.id]
+        );
+      }
 
       await db.run(
-        "INSERT INTO subscriptions (license_id, school_name, product_id, plan_id, status) VALUES (?, ?, ?, ?, 'pending')",
-        [licenseId, school_name.trim(), prodId, plan.id]
-      );
-
-      await db.run(
-        "INSERT INTO invoices (invoice_number, license_id, school_name, product_id, plan_title, amount, status, payment_method, payment_instructions, expired_time, paid_at) VALUES (?, ?, ?, ?, ?, 0, 'paid', 'Gateway', ?, ?, (datetime('now', 'localtime')))",
+        "INSERT INTO invoices (invoice_number, license_id, school_name, product_id, plan_title, amount, status, payment_method, payment_instructions, expired_time, paid_at, plan_id) VALUES (?, ?, ?, ?, ?, 0, 'paid', 'Gateway', ?, ?, (datetime('now', 'localtime')), ?)",
         [
           invoiceNumber,
           licenseId,
-          school_name.trim(),
+          resolvedSchoolName.trim(),
           prodId,
           plan.title,
           JSON.stringify([{ title: "Registrasi Berhasil", steps: ["Lisensi Anda telah terdaftar sebagai produk Platform-Absenta.", "Status: Menunggu Persetujuan Admin.", "Anda dapat langsung mengaktifkan lisensi ini di dashboard admin."] }]),
-          Math.floor(Date.now() / 1000) + (365 * 24 * 3600)
+          Math.floor(Date.now() / 1000) + (365 * 24 * 3600),
+          plan.id
         ]
       );
 
@@ -418,25 +446,30 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
         }
       ];
 
-      await db.run(
-        "INSERT INTO licenses (license_key, product_id, school_name, device_limit, is_unlimited, expires_at, status, is_active, plan_id, requested_slug, requested_supabase_url, requested_supabase_anon_key, is_recovery, include_vpn) VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, ?, ?, ?, ?)",
-        [newKey, prodId, school_name.trim(), limit, isUnlimited, expiresStr, plan.id, requested_slug || null, requested_supabase_url || null, requested_supabase_anon_key || null, isRecovery, vpnPlan ? 1 : 0]
-      );
+      let licenseId;
+      if (existingLicense) {
+        licenseId = existingLicense.id;
+      } else {
+        await db.run(
+          "INSERT INTO licenses (license_key, product_id, school_name, device_limit, is_unlimited, expires_at, status, is_active, plan_id, requested_slug, requested_supabase_url, requested_supabase_anon_key, is_recovery, include_vpn) VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, ?, ?, ?, ?)",
+          [newKey, prodId, resolvedSchoolName.trim(), limit, isUnlimited, expiresStr, plan.id, resolvedSlug || null, resolvedSupabaseUrl || null, resolvedSupabaseAnonKey || null, isRecovery, vpnPlan ? 1 : 0]
+        );
 
-      const insertedLicense = await db.get("SELECT id FROM licenses WHERE license_key = ?", [newKey]);
-      const licenseId = insertedLicense ? insertedLicense.id : null;
+        const insertedLicense = await db.get("SELECT id FROM licenses WHERE license_key = ?", [newKey]);
+        licenseId = insertedLicense ? insertedLicense.id : null;
+
+        await db.run(
+          "INSERT INTO subscriptions (license_id, school_name, product_id, plan_id, status) VALUES (?, ?, ?, ?, 'pending')",
+          [licenseId, resolvedSchoolName.trim(), prodId, plan.id]
+        );
+      }
 
       await db.run(
-        "INSERT INTO subscriptions (license_id, school_name, product_id, plan_id, status) VALUES (?, ?, ?, ?, 'pending')",
-        [licenseId, school_name.trim(), prodId, plan.id]
-      );
-
-      await db.run(
-        "INSERT INTO invoices (invoice_number, license_id, school_name, product_id, plan_title, amount, status, payment_method, payment_reference, qr_url, pay_code, payment_instructions, expired_time) VALUES (?, ?, ?, ?, ?, ?, 'unpaid', 'Manual', ?, ?, ?, ?, ?)",
+        "INSERT INTO invoices (invoice_number, license_id, school_name, product_id, plan_title, amount, status, payment_method, payment_reference, qr_url, pay_code, payment_instructions, expired_time, plan_id) VALUES (?, ?, ?, ?, ?, ?, 'unpaid', 'Manual', ?, ?, ?, ?, ?, ?)",
         [
           invoiceNumber,
           licenseId,
-          school_name.trim(),
+          resolvedSchoolName.trim(),
           prodId,
           vpnPlan ? `${plan.title} + VPN Tunnel` : plan.title,
           basePrice,
@@ -444,7 +477,8 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
           '/qris.png',
           `${bankNameRow.value} - ${bankAccNoRow.value} a/n ${bankAccNameRow.value}`,
           JSON.stringify(instructions),
-          Math.floor(Date.now() / 1000) + (48 * 3600)
+          Math.floor(Date.now() / 1000) + (48 * 3600),
+          plan.id
         ]
       );
 
@@ -478,9 +512,9 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
       const xenditPayload = {
         external_id: invoiceNumber,
         amount: basePrice,
-        description: `Lisensi CBT ${plan.title} - ${school_name.trim()}${vpnPlan ? ' + VPN Tunnel' : ''}`,
+        description: `Lisensi CBT ${plan.title} - ${resolvedSchoolName.trim()}${vpnPlan ? ' + VPN Tunnel' : ''}`,
         customer: {
-          given_names: school_name.trim(),
+          given_names: resolvedSchoolName.trim(),
           email: 'billing@absenta.id',
           mobile_number: '087779937341'
         },
@@ -506,25 +540,30 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
       }
 
       if (xenditResponseData && xenditResponseData.invoice_url) {
-        await db.run(
-          "INSERT INTO licenses (license_key, product_id, school_name, device_limit, is_unlimited, expires_at, status, is_active, plan_id, requested_slug, requested_supabase_url, requested_supabase_anon_key, is_recovery, include_vpn) VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, ?, ?, ?, ?)",
-          [newKey, prodId, school_name.trim(), limit, isUnlimited, expiresStr, plan.id, requested_slug || null, requested_supabase_url || null, requested_supabase_anon_key || null, isRecovery, vpnPlan ? 1 : 0]
-        );
+        let licenseId;
+        if (existingLicense) {
+          licenseId = existingLicense.id;
+        } else {
+          await db.run(
+            "INSERT INTO licenses (license_key, product_id, school_name, device_limit, is_unlimited, expires_at, status, is_active, plan_id, requested_slug, requested_supabase_url, requested_supabase_anon_key, is_recovery, include_vpn) VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, ?, ?, ?, ?)",
+            [newKey, prodId, resolvedSchoolName.trim(), limit, isUnlimited, expiresStr, plan.id, resolvedSlug || null, resolvedSupabaseUrl || null, resolvedSupabaseAnonKey || null, isRecovery, vpnPlan ? 1 : 0]
+          );
 
-        const insertedLicense = await db.get("SELECT id FROM licenses WHERE license_key = ?", [newKey]);
-        const licenseId = insertedLicense ? insertedLicense.id : null;
+          const insertedLicense = await db.get("SELECT id FROM licenses WHERE license_key = ?", [newKey]);
+          licenseId = insertedLicense ? insertedLicense.id : null;
+
+          await db.run(
+            "INSERT INTO subscriptions (license_id, school_name, product_id, plan_id, status) VALUES (?, ?, ?, ?, 'pending')",
+            [licenseId, resolvedSchoolName.trim(), prodId, plan.id]
+          );
+        }
 
         await db.run(
-          "INSERT INTO subscriptions (license_id, school_name, product_id, plan_id, status) VALUES (?, ?, ?, ?, 'pending')",
-          [licenseId, school_name.trim(), prodId, plan.id]
-        );
-
-        await db.run(
-          "INSERT INTO invoices (invoice_number, license_id, school_name, product_id, plan_title, amount, status, payment_method, payment_reference, qr_url, pay_code, payment_instructions, expired_time) VALUES (?, ?, ?, ?, ?, ?, 'unpaid', 'Xendit', ?, ?, ?, ?, ?)",
+          "INSERT INTO invoices (invoice_number, license_id, school_name, product_id, plan_title, amount, status, payment_method, payment_reference, qr_url, pay_code, payment_instructions, expired_time, plan_id) VALUES (?, ?, ?, ?, ?, ?, 'unpaid', 'Xendit', ?, ?, ?, ?, ?, ?)",
           [
             invoiceNumber,
             licenseId,
-            school_name.trim(),
+            resolvedSchoolName.trim(),
             prodId,
             vpnPlan ? `${plan.title} + VPN Tunnel` : plan.title,
             basePrice,
@@ -532,7 +571,8 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
             xenditResponseData.invoice_url,
             xenditResponseData.external_id,
             JSON.stringify([{ title: "Bayar dengan Xendit", steps: ["Buka tautan Invoice Xendit berikut untuk membayar:", xenditResponseData.invoice_url] }]),
-            Math.floor(Date.now() / 1000) + 86400
+            Math.floor(Date.now() / 1000) + 86400,
+            plan.id
           ]
         );
 
@@ -644,7 +684,7 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
       method: resolvedPaymentMethod,
       merchant_ref: invoiceNumber,
       amount: totalAmount,
-      customer_name: school_name.trim(),
+      customer_name: resolvedSchoolName.trim(),
       customer_email: 'billing@absenta.id',
       customer_phone: '087779937341',
       order_items: tripayOrderItems,
@@ -673,29 +713,34 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
       const tx = tripayResponseData.data;
 
       // Tripay succeeded! Safe to insert data into database
-      await db.run(
-        "INSERT INTO licenses (license_key, product_id, school_name, device_limit, is_unlimited, expires_at, status, is_active, plan_id, requested_slug, requested_supabase_url, requested_supabase_anon_key, is_recovery, include_vpn) VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, ?, ?, ?, ?)",
-        [newKey, prodId, school_name.trim(), limit, isUnlimited, expiresStr, plan.id, requested_slug || null, requested_supabase_url || null, requested_supabase_anon_key || null, isRecovery, vpnPlan ? 1 : 0]
-      );
+      let licenseId;
+      if (existingLicense) {
+        licenseId = existingLicense.id;
+      } else {
+        await db.run(
+          "INSERT INTO licenses (license_key, product_id, school_name, device_limit, is_unlimited, expires_at, status, is_active, plan_id, requested_slug, requested_supabase_url, requested_supabase_anon_key, is_recovery, include_vpn) VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, ?, ?, ?, ?)",
+          [newKey, prodId, resolvedSchoolName.trim(), limit, isUnlimited, expiresStr, plan.id, resolvedSlug || null, resolvedSupabaseUrl || null, resolvedSupabaseAnonKey || null, isRecovery, vpnPlan ? 1 : 0]
+        );
 
-      const insertedLicense = await db.get("SELECT id FROM licenses WHERE license_key = ?", [newKey]);
-      const licenseId = insertedLicense ? insertedLicense.id : null;
+        const insertedLicense = await db.get("SELECT id FROM licenses WHERE license_key = ?", [newKey]);
+        licenseId = insertedLicense ? insertedLicense.id : null;
 
-      if (!licenseId) {
-        throw new Error('Failed to retrieve inserted license ID from database.');
+        if (!licenseId) {
+          throw new Error('Failed to retrieve inserted license ID from database.');
+        }
+
+        await db.run(
+          "INSERT INTO subscriptions (license_id, school_name, product_id, plan_id, status) VALUES (?, ?, ?, ?, 'pending')",
+          [licenseId, resolvedSchoolName.trim(), prodId, plan.id]
+        );
       }
 
       await db.run(
-        "INSERT INTO subscriptions (license_id, school_name, product_id, plan_id, status) VALUES (?, ?, ?, ?, 'pending')",
-        [licenseId, school_name.trim(), prodId, plan.id]
-      );
-
-      await db.run(
-        "INSERT INTO invoices (invoice_number, license_id, school_name, product_id, plan_title, amount, status, payment_method, payment_reference, qr_url, pay_code, payment_instructions, expired_time) VALUES (?, ?, ?, ?, ?, ?, 'unpaid', ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO invoices (invoice_number, license_id, school_name, product_id, plan_title, amount, status, payment_method, payment_reference, qr_url, pay_code, payment_instructions, expired_time, plan_id) VALUES (?, ?, ?, ?, ?, ?, 'unpaid', ?, ?, ?, ?, ?, ?, ?)",
         [
           invoiceNumber,
           licenseId,
-          school_name.trim(),
+          resolvedSchoolName.trim(),
           prodId,
           vpnPlan ? `${plan.title} + VPN Tunnel` : plan.title,
           totalAmount,
@@ -704,7 +749,8 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
           tx.qr_url || null,
           tx.pay_code || null,
           JSON.stringify(tx.instructions || []),
-          tx.expired_time || null
+          tx.expired_time || null,
+          plan.id
         ]
       );
 
@@ -1174,20 +1220,23 @@ router.post('/api/license/tripay-callback', async (req, res) => {
         return res.status(404).json({ success: false, message: 'Associated license not found.' });
       }
 
-      const now = new Date();
       let days = 30;
-      
-      const planId = license.plan_id || '';
-      if (planId === 'semester' || planId === 'absenta_semester') {
+      const planId = invoice.plan_id || license.plan_id || '';
+      if (planId.includes('semester')) {
         days = 180;
-      } else if (planId === 'annual' || planId === 'absenta_annual') {
+      } else if (planId.includes('annual')) {
         days = 365;
       } else if (planId.includes('lifetime')) {
         days = 3650; // 10 years for lifetime
       }
 
-      now.setDate(now.getDate() + days);
-      const expiresStr = now.toISOString().slice(0, 10);
+      let baseDate = new Date();
+      const todayStr = baseDate.toISOString().slice(0, 10);
+      if (license.status === 'active' && license.expires_at && license.expires_at > todayStr) {
+        baseDate = new Date(license.expires_at);
+      }
+      baseDate.setDate(baseDate.getDate() + days);
+      const expiresStr = baseDate.toISOString().slice(0, 10);
 
       await db.run(
         "UPDATE invoices SET status = 'paid', paid_at = datetime('now', 'localtime') WHERE id = ?",
@@ -1195,14 +1244,21 @@ router.post('/api/license/tripay-callback', async (req, res) => {
       );
 
       await db.run(
-        "UPDATE licenses SET status = 'active', is_active = 1, expires_at = ? WHERE id = ?",
-        [expiresStr, license.id]
+        "UPDATE licenses SET status = 'active', is_active = 1, expires_at = ?, plan_id = ? WHERE id = ?",
+        [expiresStr, planId, license.id]
       );
 
       await db.run(
-        "UPDATE subscriptions SET status = 'active', start_date = datetime('now', 'localtime'), end_date = ? WHERE license_id = ?",
-        [expiresStr, license.id]
+        "UPDATE subscriptions SET status = 'active', plan_id = ?, end_date = ?, updated_at = (datetime('now', 'localtime')) WHERE license_id = ?",
+        [planId, expiresStr, license.id]
       );
+
+      if (license.status !== 'active' || !license.expires_at || license.expires_at <= todayStr) {
+        await db.run(
+          "UPDATE subscriptions SET start_date = datetime('now', 'localtime') WHERE license_id = ?",
+          [license.id]
+        );
+      }
 
       await logLicenseActivity(license.license_key, license.product_id, null, req.ip, 'TRIPAY_CALLBACK_PAID');
       console.log(`[TRIPAY Webhook] Successfully activated license key: ${license.license_key} for school: ${license.school_name}. Duration: ${days} days (Expires: ${expiresStr}).`);
@@ -1442,20 +1498,23 @@ router.post('/api/license/xendit-callback', async (req, res) => {
         return res.status(404).json({ success: false, message: 'Associated license not found.' });
       }
 
-      const now = new Date();
       let days = 30;
-      
-      const planId = license.plan_id || '';
-      if (planId === 'semester' || planId === 'absenta_semester') {
+      const planId = invoice.plan_id || license.plan_id || '';
+      if (planId.includes('semester')) {
         days = 180;
-      } else if (planId === 'annual' || planId === 'absenta_annual') {
+      } else if (planId.includes('annual')) {
         days = 365;
       } else if (planId.includes('lifetime')) {
         days = 3650; // 10 years for lifetime
       }
 
-      now.setDate(now.getDate() + days);
-      const expiresStr = now.toISOString().slice(0, 10);
+      let baseDate = new Date();
+      const todayStr = baseDate.toISOString().slice(0, 10);
+      if (license.status === 'active' && license.expires_at && license.expires_at > todayStr) {
+        baseDate = new Date(license.expires_at);
+      }
+      baseDate.setDate(baseDate.getDate() + days);
+      const expiresStr = baseDate.toISOString().slice(0, 10);
 
       await db.run(
         "UPDATE invoices SET status = 'paid', paid_at = datetime('now', 'localtime') WHERE id = ?",
@@ -1463,14 +1522,21 @@ router.post('/api/license/xendit-callback', async (req, res) => {
       );
 
       await db.run(
-        "UPDATE licenses SET status = 'active', is_active = 1, expires_at = ? WHERE id = ?",
-        [expiresStr, license.id]
+        "UPDATE licenses SET status = 'active', is_active = 1, expires_at = ?, plan_id = ? WHERE id = ?",
+        [expiresStr, planId, license.id]
       );
 
       await db.run(
-        "UPDATE subscriptions SET status = 'active', start_date = datetime('now', 'localtime'), end_date = ? WHERE license_id = ?",
-        [expiresStr, license.id]
+        "UPDATE subscriptions SET status = 'active', plan_id = ?, end_date = ?, updated_at = (datetime('now', 'localtime')) WHERE license_id = ?",
+        [planId, expiresStr, license.id]
       );
+
+      if (license.status !== 'active' || !license.expires_at || license.expires_at <= todayStr) {
+        await db.run(
+          "UPDATE subscriptions SET start_date = datetime('now', 'localtime') WHERE license_id = ?",
+          [license.id]
+        );
+      }
 
       await logLicenseActivity(license.license_key, license.product_id, null, req.ip, 'XENDIT_CALLBACK_PAID');
       console.log(`[XENDIT Webhook] Successfully activated license key: ${license.license_key} for school: ${license.school_name}. Duration: ${days} days.`);

@@ -276,6 +276,9 @@ async function initDatabase() {
   try {
     await db.exec("ALTER TABLE invoices ADD COLUMN payment_proof TEXT");
   } catch (e) {}
+  try {
+    await db.exec("ALTER TABLE invoices ADD COLUMN plan_id TEXT");
+  } catch (e) {}
 
   // Easy-Tunnel: tambah kolom local_port untuk menyimpan port aplikasi lokal setiap tunnel
   try {

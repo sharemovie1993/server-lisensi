@@ -594,7 +594,7 @@ router.post('/api/admin/invoices/pay/:id', adminAuth, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Lisensi terkait tidak ditemukan.' });
     }
 
-    let planId = license.plan_id;
+    let planId = invoice.plan_id || license.plan_id;
     if (!planId) {
       if (license.product_id === 'absenta') {
         planId = license.device_limit >= 400 ? 'absenta_annual' : (license.device_limit >= 150 ? 'absenta_semester' : 'absenta_monthly');
@@ -613,10 +613,13 @@ router.post('/api/admin/invoices/pay/:id', adminAuth, async (req, res) => {
       days = match ? parseInt(match[0], 10) : 365;
     }
 
-    const expiresDate = new Date();
-    expiresDate.setDate(expiresDate.getDate() + days);
-    const expiresStr = expiresDate.toISOString().slice(0, 10);
-    const todayStr = new Date().toISOString().slice(0, 10);
+    let baseDate = new Date();
+    const todayStr = baseDate.toISOString().slice(0, 10);
+    if (license.status === 'active' && license.expires_at && license.expires_at > todayStr) {
+      baseDate = new Date(license.expires_at);
+    }
+    baseDate.setDate(baseDate.getDate() + days);
+    const expiresStr = baseDate.toISOString().slice(0, 10);
 
     await db.run(
       "UPDATE invoices SET status = 'paid', paid_at = (datetime('now', 'localtime')), payment_method = 'Manual' WHERE id = ?",
@@ -624,14 +627,21 @@ router.post('/api/admin/invoices/pay/:id', adminAuth, async (req, res) => {
     );
 
     await db.run(
-      "UPDATE licenses SET status = 'active', is_active = 1, expires_at = ? WHERE id = ?",
-      [expiresStr, licenseId]
+      "UPDATE licenses SET status = 'active', is_active = 1, expires_at = ?, plan_id = ? WHERE id = ?",
+      [expiresStr, planId, licenseId]
     );
 
     await db.run(
-      "UPDATE subscriptions SET status = 'active', start_date = ?, end_date = ?, updated_at = (datetime('now', 'localtime')) WHERE license_id = ?",
-      [todayStr, expiresStr, licenseId]
+      "UPDATE subscriptions SET status = 'active', plan_id = ?, end_date = ?, updated_at = (datetime('now', 'localtime')) WHERE license_id = ?",
+      [planId, expiresStr, licenseId]
     );
+
+    if (license.status !== 'active' || !license.expires_at || license.expires_at <= todayStr) {
+      await db.run(
+        "UPDATE subscriptions SET start_date = ? WHERE license_id = ?",
+        [todayStr, licenseId]
+      );
+    }
 
     await logLicenseActivity(license.license_key, license.product_id, null, req.ip, 'ADMIN_MANUAL_PAY');
 
@@ -709,20 +719,30 @@ router.post('/api/license/approve/:id', adminAuth, async (req, res) => {
       days = match ? parseInt(match[0], 10) : 365;
     }
 
-    const expiresDate = new Date();
-    expiresDate.setDate(expiresDate.getDate() + days);
-    const expiresStr = expiresDate.toISOString().slice(0, 10);
-    const todayStr = new Date().toISOString().slice(0, 10);
+    let baseDate = new Date();
+    const todayStr = baseDate.toISOString().slice(0, 10);
+    if (license.status === 'active' && license.expires_at && license.expires_at > todayStr) {
+      baseDate = new Date(license.expires_at);
+    }
+    baseDate.setDate(baseDate.getDate() + days);
+    const expiresStr = baseDate.toISOString().slice(0, 10);
 
     await db.run(
-      "UPDATE licenses SET status = 'active', is_active = 1, expires_at = ? WHERE id = ?",
-      [expiresStr, id]
+      "UPDATE licenses SET status = 'active', is_active = 1, expires_at = ?, plan_id = ? WHERE id = ?",
+      [expiresStr, planId, id]
     );
 
     await db.run(
-      "UPDATE subscriptions SET status = 'active', start_date = ?, end_date = ?, updated_at = (datetime('now', 'localtime')) WHERE license_id = ?",
-      [todayStr, expiresStr, id]
+      "UPDATE subscriptions SET status = 'active', plan_id = ?, end_date = ?, updated_at = (datetime('now', 'localtime')) WHERE license_id = ?",
+      [planId, expiresStr, id]
     );
+
+    if (license.status !== 'active' || !license.expires_at || license.expires_at <= todayStr) {
+      await db.run(
+        "UPDATE subscriptions SET start_date = ? WHERE license_id = ?",
+        [todayStr, id]
+      );
+    }
 
     await db.run(
       "UPDATE invoices SET status = 'paid', paid_at = (datetime('now', 'localtime')) WHERE license_id = ?",
