@@ -2345,17 +2345,14 @@ router.get('/api/license/easy-tunnel/validate/:key', async (req, res) => {
   const { key } = req.params;
   try {
     const license = await db.get(
-      "SELECT * FROM licenses WHERE license_key = ? AND is_active = 1 AND product_id = 'easy-tunnel'",
+      "SELECT * FROM licenses WHERE license_key = ? AND product_id = 'easy-tunnel'",
       [key.trim()]
     );
     if (!license) {
-      return res.status(404).json({ success: false, message: 'Kunci lisensi Easy Tunnel tidak ditemukan atau tidak aktif.' });
+      return res.status(404).json({ success: false, message: 'Kunci lisensi Easy Tunnel tidak ditemukan.' });
     }
     const todayStr = new Date().toISOString().slice(0, 10);
-    const expired = license.expires_at < todayStr;
-    if (expired) {
-      return res.status(403).json({ success: false, message: 'Lisensi Easy Tunnel telah kedaluwarsa.' });
-    }
+    const expired = license.is_active === 0 || license.status === 'expired' || license.expires_at < todayStr;
     res.json({
       success: true,
       data: {
@@ -2366,7 +2363,8 @@ router.get('/api/license/easy-tunnel/validate/:key', async (req, res) => {
         requested_slug: license.requested_slug || null,
         local_port: license.local_port || null,
         app_name: license.app_name || null,
-        active_hostname: license.active_hostname || null
+        active_hostname: license.active_hostname || null,
+        expired: expired
       }
     });
   } catch (err) {
