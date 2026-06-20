@@ -1062,6 +1062,31 @@ router.get('/api/license/history-by-core-key/:coreKey', async (req, res) => {
   }
 });
 
+// 8.5. Invoice status check
+router.get('/api/license/invoice-status/:invoiceNumber', async (req, res) => {
+  const { invoiceNumber } = req.params;
+  try {
+    const invoice = await db.get(
+      "SELECT * FROM invoices WHERE invoice_number = ?",
+      [invoiceNumber.trim()]
+    );
+    if (!invoice) {
+      return res.status(404).json({ success: false, message: 'Invoice tidak ditemukan.' });
+    }
+    res.json({
+      success: true,
+      data: {
+        invoice_number: invoice.invoice_number,
+        status: invoice.status,
+        paid_at: invoice.paid_at || null
+      }
+    });
+  } catch (err) {
+    console.error('[Invoice Status Error]', err);
+    res.status(500).json({ success: false, message: 'Gagal mengecek status invoice.' });
+  }
+});
+
 // 9. Printable invoice generator
 router.get('/api/license/print-invoice/:invoiceNumber', async (req, res) => {
   const { invoiceNumber } = req.params;
