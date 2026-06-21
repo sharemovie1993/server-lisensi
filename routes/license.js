@@ -2333,7 +2333,7 @@ DNS = 1.1.1.1
 
 [Peer]
 PublicKey = SP47bTGqXxN4Qqe2DewpONtYEOh2qcXPTj7dt1g1x2o=
-Endpoint = 103.129.148.127:51820
+Endpoint = api.absenta.id:51820
 AllowedIPs = 10.0.0.0/24
 PersistentKeepalive = 25
 `;
@@ -2549,7 +2549,7 @@ router.post('/api/license/easy-tunnel/request', async (req, res) => {
       }
     } catch (e) {}
 
-    const serverEndpoint = process.env.VPS_IP || '103.129.148.127';
+    const serverEndpoint = process.env.VPS_IP || 'api.absenta.id';
     const clientConfig = `[Interface]
 PrivateKey = ${privateKey}
 Address = ${clientIp}/24
