@@ -951,11 +951,100 @@ window.runCaddySync = async () => {
   }
 };
 
-// Auto check Caddy status on loading tab
+// Auto check Caddy & Fail2Ban status on loading tab
 const originalSwitchTab = window.switchTab;
 window.switchTab = (tabId) => {
   if (originalSwitchTab) originalSwitchTab(tabId);
   if (tabId === 'tab-caddy') {
     checkCaddyStatus();
+    checkFail2BanStatus();
+  }
+};
+
+// ── FAIL2BAN MANAGEMENT ──
+window.checkFail2BanStatus = async () => {
+  const badge = document.getElementById('f2bStatusBadge');
+  const tFailed = document.getElementById('f2bTotalFailed');
+  const tBanned = document.getElementById('f2bTotalBanned');
+  const tbody = document.getElementById('f2bBannedTableBody');
+  
+  if (!badge) return;
+
+  badge.className = "px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-slate-800 text-slate-400";
+  badge.textContent = "Checking...";
+  if (tbody) tbody.innerHTML = '<tr><td colspan="3" class="px-5 py-8 text-center text-slate-500 font-medium">Memuat data...</td></tr>';
+
+  try {
+    const secret = localStorage.getItem('@license_admin_secret') || '';
+    const res = await fetch(`/api/fail2ban/status?secret=${encodeURIComponent(secret)}`, {
+      headers: { 'x-admin-secret': secret }
+    });
+    const result = await res.json();
+
+    if (result.success && result.is_active) {
+      badge.className = "px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+      badge.textContent = "Aktif (Melindungi)";
+      
+      tFailed.textContent = result.total_failed || 0;
+      tBanned.textContent = result.total_banned || 0;
+      
+      if (tbody) {
+        tbody.innerHTML = '';
+        if (result.banned_ips && result.banned_ips.length > 0) {
+          result.banned_ips.forEach((ip, index) => {
+            const tr = document.createElement('tr');
+            tr.className = "border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors";
+            tr.innerHTML = `
+              <td class="px-5 py-4 text-center font-bold text-slate-500">${index + 1}</td>
+              <td class="px-5 py-4 font-mono font-bold text-rose-400">${ip}</td>
+              <td class="px-5 py-4 text-right">
+                <button onclick="unbanFail2BanIP('${ip}')" class="bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">
+                  Bebaskan (Unban)
+                </button>
+              </td>
+            `;
+            tbody.appendChild(tr);
+          });
+        } else {
+          tbody.innerHTML = '<tr><td colspan="3" class="px-5 py-8 text-center text-emerald-500 font-medium font-bold">✨ Aman. Tidak ada IP yang dipenjara saat ini.</td></tr>';
+        }
+      }
+    } else {
+      badge.className = "px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20";
+      badge.textContent = "Tidak Aktif / Gagal";
+      if (tbody) tbody.innerHTML = '<tr><td colspan="3" class="px-5 py-8 text-center text-rose-500 font-medium">Gagal memuat atau Fail2Ban tidak terpasang.</td></tr>';
+    }
+  } catch (err) {
+    badge.className = "px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20";
+    badge.textContent = "Error";
+    if (tbody) tbody.innerHTML = `<tr><td colspan="3" class="px-5 py-8 text-center text-rose-500 font-medium">Koneksi Error: ${err.message}</td></tr>`;
+  }
+};
+
+window.unbanFail2BanIP = async (ip) => {
+  if (!confirm(`Anda yakin ingin menghapus blokir untuk IP ${ip}?\nIP ini sebelumnya terdeteksi mencoba meretas server.`)) {
+    return;
+  }
+  
+  try {
+    const secret = localStorage.getItem('@license_admin_secret') || '';
+    const res = await fetch('/api/fail2ban/unban', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-secret': secret
+      },
+      body: JSON.stringify({ ip })
+    });
+    const result = await res.json();
+    
+    if (result.success) {
+      alert(`Sukses: ${result.message}`);
+      checkFail2BanStatus(); // Reload the table
+    } else {
+      alert(`Gagal: ${result.message}`);
+    }
+  } catch (err) {
+    alert(`Terjadi kesalahan sistem: ${err.message}`);
   }
 };

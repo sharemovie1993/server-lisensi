@@ -672,6 +672,67 @@ Loading configuration...
             </details>
           </div>
         </section>
+
+        <!-- ========================================================
+             FAIL2BAN INTRUSION PREVENTION SECTION
+             ======================================================== -->
+        <section class="bg-slate-800/40 backdrop-blur-xl border border-rose-900/40 rounded-2xl shadow-2xl p-6 space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 class="text-lg font-extrabold text-white uppercase tracking-wider">🛡️ Intrusion Prevention (Fail2Ban)</h2>
+              <p class="text-xs text-slate-400 mt-1">Sistem deteksi intrusi untuk memblokir IP hacker yang mencoba membobol port SSH Server.</p>
+            </div>
+            <div class="flex gap-3">
+              <button onclick="checkFail2BanStatus()" class="bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 border border-slate-700/60 font-black px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all duration-300 cursor-pointer">
+                🔄 Segarkan Status
+              </button>
+            </div>
+          </div>
+
+          <!-- Status Indicator Cards -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Card 1: Service Status -->
+            <div class="bg-slate-950/50 border border-slate-800/60 rounded-2xl p-5 flex flex-col justify-center items-center text-center">
+              <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Status Engine</span>
+              <div id="f2bStatusBadge" class="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-slate-800 text-slate-400">
+                Checking...
+              </div>
+            </div>
+
+            <!-- Card 2: Total Failed -->
+            <div class="bg-slate-950/50 border border-slate-800/60 rounded-2xl p-5 flex flex-col justify-center items-center text-center">
+              <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Total Serangan (Gagal)</span>
+              <span id="f2bTotalFailed" class="text-3xl font-black text-rose-500">0</span>
+            </div>
+
+            <!-- Card 3: Total Banned -->
+            <div class="bg-slate-950/50 border border-slate-800/60 rounded-2xl p-5 flex flex-col justify-center items-center text-center">
+              <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Total IP Dipenjara</span>
+              <span id="f2bTotalBanned" class="text-3xl font-black text-rose-500">0</span>
+            </div>
+          </div>
+
+          <!-- Banned IP List Table -->
+          <div class="space-y-3">
+            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest block">🛑 Daftar IP Hacker Terblokir (Jail: SSHD):</h4>
+            <div class="overflow-x-auto bg-slate-950 border border-slate-800/80 rounded-2xl">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="border-b border-slate-800/80 bg-slate-900/40 text-slate-400 font-extrabold uppercase tracking-wider">
+                    <th class="px-5 py-3.5 w-16 text-center">#</th>
+                    <th class="px-5 py-3.5">IP Address</th>
+                    <th class="px-5 py-3.5 text-right">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody id="f2bBannedTableBody" class="text-slate-300">
+                  <tr>
+                    <td colspan="3" class="px-5 py-8 text-center text-slate-500 font-medium">Memuat data...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
       </div>
 
 

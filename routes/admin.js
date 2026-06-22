@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const path = require('path');
 const rateLimit = require('express-rate-limit');
+const { exec } = require('child_process');
 
 const { db } = require('../config/db');
 const { ADMIN_SECRET, TOTP_SECRET } = require('../config/keys');
@@ -1670,8 +1671,68 @@ router.post('/api/admin/wa/send-test', adminAuth, async (req, res) => {
   }
 });
 
+// ── FAIL2BAN MANAGEMENT ──
+router.get('/api/fail2ban/status', adminAuth, (req, res) => {
+  exec('sudo -n fail2ban-client status sshd', (error, stdout, stderr) => {
+    if (error) {
+      // Return inactive if not installed or no sudo rights
+      return res.json({ success: true, is_active: false });
+    }
+    
+    try {
+      const output = stdout.toString();
+      const currentlyFailedMatch = output.match(/Currently failed:\s+(\d+)/);
+      const totalFailedMatch = output.match(/Total failed:\s+(\d+)/);
+      const currentlyBannedMatch = output.match(/Currently banned:\s+(\d+)/);
+      const totalBannedMatch = output.match(/Total banned:\s+(\d+)/);
+      const bannedIpListMatch = output.match(/Banned IP list:\s+(.*)/);
+      
+      const currentlyFailed = currentlyFailedMatch ? parseInt(currentlyFailedMatch[1]) : 0;
+      const totalFailed = totalFailedMatch ? parseInt(totalFailedMatch[1]) : 0;
+      const currentlyBanned = currentlyBannedMatch ? parseInt(currentlyBannedMatch[1]) : 0;
+      const totalBanned = totalBannedMatch ? parseInt(totalBannedMatch[1]) : 0;
+      
+      let bannedIps = [];
+      if (bannedIpListMatch && bannedIpListMatch[1].trim() !== '') {
+        bannedIps = bannedIpListMatch[1].trim().split(/\s+/).filter(Boolean);
+      }
+      
+      res.json({
+        success: true,
+        is_active: true,
+        currently_failed: currentlyFailed,
+        total_failed: totalFailed,
+        currently_banned: currentlyBanned,
+        total_banned: totalBanned,
+        banned_ips: bannedIps
+      });
+    } catch (e) {
+      res.json({ success: true, is_active: false });
+    }
+  });
+});
+
+router.post('/api/fail2ban/unban', adminAuth, (req, res) => {
+  const { ip } = req.body;
+  if (!ip) {
+    return res.status(400).json({ success: false, message: 'IP address required' });
+  }
+  
+  // Basic sanity check for IP format to prevent command injection
+  const ipRegex = /^[0-9a-fA-F:\.]+$/;
+  if (!ipRegex.test(ip)) {
+    return res.status(400).json({ success: false, message: 'Format IP tidak valid' });
+  }
+
+  exec(`sudo -n fail2ban-client set sshd unbanip ${ip}`, (error, stdout, stderr) => {
+    if (error) {
+      return res.status(500).json({ success: false, message: 'Gagal melakukan unban IP. Server error atau izin ditolak.' });
+    }
+    res.json({ success: true, message: `IP ${ip} berhasil dihapus dari daftar blokir.` });
+  });
+});
+
 module.exports = router;
 module.exports.adminAuth = adminAuth;
-
 
  // Export for potential server.js usage
