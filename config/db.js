@@ -372,16 +372,16 @@ async function initDatabase() {
   }
 
   // Ensure demo license exists for project-yatim
-  const demoYatimLic = await db.get("SELECT id FROM licenses WHERE license_key = 'ORK-DEMO-TEST-KEY-2026' AND product_id = 'project-yatim'");
+  const demoYatimLic = await db.get("SELECT id FROM licenses WHERE license_key = 'YATIM-DEMO-TEST-KEY-2026' AND product_id = 'project-yatim'");
   if (!demoYatimLic) {
     const tenYearsLater = new Date();
     tenYearsLater.setFullYear(tenYearsLater.getFullYear() + 10);
     const expiresStr = tenYearsLater.toISOString().slice(0, 10);
     await db.run(
-      "INSERT INTO licenses (license_key, product_id, school_name, device_limit, expires_at, status, is_active, plan_id) VALUES ('ORK-DEMO-TEST-KEY-2026', 'project-yatim', 'Madrasah Uji Coba', 0, ?, 'active', 1, 'yatim_enterprise_lifetime')",
+      "INSERT INTO licenses (license_key, product_id, school_name, device_limit, expires_at, status, is_active, plan_id) VALUES ('YATIM-DEMO-TEST-KEY-2026', 'project-yatim', 'Madrasah Uji Coba', 0, ?, 'active', 1, 'yatim_enterprise_lifetime')",
       [expiresStr]
     );
-    console.log('[SEED] Created demo license: ORK-DEMO-TEST-KEY-2026 (Mustahiq Care)');
+    console.log('[SEED] Created demo license: YATIM-DEMO-TEST-KEY-2026 (Mustahiq Care)');
   }
 
   // Refresh Pricing Plans
