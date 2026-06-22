@@ -1673,7 +1673,7 @@ router.post('/api/admin/wa/send-test', adminAuth, async (req, res) => {
 
 // ── FAIL2BAN MANAGEMENT ──
 router.get('/api/fail2ban/status', adminAuth, (req, res) => {
-  exec('sudo -n fail2ban-client status sshd && echo "---LOGS---" && sudo -n grep -E "\\[sshd\\] Ban " /var/log/fail2ban.log | tail -n 1000', (error, stdout, stderr) => {
+  exec('sudo -n fail2ban-client status sshd && echo "---LOGS---" && sudo -n grep -E "\\[sshd\\] Ban " /var/log/fail2ban.log | tail -n 1000', async (error, stdout, stderr) => {
     if (error) {
       // Return inactive if not installed or no sudo rights
       return res.json({ success: true, is_active: false });
@@ -1699,9 +1699,27 @@ router.get('/api/fail2ban/status', adminAuth, (req, res) => {
       let bannedIps = [];
       if (bannedIpListMatch && bannedIpListMatch[1].trim() !== '') {
         const ips = bannedIpListMatch[1].trim().split(/\s+/).filter(Boolean);
-        
-        // Parse logs to find timestamp
         const logLines = logsOutput.split('\n').filter(Boolean);
+        
+        // Fetch geolocation for all IPs
+        let geoData = {};
+        try {
+          const batchIps = ips.slice(0, 100);
+          if (batchIps.length > 0) {
+            const geoRes = await fetch('http://ip-api.com/batch?fields=query,country,isp', {
+              method: 'POST',
+              body: JSON.stringify(batchIps)
+            });
+            if (geoRes.ok) {
+              const geoJson = await geoRes.json();
+              geoJson.forEach(geo => {
+                geoData[geo.query] = { country: geo.country, isp: geo.isp };
+              });
+            }
+          }
+        } catch (err) {
+          console.error("Geo lookup failed:", err);
+        }
         
         bannedIps = ips.map(ip => {
           // Find the most recent log line for this IP
@@ -1709,11 +1727,11 @@ router.get('/api/fail2ban/status', adminAuth, (req, res) => {
           let timestamp = 'Tidak diketahui';
           if (ipLogs.length > 0) {
             const lastLog = ipLogs[ipLogs.length - 1];
-            // Log format: 2026-06-22 12:08:28,102 fail2ban.actions [254718]: NOTICE [sshd] Ban 103.75.183.177
             const dateMatch = lastLog.match(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})/);
             if (dateMatch) timestamp = dateMatch[1];
           }
-          return { ip: ip, timestamp: timestamp, port: '22 (SSH)' };
+          const location = geoData[ip] ? `${geoData[ip].isp || 'Unknown ISP'} - ${geoData[ip].country || 'Unknown'}` : '-';
+          return { ip: ip, timestamp: timestamp, port: '22 (SSH)', location: location };
         });
       }
       
