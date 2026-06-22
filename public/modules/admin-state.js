@@ -1,5 +1,6 @@
 export const state = {
   API_BASE: window.location.origin,
+  MAIN_DOMAIN: window.location.hostname.replace('api.', '').replace('www.', ''),
   ADMIN_SECRET: localStorage.getItem('@license_admin_secret') || '',
   packagesDataCache: [],
   activeLicensesCache: [],

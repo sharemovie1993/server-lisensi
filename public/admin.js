@@ -813,7 +813,7 @@ window.checkCaddyStatus = async () => {
             const badgeColor = isTenant 
               ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
               : 'bg-blue-500/10 text-blue-400 border border-blue-500/20';
-            const isSSLAuto = r.domain !== 'absenta.id' && r.domain !== 'www.absenta.id';
+            const isSSLAuto = r.domain !== state.MAIN_DOMAIN && r.domain !== `www.${state.MAIN_DOMAIN}`;
             
             tbody.innerHTML += `
               <tr class="border-b border-slate-900 hover:bg-slate-900/40 transition-colors duration-150">

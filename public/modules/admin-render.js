@@ -222,7 +222,7 @@ export function renderPendingList(items) {
           <div class="flex flex-wrap items-center gap-1.5">${productBadge} <span class="bg-amber-500/10 text-amber-500 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/20 uppercase tracking-widest">PENDING</span> ${methodBadge} ${typeBadge}</div>
           <h4 class="text-base font-black text-white mt-1.5">${item.school_name}</h4>
           <p class="text-xs text-slate-400 mt-0.5">Key: <code class="bg-slate-900 px-1.5 py-0.5 rounded text-blue-400 text-[11px] font-bold">${item.license_key}</code></p>
-          ${item.requested_slug ? `<p class="text-xs text-slate-400 mt-1">Subdomain: <a href="https://${item.requested_slug}.absenta.id" target="_blank" class="text-emerald-400 hover:underline font-bold">${item.requested_slug}.absenta.id</a></p>` : ''}
+          ${item.requested_slug ? `<p class="text-xs text-slate-400 mt-1">Subdomain: <a href="https://${item.requested_slug}.${state.MAIN_DOMAIN}" target="_blank" class="text-emerald-400 hover:underline font-bold">${item.requested_slug}.${state.MAIN_DOMAIN}</a></p>` : ''}
         </div>
         <div class="text-right">
           <p class="text-xs text-slate-400">Kuota Perangkat</p>
@@ -293,7 +293,7 @@ export function renderLicenseTable(items) {
       vpnInfo = `
         <div class="text-[11px] text-slate-400 font-bold mt-1.5 flex items-center gap-2 flex-wrap">
           <span class="text-slate-500 font-normal">🌐 VPN:</span>
-          <a href="http://${item.requested_slug}.absenta.id" target="_blank" class="hover:underline text-blue-400 font-extrabold">${item.requested_slug}.absenta.id</a>
+          <a href="http://${item.requested_slug}.${state.MAIN_DOMAIN}" target="_blank" class="hover:underline text-blue-400 font-extrabold">${item.requested_slug}.${state.MAIN_DOMAIN}</a>
           <span class="bg-slate-900/60 px-1.5 py-0.5 rounded text-slate-300 font-semibold text-[10px]">${item.wireguard_ip || 'No IP'}</span>
           ${statusBadge}
           ${trafficInfo}
@@ -959,7 +959,7 @@ export function printInvoice(id) {
       <div class="header-brand">
         <img src="logo.png" style="width: 52px; height: 52px; object-fit: contain; flex-shrink: 0; border-radius: 8px; background: rgba(255,255,255,0.15); padding: 4px;" alt="Absenta Logo">
         <div class="header-brand-text">
-          <h1>ABSENTA.ID</h1>
+          <h1>${state.MAIN_DOMAIN.toUpperCase()}</h1>
           <p>Ekosistem & Solusi Digital Sekolah Terintegrasi</p>
         </div>
       </div>
@@ -1085,9 +1085,9 @@ export function printInvoice(id) {
     <!-- ── Footer ── -->
     <div class="invoice-footer">
       <div class="footer-left">
-        Invoice Elektronik &mdash; Diterbitkan oleh <strong>Absenta.id</strong> (Baraya Teknologi)<br>
+        Invoice Elektronik &mdash; Diterbitkan oleh <strong>${state.MAIN_DOMAIN.toUpperCase()}</strong> (Baraya Teknologi)<br>
         Dokumen ini sah tanpa tanda tangan basah sesuai UU ITE No. 11 Tahun 2008.<br>
-        Hubungi: barayatekindo@gmail.com | https://absenta.id
+        Hubungi: barayatekindo@gmail.com | https://${state.MAIN_DOMAIN}
       </div>
       <div class="footer-verify">
         Kode Verifikasi<br>
@@ -1207,8 +1207,8 @@ export function renderTenantsTable(list) {
     tr.innerHTML = `
       <td class="p-4 font-bold text-white">${tenant.name}</td>
       <td class="p-4">
-        <a href="https://${tenant.domain_or_slug}.absenta.id" target="_blank" class="hover:underline text-blue-400 font-bold text-xs flex items-center gap-1">
-          <code class="bg-slate-900/60 px-2 py-0.5 rounded text-blue-400 font-bold text-xs cursor-pointer">${tenant.domain_or_slug}.absenta.id</code>
+        <a href="https://${tenant.domain_or_slug}.${state.MAIN_DOMAIN}" target="_blank" class="hover:underline text-blue-400 font-bold text-xs flex items-center gap-1">
+          <code class="bg-slate-900/60 px-2 py-0.5 rounded text-blue-400 font-bold text-xs cursor-pointer">${tenant.domain_or_slug}.${state.MAIN_DOMAIN}</code>
           <span>🔗</span>
         </a>
       </td>

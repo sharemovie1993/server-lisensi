@@ -182,7 +182,7 @@ router.post('/api/license/generate', adminAuth, async (req, res) => {
           return new Promise((resolve, reject) => {
             const data = JSON.stringify({ license_key: licenseKey });
             const options = {
-              hostname: 'supabaselocal.absenta.id',
+              hostname: `supabaselocal.${process.env.MAIN_DOMAIN}`,
               port: 443,
               path: `/rest/v1/tenants?id=eq.${id}`,
               method: 'PATCH',
@@ -367,7 +367,7 @@ const net = require('net');
 const getBackendPortFromNginx = (subdomain) => {
   if (!subdomain) return 5002;
   try {
-    const confPath = `/etc/nginx/sites-available/${subdomain}.absenta.id`;
+    const confPath = `/etc/nginx/sites-available/${subdomain}.${process.env.MAIN_DOMAIN}`;
     if (fs.existsSync(confPath)) {
       const content = fs.readFileSync(confPath, 'utf8');
       const apiBlockMatch = content.match(/location\s+\/api\s*\{[^}]*proxy_pass\s+http:\/\/10\.0\.0\.\d+:(\d+)/i);
@@ -767,7 +767,7 @@ router.post('/api/license/approve/:id', adminAuth, async (req, res) => {
             return new Promise((resolve, reject) => {
               const data = JSON.stringify({ license_key: licenseKey, is_active: true, name: schoolName });
               const options = {
-                hostname: 'supabaselocal.absenta.id',
+                hostname: `supabaselocal.${process.env.MAIN_DOMAIN}`,
                 port: 443,
                 path: `/rest/v1/tenants?domain_or_slug=eq.${slug}`,
                 method: 'PATCH',
@@ -807,7 +807,7 @@ router.post('/api/license/approve/:id', adminAuth, async (req, res) => {
             return new Promise((resolve, reject) => {
               const data = JSON.stringify(payload);
               const options = {
-                hostname: 'supabaselocal.absenta.id',
+                hostname: `supabaselocal.${process.env.MAIN_DOMAIN}`,
                 port: 443,
                 path: '/rest/v1/tenants',
                 method: 'POST',
@@ -842,7 +842,7 @@ router.post('/api/license/approve/:id', adminAuth, async (req, res) => {
             return new Promise((resolve, reject) => {
               const data = JSON.stringify(payload);
               const options = {
-                hostname: 'supabaselocal.absenta.id',
+                hostname: `supabaselocal.${process.env.MAIN_DOMAIN}`,
                 port: 443,
                 path: '/rest/v1/guru',
                 method: 'POST',
@@ -887,7 +887,7 @@ router.post('/api/license/approve/:id', adminAuth, async (req, res) => {
           };
 
           await upsertTenantRest(payload);
-          console.log(`[ADMIN Approval] SaaS Provisioning Successful: school '${license.school_name}' live at https://${license.requested_slug}.absenta.id!`);
+          console.log(`[ADMIN Approval] SaaS Provisioning Successful: school '${license.school_name}' live at https://${license.requested_slug}.${process.env.MAIN_DOMAIN}!`);
 
           if (!license.requested_supabase_url) {
             console.log(`[ADMIN Approval] Shared DB detected. Seeding default admin account...`);
@@ -1001,7 +1001,7 @@ router.get('/api/admin/tenants/:id/detail', adminAuth, async (req, res) => {
   const querySupabase = (path, method = 'GET') => {
     return new Promise((resolve, reject) => {
       const options = {
-        hostname: 'supabaselocal.absenta.id',
+        hostname: `supabaselocal.${process.env.MAIN_DOMAIN}`,
         port: 443,
         path: path,
         method: method,
@@ -1035,7 +1035,7 @@ router.get('/api/admin/tenants/:id/detail', adminAuth, async (req, res) => {
   const getCount = (table) => {
     return new Promise((resolve) => {
       const options = {
-        hostname: 'supabaselocal.absenta.id',
+        hostname: `supabaselocal.${process.env.MAIN_DOMAIN}`,
         port: 443,
         path: `/rest/v1/${table}?tenant_id=eq.${id}&select=id`,
         method: 'GET',
@@ -1182,7 +1182,7 @@ SCHOOL_NAME=\$1
 PUBLIC_KEY=\$2
 CLIENT_IP=\$3
 SLUG=\$4
-DOMAIN="\${SLUG}.absenta.id"
+DOMAIN="\${SLUG}.${process.env.MAIN_DOMAIN}"
 
 if [ -z "\$SCHOOL_NAME" ] || [ -z "\$PUBLIC_KEY" ] || [ -z "\$CLIENT_IP" ] || [ -z "\$SLUG" ]; then
     echo "Parameter tidak lengkap: school_name public_key client_ip slug"
@@ -1425,9 +1425,9 @@ router.get('/api/public/validate-domain', async (req, res) => {
   
   const cleanDomain = domain.trim().toLowerCase();
   
-  // A. Check standard subdomain (e.g. *.absenta.id)
-  if (cleanDomain.endsWith('.absenta.id')) {
-    const slug = cleanDomain.replace('.absenta.id', '');
+  // A. Check standard subdomain
+  if (cleanDomain.endsWith(`.${process.env.MAIN_DOMAIN}`)) {
+    const slug = cleanDomain.replace(`.${process.env.MAIN_DOMAIN}`, '');
     try {
       const lic = await db.get("SELECT id FROM licenses WHERE requested_slug = ? AND is_active = 1", [slug]);
       if (lic) return res.status(200).send('OK');
@@ -1440,7 +1440,7 @@ router.get('/api/public/validate-domain', async (req, res) => {
     const checkCustomDomainSupabase = (dom) => {
       return new Promise((resolve) => {
         const options = {
-          hostname: 'supabaselocal.absenta.id',
+          hostname: `supabaselocal.${process.env.MAIN_DOMAIN}`,
           port: 443,
           path: `/rest/v1/tenants?custom_domain=eq.${encodeURIComponent(dom)}&is_active=eq.true&select=id`,
           method: 'GET',

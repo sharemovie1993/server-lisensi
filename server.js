@@ -225,7 +225,7 @@ initDatabase().then(async () => {
     console.log(`[LICENSE SERVER] SaaS Monolithic Engine running securely on port ${PORT}`);
     console.log(`[SECURITY] 2FA/2-Step Verification is active!`);
     console.log(`[SECURITY] 2FA Secret Key: ${TOTP_SECRET}`);
-    console.log(`[SECURITY] Google Authenticator Setup URI: otpauth://totp/Absenta:Admin?secret=${TOTP_SECRET}&issuer=Absenta.id`);
+    console.log(`[SECURITY] Google Authenticator Setup URI: otpauth://totp/Admin?secret=${TOTP_SECRET}&issuer=${process.env.MAIN_DOMAIN}`);
   });
 
   // Inisialisasi VNC WebSocket-to-TCP Proxy

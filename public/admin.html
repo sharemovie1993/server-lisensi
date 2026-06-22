@@ -3,7 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SERVER LISENSI ABSENTA.ID</title>
+  <title>SERVER LISENSI</title>
+  <script>
+    const MAIN_DOMAIN = window.location.hostname.replace('api.', '').replace('www.', '');
+    document.title = "SERVER LISENSI " + MAIN_DOMAIN.toUpperCase();
+  </script>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Google Fonts Outfit & Inter -->
@@ -27,7 +31,8 @@
     <div class="p-6 border-b border-slate-800/80 flex items-center space-x-3">
       <span class="text-3xl">🛡️</span>
       <div>
-        <h1 class="text-sm font-black text-blue-500 tracking-wider">ABSENTA.ID</h1>
+        <h1 id="appMainTitle" class="text-sm font-black text-blue-500 tracking-wider">LOADING...</h1>
+        <script>document.getElementById('appMainTitle').textContent = MAIN_DOMAIN.toUpperCase();</script>
         <p class="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Server Lisensi</p>
       </div>
     </div>

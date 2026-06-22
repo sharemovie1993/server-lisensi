@@ -11,6 +11,12 @@ const { open } = require('sqlite');
 // Load environment variables
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
+const MAIN_DOMAIN = process.env.MAIN_DOMAIN;
+if (!MAIN_DOMAIN) {
+  console.error("CRITICAL ERROR: MAIN_DOMAIN is not defined in .env");
+  process.exit(1);
+}
+
 const isLinux = process.platform === 'linux';
 const caddyfilePath = isLinux ? '/etc/caddy/Caddyfile' : path.join(__dirname, '../Caddyfile.generated');
 const dbPath = path.join(__dirname, '../licenses.db');
@@ -115,7 +121,7 @@ async function run() {
       if (matchedLicense && matchedLicense.wireguard_ip) {
         const domains = [];
         if (tenant.domain_or_slug) {
-          domains.push(`${tenant.domain_or_slug.trim().toLowerCase()}.absenta.id`);
+          domains.push(`${tenant.domain_or_slug.trim().toLowerCase()}.${MAIN_DOMAIN}`);
         }
         if (tenant.custom_domain) {
           domains.push(tenant.custom_domain.trim().toLowerCase());
@@ -136,12 +142,12 @@ async function run() {
     activeLicenses.forEach(lic => {
       if (lic.requested_slug) {
         const slugClean = lic.requested_slug.trim().toLowerCase();
-        // Cegah konflik dengan rute statis www.absenta.id
+        // Cegah konflik dengan rute statis www
         if (slugClean === 'www') return;
 
         const alreadyMapped = upstreams.some(u => u.slug.toLowerCase() === slugClean);
         if (!alreadyMapped) {
-          const domains = [`${slugClean}.absenta.id`];
+          const domains = [`${slugClean}.${MAIN_DOMAIN}`];
           if (lic.custom_domain) {
             domains.push(lic.custom_domain.trim().toLowerCase());
           }
@@ -170,30 +176,30 @@ async function run() {
 # --- STATIC CENTRAL ROUTES ---
 
 # Central Landing/Portal Page
-absenta.id, www.absenta.id {
-    root * /var/www/absenta.id
+${MAIN_DOMAIN}, www.${MAIN_DOMAIN} {
+    root * /var/www/${MAIN_DOMAIN}
     file_server
     try_files {path} {path}/ /index.html
 }
 
 # Central License Server API & admin UI
-api.absenta.id {
+api.${MAIN_DOMAIN} {
     reverse_proxy 127.0.0.1:5001
 }
 
 # Local Supabase Kong Instance
-supabaselocal.absenta.id {
+supabaselocal.${MAIN_DOMAIN} {
     reverse_proxy 10.0.0.2:8000
 }
 
 # Central POS System
-pos.absenta.id {
+pos.${MAIN_DOMAIN} {
     reverse_proxy 10.0.0.3:3002
 }
 
 # Catch-all web client for selected subdomains (Serving static files directly)
-1pwk.absenta.id, 2krw.absenta.id, 1krw.absenta.id, 1subang.absenta.id, smkn1pld.absenta.id, 3cianjur.absenta.id, 1maniis.absenta.id {
-    root * /var/www/absenta.id
+1pwk.${MAIN_DOMAIN}, 2krw.${MAIN_DOMAIN}, 1krw.${MAIN_DOMAIN}, 1subang.${MAIN_DOMAIN}, smkn1pld.${MAIN_DOMAIN}, 3cianjur.${MAIN_DOMAIN}, 1maniis.${MAIN_DOMAIN} {
+    root * /var/www/${MAIN_DOMAIN}
     file_server
     try_files {path} {path}/ /index.html
 }

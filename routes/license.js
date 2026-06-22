@@ -51,7 +51,7 @@ function provisionNginxAndSsl(slug) {
   const { exec } = require('child_process');
   const fs = require('fs');
 
-  const domain = `${slug}.absenta.id`;
+  const domain = `${slug}.${process.env.MAIN_DOMAIN}`;
   const configPath = `/etc/nginx/sites-available/${domain}`;
   const enabledPath = `/etc/nginx/sites-enabled/${domain}`;
 
@@ -59,7 +59,7 @@ function provisionNginxAndSsl(slug) {
 
   const nginxConfig = `server {
     server_name ${domain};
-    root /var/www/absenta.id; # Points to the central catch-all web client
+    root /var/www/${process.env.MAIN_DOMAIN}; # Points to the central catch-all web client
     index index.html;
 
     location / {
@@ -283,7 +283,7 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
         return new Promise((resolve) => {
           const https = require('https');
           const options = {
-            hostname: 'supabaselocal.absenta.id',
+            hostname: `supabaselocal.${process.env.MAIN_DOMAIN}`,
             port: 443,
             path: `/rest/v1/tenants?domain_or_slug=eq.${slug}&select=id,name,domain_or_slug,license_key`,
             method: 'GET',
@@ -515,12 +515,12 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
         description: `Lisensi CBT ${plan.title} - ${resolvedSchoolName.trim()}${vpnPlan ? ' + VPN Tunnel' : ''}`,
         customer: {
           given_names: resolvedSchoolName.trim(),
-          email: 'billing@absenta.id',
+          email: `billing@${process.env.MAIN_DOMAIN}`,
           mobile_number: '087779937341'
         },
         duration: 86400,
-        success_redirect_url: `https://absenta.id/platform_ujian.html?status=success&key=${newKey}`,
-        failure_redirect_url: `https://absenta.id/platform_ujian.html?status=failed&key=${newKey}`
+        success_redirect_url: `https://${process.env.MAIN_DOMAIN}/platform_ujian.html?status=success&key=${newKey}`,
+        failure_redirect_url: `https://${process.env.MAIN_DOMAIN}/platform_ujian.html?status=failed&key=${newKey}`
       };
 
       let xenditResponseData = null;
@@ -915,7 +915,7 @@ router.get('/api/license/check-slug/:slug', async (req, res) => {
 // 5. Check SaaS Nginx & Certbot SSL provisioning status
 router.get('/api/license/provision-status/:slug', (req, res) => {
   const { slug } = req.params;
-  const domain = `${slug}.absenta.id`;
+  const domain = `${slug}.${process.env.MAIN_DOMAIN}`;
   const fs = require('fs');
 
   const configPath = `/etc/nginx/sites-available/${domain}`;
@@ -1423,7 +1423,7 @@ router.post('/api/license/tripay-callback', async (req, res) => {
             };
 
             await upsertTenantRest(payload);
-            console.log(`[TRIPAY Webhook] SaaS Provisioning Successful: school '${license.school_name}' with license key is now live at https://${license.requested_slug}.absenta.id!`);
+            console.log(`[TRIPAY Webhook] SaaS Provisioning Successful: school '${license.school_name}' with license key is now live at https://${license.requested_slug}.${process.env.MAIN_DOMAIN}!`);
 
             if (!license.requested_supabase_url) {
               console.log(`[TRIPAY Webhook] Shared DB detected. Seeding default admin account for tenant ${tenantId}...`);
@@ -1701,7 +1701,7 @@ router.post('/api/license/xendit-callback', async (req, res) => {
             };
 
             await upsertTenantRest(payload);
-            console.log(`[XENDIT Webhook] SaaS Provisioning Successful: school '${license.school_name}' live at https://${license.requested_slug}.absenta.id!`);
+            console.log(`[XENDIT Webhook] SaaS Provisioning Successful: school '${license.school_name}' live at https://${license.requested_slug}.${process.env.MAIN_DOMAIN}!`);
 
             if (!license.requested_supabase_url) {
               const guruPayload = {
@@ -2333,7 +2333,7 @@ DNS = 1.1.1.1
 
 [Peer]
 PublicKey = SP47bTGqXxN4Qqe2DewpONtYEOh2qcXPTj7dt1g1x2o=
-Endpoint = api.absenta.id:51820
+Endpoint = api.${process.env.MAIN_DOMAIN}:51820
 AllowedIPs = 10.0.0.0/24
 PersistentKeepalive = 25
 `;
@@ -2344,7 +2344,7 @@ PersistentKeepalive = 25
       data: {
         license_key,
         client_ip: clientIp,
-        subdomain: `${slugLower}.absenta.id`,
+        subdomain: `${slugLower}.${process.env.MAIN_DOMAIN}`,
         config: clientConfig
       }
     });
@@ -2549,7 +2549,7 @@ router.post('/api/license/easy-tunnel/request', async (req, res) => {
       }
     } catch (e) {}
 
-    const serverEndpoint = process.env.VPS_IP || 'api.absenta.id';
+    const serverEndpoint = process.env.VPS_IP || `api.${process.env.MAIN_DOMAIN}`;
     const clientConfig = `[Interface]
 PrivateKey = ${privateKey}
 Address = ${clientIp}/24
@@ -2562,7 +2562,7 @@ AllowedIPs = 10.0.0.0/24
 PersistentKeepalive = 25
 `;
 
-    console.log(`[Easy Tunnel] Tunnel created: ${slugLower}.absenta.id → ${clientIp}:${portNum} (App: ${app_name})`);
+    console.log(`[Easy Tunnel] Tunnel created: ${slugLower}.${process.env.MAIN_DOMAIN} → ${clientIp}:${portNum} (App: ${app_name})`);
 
     res.json({
       success: true,
@@ -2570,7 +2570,7 @@ PersistentKeepalive = 25
       data: {
         license_key,
         client_ip: clientIp,
-        subdomain: `${slugLower}.absenta.id`,
+        subdomain: `${slugLower}.${process.env.MAIN_DOMAIN}`,
         local_port: portNum,
         app_name: app_name || null,
         config: clientConfig
