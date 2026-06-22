@@ -52,7 +52,7 @@ function verifyTOTP(secret, code) {
   if (!code) return false;
   const cleanCode = String(code).trim().replace(/\s/g, '');
   if (cleanCode.length !== 6) return false;
-  for (let i = -1; i <= 1; i++) {
+  for (let i = -10; i <= 10; i++) {
     if (generateTOTP(secret, i) === cleanCode) {
       return true;
     }
