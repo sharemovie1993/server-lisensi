@@ -134,10 +134,20 @@ async function initDatabase() {
       is_unlimited INTEGER DEFAULT 0,
       is_active INTEGER DEFAULT 1,
       status TEXT DEFAULT 'active',
+      requested_slug TEXT,
+      custom_domain TEXT,
+      wireguard_ip TEXT,
+      local_port INTEGER,
       created_at TEXT DEFAULT (datetime('now', 'localtime')),
       expires_at TEXT NOT NULL
     )
   `);
+
+  // Migrate existing table (add missing columns gracefully)
+  try { await db.exec("ALTER TABLE licenses ADD COLUMN requested_slug TEXT"); } catch (e) {}
+  try { await db.exec("ALTER TABLE licenses ADD COLUMN custom_domain TEXT"); } catch (e) {}
+  try { await db.exec("ALTER TABLE licenses ADD COLUMN wireguard_ip TEXT"); } catch (e) {}
+  try { await db.exec("ALTER TABLE licenses ADD COLUMN local_port INTEGER"); } catch (e) {}
 
   // 3. Table activated_devices
   await db.exec(`
