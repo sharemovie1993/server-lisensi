@@ -136,6 +136,9 @@ async function run() {
     activeLicenses.forEach(lic => {
       if (lic.requested_slug) {
         const slugClean = lic.requested_slug.trim().toLowerCase();
+        // Cegah konflik dengan rute statis www.absenta.id
+        if (slugClean === 'www') return;
+
         const alreadyMapped = upstreams.some(u => u.slug.toLowerCase() === slugClean);
         if (!alreadyMapped) {
           const domains = [`${slugClean}.absenta.id`];
