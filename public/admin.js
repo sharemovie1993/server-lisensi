@@ -991,12 +991,20 @@ window.checkFail2BanStatus = async () => {
       if (tbody) {
         tbody.innerHTML = '';
         if (result.banned_ips && result.banned_ips.length > 0) {
-          result.banned_ips.forEach((ip, index) => {
+          result.banned_ips.forEach((item, index) => {
+            const ip = typeof item === 'string' ? item : item.ip;
+            const time = typeof item === 'string' ? 'Tidak diketahui' : item.timestamp;
+            const port = typeof item === 'string' ? '22 (SSH)' : item.port;
+            
             const tr = document.createElement('tr');
             tr.className = "border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors";
             tr.innerHTML = `
               <td class="px-5 py-4 text-center font-bold text-slate-500">${index + 1}</td>
-              <td class="px-5 py-4 font-mono font-bold text-rose-400">${ip}</td>
+              <td class="px-5 py-4">
+                <div class="font-mono font-bold text-rose-400">${ip}</div>
+                <div class="text-[10px] text-slate-500 mt-1">Waktu: <span class="text-slate-400">${time}</span></div>
+              </td>
+              <td class="px-5 py-4 text-center font-mono text-xs text-amber-400/80 font-bold">${port}</td>
               <td class="px-5 py-4 text-right">
                 <button onclick="unbanFail2BanIP('${ip}')" class="bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">
                   Bebaskan (Unban)
@@ -1006,18 +1014,18 @@ window.checkFail2BanStatus = async () => {
             tbody.appendChild(tr);
           });
         } else {
-          tbody.innerHTML = '<tr><td colspan="3" class="px-5 py-8 text-center text-emerald-500 font-medium font-bold">✨ Aman. Tidak ada IP yang dipenjara saat ini.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="4" class="px-5 py-8 text-center text-emerald-500 font-medium font-bold">✨ Aman. Tidak ada IP yang dipenjara saat ini.</td></tr>';
         }
       }
     } else {
       badge.className = "px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20";
       badge.textContent = "Tidak Aktif / Gagal";
-      if (tbody) tbody.innerHTML = '<tr><td colspan="3" class="px-5 py-8 text-center text-rose-500 font-medium">Gagal memuat atau Fail2Ban tidak terpasang.</td></tr>';
+      if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="px-5 py-8 text-center text-rose-500 font-medium">Gagal memuat atau Fail2Ban tidak terpasang.</td></tr>';
     }
   } catch (err) {
     badge.className = "px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20";
     badge.textContent = "Error";
-    if (tbody) tbody.innerHTML = `<tr><td colspan="3" class="px-5 py-8 text-center text-rose-500 font-medium">Koneksi Error: ${err.message}</td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="4" class="px-5 py-8 text-center text-rose-500 font-medium">Koneksi Error: ${err.message}</td></tr>`;
   }
 };
 

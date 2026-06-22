@@ -1673,7 +1673,7 @@ router.post('/api/admin/wa/send-test', adminAuth, async (req, res) => {
 
 // ── FAIL2BAN MANAGEMENT ──
 router.get('/api/fail2ban/status', adminAuth, (req, res) => {
-  exec('sudo -n fail2ban-client status sshd', (error, stdout, stderr) => {
+  exec('sudo -n fail2ban-client status sshd && echo "---LOGS---" && sudo -n grep -E "\\[sshd\\] Ban " /var/log/fail2ban.log | tail -n 1000', (error, stdout, stderr) => {
     if (error) {
       // Return inactive if not installed or no sudo rights
       return res.json({ success: true, is_active: false });
@@ -1681,11 +1681,15 @@ router.get('/api/fail2ban/status', adminAuth, (req, res) => {
     
     try {
       const output = stdout.toString();
-      const currentlyFailedMatch = output.match(/Currently failed:\s+(\d+)/);
-      const totalFailedMatch = output.match(/Total failed:\s+(\d+)/);
-      const currentlyBannedMatch = output.match(/Currently banned:\s+(\d+)/);
-      const totalBannedMatch = output.match(/Total banned:\s+(\d+)/);
-      const bannedIpListMatch = output.match(/Banned IP list:\s+(.*)/);
+      const parts = output.split('---LOGS---');
+      const statusOutput = parts[0];
+      const logsOutput = parts[1] || '';
+
+      const currentlyFailedMatch = statusOutput.match(/Currently failed:\s+(\d+)/);
+      const totalFailedMatch = statusOutput.match(/Total failed:\s+(\d+)/);
+      const currentlyBannedMatch = statusOutput.match(/Currently banned:\s+(\d+)/);
+      const totalBannedMatch = statusOutput.match(/Total banned:\s+(\d+)/);
+      const bannedIpListMatch = statusOutput.match(/Banned IP list:\s+(.*)/);
       
       const currentlyFailed = currentlyFailedMatch ? parseInt(currentlyFailedMatch[1]) : 0;
       const totalFailed = totalFailedMatch ? parseInt(totalFailedMatch[1]) : 0;
@@ -1694,7 +1698,23 @@ router.get('/api/fail2ban/status', adminAuth, (req, res) => {
       
       let bannedIps = [];
       if (bannedIpListMatch && bannedIpListMatch[1].trim() !== '') {
-        bannedIps = bannedIpListMatch[1].trim().split(/\s+/).filter(Boolean);
+        const ips = bannedIpListMatch[1].trim().split(/\s+/).filter(Boolean);
+        
+        // Parse logs to find timestamp
+        const logLines = logsOutput.split('\n').filter(Boolean);
+        
+        bannedIps = ips.map(ip => {
+          // Find the most recent log line for this IP
+          const ipLogs = logLines.filter(line => line.includes(`Ban ${ip}`));
+          let timestamp = 'Tidak diketahui';
+          if (ipLogs.length > 0) {
+            const lastLog = ipLogs[ipLogs.length - 1];
+            // Log format: 2026-06-22 12:08:28,102 fail2ban.actions [254718]: NOTICE [sshd] Ban 103.75.183.177
+            const dateMatch = lastLog.match(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})/);
+            if (dateMatch) timestamp = dateMatch[1];
+          }
+          return { ip: ip, timestamp: timestamp, port: '22 (SSH)' };
+        });
       }
       
       res.json({
