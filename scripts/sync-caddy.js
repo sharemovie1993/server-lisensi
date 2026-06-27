@@ -30,7 +30,7 @@ const PORT_EXCEPTIONS = {
 function getTenantsFromSupabase() {
   return new Promise((resolve, reject) => {
     const options = {
-      hostname: 'supabaselocal.absenta.id',
+      hostname: `supabaselocal.${MAIN_DOMAIN}`,
       port: 443,
       path: '/rest/v1/tenants?select=id,domain_or_slug,license_key,custom_domain,is_active',
       method: 'GET',
@@ -212,12 +212,32 @@ pos.${MAIN_DOMAIN} {
       const domainListStr = up.domains.join(', ');
 
       if (up.product_id === 'easy-tunnel') {
-        caddyfile += `
-# Tenant: ${up.slug} (Easy Tunnel)
+        // Jika port lokal adalah 443, asumsikan target menggunakan HTTPS (Caddy Lokal)
+        // Kita perlu menggunakan transport https dengan skip verify atau server_name
+        // karena sertifikat di lokal biasanya diterbitkan untuk domain aslinya, bukan IP WireGuard.
+        const isHttps = up.local_port === 443;
+        const scheme = isHttps ? 'https' : 'http';
+        
+        if (isHttps) {
+          caddyfile += `
+# Tenant: ${up.slug} (Easy Tunnel - End-to-End HTTPS)
 ${domainListStr} {
-    reverse_proxy * http://${up.wireguard_ip}:${up.local_port || 5002}
+    reverse_proxy ${scheme}://${up.wireguard_ip}:${up.local_port} {
+        header_up Host {host}
+        transport http {
+            tls_server_name ${up.domains[0]}
+        }
+    }
 }
 `;
+        } else {
+          caddyfile += `
+# Tenant: ${up.slug} (Easy Tunnel)
+${domainListStr} {
+    reverse_proxy * ${scheme}://${up.wireguard_ip}:${up.local_port || 5002}
+}
+`;
+        }
       } else {
         caddyfile += `
 # Tenant: ${up.slug}
