@@ -222,7 +222,13 @@ pos.${MAIN_DOMAIN} {
           caddyfile += `
 # Tenant: ${up.slug} (Easy Tunnel - End-to-End HTTPS)
 ${domainListStr} {
-    reverse_proxy ${scheme}://${up.wireguard_ip}:${up.local_port} {
+    reverse_proxy /socket.io/* https://${up.wireguard_ip}:${up.local_port} {
+        header_up Host {host}
+        transport http {
+            tls_server_name ${up.domains[0]}
+        }
+    }
+    reverse_proxy https://${up.wireguard_ip}:${up.local_port} {
         header_up Host {host}
         transport http {
             tls_server_name ${up.domains[0]}
@@ -234,7 +240,8 @@ ${domainListStr} {
           caddyfile += `
 # Tenant: ${up.slug} (Easy Tunnel)
 ${domainListStr} {
-    reverse_proxy * ${scheme}://${up.wireguard_ip}:${up.local_port || 5002}
+    reverse_proxy /socket.io/* http://${up.wireguard_ip}:${up.local_port || 5002}
+    reverse_proxy http://${up.wireguard_ip}:${up.local_port || 5002}
 }
 `;
         }
