@@ -318,6 +318,17 @@ async function initDatabase() {
     await db.exec("ALTER TABLE products ADD COLUMN capacity_label TEXT");
   } catch (e) {}
 
+  // Migrasi kolom penunjang katalog untuk pricing_plans
+  try { await db.exec("ALTER TABLE pricing_plans ADD COLUMN name TEXT"); } catch (e) {}
+  try { await db.exec("ALTER TABLE pricing_plans ADD COLUMN features_json TEXT"); } catch (e) {}
+  try { await db.exec("ALTER TABLE pricing_plans ADD COLUMN description TEXT"); } catch (e) {}
+  try { await db.exec("ALTER TABLE pricing_plans ADD COLUMN service_code TEXT"); } catch (e) {}
+  try { await db.exec("ALTER TABLE pricing_plans ADD COLUMN module_id TEXT"); } catch (e) {}
+  try { await db.exec("ALTER TABLE pricing_plans ADD COLUMN billing_period TEXT"); } catch (e) {}
+  try { await db.exec("ALTER TABLE pricing_plans ADD COLUMN price_monthly INTEGER"); } catch (e) {}
+  try { await db.exec("ALTER TABLE pricing_plans ADD COLUMN price_yearly INTEGER"); } catch (e) {}
+  try { await db.exec("ALTER TABLE pricing_plans ADD COLUMN size_label TEXT"); } catch (e) {}
+
   // Seeding/Updating Default Products
   const prodCount = await db.get('SELECT COUNT(*) as count FROM products');
   if (parseInt(prodCount.count, 10) === 0) {
@@ -435,22 +446,177 @@ async function initDatabase() {
 
   // Seeding pricing plans untuk modul-modul Absenta
   const modulePlans = [
-    { id: 'absensi_monthly', pid: 'absenta-module-absensi', title: 'Absensi Bulanan', price: 'Rp 49.000', dur: '30 Hari' },
-    { id: 'absensi_annual', pid: 'absenta-module-absensi', title: 'Absensi Tahunan', price: 'Rp 499.000', dur: '365 Hari', badge: 'Terbaik' },
-    { id: 'cooperative_monthly', pid: 'absenta-module-cooperative', title: 'Koperasi Bulanan', price: 'Rp 99.000', dur: '30 Hari' },
-    { id: 'cooperative_annual', pid: 'absenta-module-cooperative', title: 'Koperasi Tahunan', price: 'Rp 999.000', dur: '365 Hari', badge: 'Terbaik' },
-    { id: 'sarpras_monthly', pid: 'absenta-module-sarpras', title: 'Sarpras Bulanan', price: 'Rp 79.000', dur: '30 Hari' },
-    { id: 'sarpras_annual', pid: 'absenta-module-sarpras', title: 'Sarpras Tahunan', price: 'Rp 799.000', dur: '365 Hari', badge: 'Terbaik' },
-    { id: 'hubin_monthly', pid: 'absenta-module-hubin', title: 'Hubin Bulanan', price: 'Rp 59.000', dur: '30 Hari' },
-    { id: 'hubin_annual', pid: 'absenta-module-hubin', title: 'Hubin Tahunan', price: 'Rp 599.000', dur: '365 Hari', badge: 'Terbaik' },
-    { id: 'whatsapp_monthly', pid: 'absenta-module-whatsapp', title: 'WhatsApp Gateway Bulanan', price: 'Rp 39.000', dur: '30 Hari' },
-    { id: 'whatsapp_annual', pid: 'absenta-module-whatsapp', title: 'WhatsApp Gateway Tahunan', price: 'Rp 399.000', dur: '365 Hari', badge: 'Terbaik' }
+    {
+      id: 'absensi_monthly',
+      pid: 'absenta-module-absensi',
+      title: 'Absensi Bulanan',
+      price: 'Rp 49.000',
+      dur: '30 Hari',
+      name: 'Absensi Bulanan (Standard)',
+      desc: 'Solusi Absensi digital skala Standard.',
+      features: ['Absensi Datang & Pulang (GPS/Radius)', 'Face Recognition & Liveness Detection', 'Persetujuan Izin & Cuti via App', 'Laporan Kehadiran Harian & Bulanan'],
+      scode: 'ABSENSI',
+      mid: 'ABSENSI',
+      period: 'MONTH',
+      pm: 49000,
+      py: 490000,
+      size: 'Standard'
+    },
+    {
+      id: 'absensi_annual',
+      pid: 'absenta-module-absensi',
+      title: 'Absensi Tahunan',
+      price: 'Rp 499.000',
+      dur: '365 Hari',
+      name: 'Absensi Tahunan (Standard)',
+      desc: 'Solusi Absensi digital skala Standard.',
+      features: ['Absensi Datang & Pulang (GPS/Radius)', 'Face Recognition & Liveness Detection', 'Persetujuan Izin & Cuti via App', 'Laporan Kehadiran Harian & Bulanan'],
+      scode: 'ABSENSI',
+      mid: 'ABSENSI',
+      period: 'YEAR',
+      pm: 41583,
+      py: 499000,
+      size: 'Standard',
+      badge: 'Terbaik'
+    },
+    {
+      id: 'cooperative_monthly',
+      pid: 'absenta-module-cooperative',
+      title: 'Koperasi Bulanan',
+      price: 'Rp 99.000',
+      dur: '30 Hari',
+      name: 'Koperasi Bulanan (Standard)',
+      desc: 'Solusi Koperasi sekolah skala Standard.',
+      features: ['Manajemen Anggota & Tabungan Siswa', 'Sistem Pinjaman & Angsuran Otomatis', 'Kasir / POS (Point of Sale) Koperasi', 'Laporan Keuangan & SHU (Sisa Hasil Usaha)', 'Manajemen Stok & Inventaris Toko'],
+      scode: 'KOPERASI',
+      mid: 'KOPERASI',
+      period: 'MONTH',
+      pm: 99000,
+      py: 990000,
+      size: 'Standard'
+    },
+    {
+      id: 'cooperative_annual',
+      pid: 'absenta-module-cooperative',
+      title: 'Koperasi Tahunan',
+      price: 'Rp 999.000',
+      dur: '365 Hari',
+      name: 'Koperasi Tahunan (Standard)',
+      desc: 'Solusi Koperasi sekolah skala Standard.',
+      features: ['Manajemen Anggota & Tabungan Siswa', 'Sistem Pinjaman & Angsuran Otomatis', 'Kasir / POS (Point of Sale) Koperasi', 'Laporan Keuangan & SHU (Sisa Hasil Usaha)', 'Manajemen Stok & Inventaris Toko'],
+      scode: 'KOPERASI',
+      mid: 'KOPERASI',
+      period: 'YEAR',
+      pm: 83250,
+      py: 999000,
+      size: 'Standard',
+      badge: 'Terbaik'
+    },
+    {
+      id: 'sarpras_monthly',
+      pid: 'absenta-module-sarpras',
+      title: 'Sarpras Bulanan',
+      price: 'Rp 79.000',
+      dur: '30 Hari',
+      name: 'Sarpras Bulanan (Standard)',
+      desc: 'Solusi Sarana Prasarana skala Standard.',
+      features: ['Manajemen Inventaris Aset Sekolah', 'Sistem Peminjaman Ruang & Lab', 'Monitoring Perbaikan & Maintenance', 'Audit Aset Berbasis Lokasi (QR Code)'],
+      scode: 'SARPRAS',
+      mid: 'SARPRAS',
+      period: 'MONTH',
+      pm: 79000,
+      py: 790000,
+      size: 'Standard'
+    },
+    {
+      id: 'sarpras_annual',
+      pid: 'absenta-module-sarpras',
+      title: 'Sarpras Tahunan',
+      price: 'Rp 799.000',
+      dur: '365 Hari',
+      name: 'Sarpras Tahunan (Standard)',
+      desc: 'Solusi Sarana Prasarana skala Standard.',
+      features: ['Manajemen Inventaris Aset Sekolah', 'Sistem Peminjaman Ruang & Lab', 'Monitoring Perbaikan & Maintenance', 'Audit Aset Berbasis Lokasi (QR Code)'],
+      scode: 'SARPRAS',
+      mid: 'SARPRAS',
+      period: 'YEAR',
+      pm: 66583,
+      py: 799000,
+      size: 'Standard',
+      badge: 'Terbaik'
+    },
+    {
+      id: 'hubin_monthly',
+      pid: 'absenta-module-hubin',
+      title: 'Hubin Bulanan',
+      price: 'Rp 59.000',
+      dur: '30 Hari',
+      name: 'Hubin Bulanan (Standard)',
+      desc: 'Solusi Hubungan Industri & PKL skala Standard.',
+      features: ['Manajemen Mitra Industri (DU/DI)', 'Penempatan & Monitoring PKL Siswa', 'Jurnal PKL Digital (Input di Lokasi)', 'Absensi PKL Berbasis Geofencing'],
+      scode: 'HUBIN',
+      mid: 'HUBIN',
+      period: 'MONTH',
+      pm: 59000,
+      py: 590000,
+      size: 'Standard'
+    },
+    {
+      id: 'hubin_annual',
+      pid: 'absenta-module-hubin',
+      title: 'Hubin Tahunan',
+      price: 'Rp 599.000',
+      dur: '365 Hari',
+      name: 'Hubin Tahunan (Standard)',
+      desc: 'Solusi Hubungan Industri & PKL skala Standard.',
+      features: ['Manajemen Mitra Industri (DU/DI)', 'Penempatan & Monitoring PKL Siswa', 'Jurnal PKL Digital (Input di Lokasi)', 'Absensi PKL Berbasis Geofencing'],
+      scode: 'HUBIN',
+      mid: 'HUBIN',
+      period: 'YEAR',
+      pm: 49916,
+      py: 599000,
+      size: 'Standard',
+      badge: 'Terbaik'
+    },
+    {
+      id: 'whatsapp_monthly',
+      pid: 'absenta-module-whatsapp',
+      title: 'WhatsApp Gateway Bulanan',
+      price: 'Rp 39.000',
+      dur: '30 Hari',
+      name: 'WhatsApp Gateway Bulanan (Standard)',
+      desc: 'Solusi WhatsApp Gateway skala Standard.',
+      features: ['Notifikasi Kehadiran Otomatis (Real-time)', 'Laporan Harian & Bulanan via WhatsApp', 'Sistem Blast Pengumuman Seluruh Sekolah', 'Integrasi Notifikasi Koperasi & Sarpras'],
+      scode: 'WHATSAPP',
+      mid: 'WHATSAPP',
+      period: 'MONTH',
+      pm: 39000,
+      py: 390000,
+      size: 'Standard'
+    },
+    {
+      id: 'whatsapp_annual',
+      pid: 'absenta-module-whatsapp',
+      title: 'WhatsApp Gateway Tahunan',
+      price: 'Rp 399.000',
+      dur: '365 Hari',
+      name: 'WhatsApp Gateway Tahunan (Standard)',
+      desc: 'Solusi WhatsApp Gateway skala Standard.',
+      features: ['Notifikasi Kehadiran Otomatis (Real-time)', 'Laporan Harian & Bulanan via WhatsApp', 'Sistem Blast Pengumuman Seluruh Sekolah', 'Integrasi Notifikasi Koperasi & Sarpras'],
+      scode: 'WHATSAPP',
+      mid: 'WHATSAPP',
+      period: 'YEAR',
+      pm: 33250,
+      py: 399000,
+      size: 'Standard',
+      badge: 'Terbaik'
+    }
   ];
 
   for (const p of modulePlans) {
     await db.run(
-      "INSERT INTO pricing_plans (id, product_id, title, price, duration, device_limit, is_unlimited, badge) VALUES (?, ?, ?, ?, ?, 0, 1, ?)",
-      [p.id, p.pid, p.title, p.price, p.dur, p.badge || null]
+      "INSERT INTO pricing_plans (id, product_id, title, price, duration, device_limit, is_unlimited, badge, name, description, features_json, service_code, module_id, billing_period, price_monthly, price_yearly, size_label) VALUES (?, ?, ?, ?, ?, 0, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      [p.id, p.pid, p.title, p.price, p.dur, p.badge || null, p.name, p.desc, JSON.stringify(p.features), p.scode, p.mid, p.period, p.pm, p.py, p.size]
     );
   }
 
