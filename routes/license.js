@@ -384,7 +384,7 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
     const invoiceNumber = `INV-ORK-${randomPrefix}-${new Date().getFullYear()}`;
 
     // ──────── MANAJEMEN PRODUK GRATIS (REGISTRASI SAJA) ────────
-    if (basePrice === 0 || prodId === 'platform-absenta') {
+    if (basePrice === 0) {
       let licenseId;
       if (existingLicense) {
         licenseId = existingLicense.id;
@@ -1298,6 +1298,23 @@ router.post('/api/license/tripay-callback', async (req, res) => {
       // Auto-provision VPN addon if bundled
       await activateVpnAddonIfNeeded(license, req);
 
+      // Real-time Push Callback to School Server
+      if (license.requested_slug) {
+        const schoolDomain = license.custom_domain ? `https://${license.custom_domain}` : `https://${license.requested_slug}.absenta.id`;
+        const callbackUrl = `${schoolDomain}/api/billing/subscriptions/license/callback`;
+        console.log(`[TRIPAY Webhook] Sending real-time push callback to school: ${callbackUrl}`);
+        
+        const axios = require('axios');
+        axios.post(callbackUrl, {
+          license_key: license.license_key,
+          tenant_id: license.requested_slug
+        }, { timeout: 6000 }).then(response => {
+          console.log(`[TRIPAY Webhook] Callback to school succeeded: ${response.status}`);
+        }).catch(err => {
+          console.log(`[TRIPAY Webhook] Callback to school failed (school NAT/offline - will fallback to pull sync): ${err.message}`);
+        });
+      }
+
       if (license.requested_slug) {
         if (license.is_recovery === 1) {
           console.log(`[TRIPAY Webhook] Recovery mode: updating existing tenant '${license.requested_slug}' license_key in Supabase...`);
@@ -1575,6 +1592,23 @@ router.post('/api/license/xendit-callback', async (req, res) => {
       
       // Auto-provision VPN addon if bundled
       await activateVpnAddonIfNeeded(license, req);
+
+      // Real-time Push Callback to School Server
+      if (license.requested_slug) {
+        const schoolDomain = license.custom_domain ? `https://${license.custom_domain}` : `https://${license.requested_slug}.absenta.id`;
+        const callbackUrl = `${schoolDomain}/api/billing/subscriptions/license/callback`;
+        console.log(`[XENDIT Webhook] Sending real-time push callback to school: ${callbackUrl}`);
+        
+        const axios = require('axios');
+        axios.post(callbackUrl, {
+          license_key: license.license_key,
+          tenant_id: license.requested_slug
+        }, { timeout: 6000 }).then(response => {
+          console.log(`[XENDIT Webhook] Callback to school succeeded: ${response.status}`);
+        }).catch(err => {
+          console.log(`[XENDIT Webhook] Callback to school failed (school NAT/offline - will fallback to pull sync): ${err.message}`);
+        });
+      }
 
       if (license.requested_slug) {
         if (license.is_recovery === 1) {
