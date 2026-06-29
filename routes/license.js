@@ -363,6 +363,39 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
       price: req.body.price || req.body.amount || (isUnlimited ? 'Rp 1.199.000' : 'Rp 299.000')
     };
 
+    const licenseCheckId = existingLicense ? existingLicense.id : null;
+    if (licenseCheckId) {
+      const existingInvoice = await db.get(
+        "SELECT * FROM invoices WHERE license_id = ? AND plan_id = ? AND status = 'unpaid' AND expired_time > ?",
+        [licenseCheckId, plan.id, Math.floor(Date.now() / 1000)]
+      );
+      if (existingInvoice) {
+        console.log(`[LICENSE REQUEST] Reusing existing unpaid invoice: ${existingInvoice.invoice_number} for license: ${newKey}`);
+        let instructions = [];
+        try {
+          instructions = JSON.parse(existingInvoice.payment_instructions || '[]');
+        } catch (e) {
+          instructions = [];
+        }
+        return res.json({
+          success: true,
+          message: 'Reusing existing unpaid invoice.',
+          data: {
+            license_key: newKey,
+            invoice_number: existingInvoice.invoice_number,
+            amount: existingInvoice.amount,
+            payment_method: existingInvoice.payment_method,
+            payment_reference: existingInvoice.payment_reference,
+            qr_url: existingInvoice.qr_url,
+            pay_code: existingInvoice.pay_code,
+            payment_instructions: instructions,
+            instructions: instructions,
+            expired_time: existingInvoice.expired_time
+          }
+        });
+      }
+    }
+
     const activeGatewayRow = await db.get("SELECT value FROM system_settings WHERE key = 'active_gateway'") || { value: 'tripay' };
     const activeGateway = activeGatewayRow.value || 'tripay';
 
