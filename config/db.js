@@ -577,7 +577,7 @@ async function initDatabase() {
           "INSERT INTO pricing_plans (id, product_id, title, price, duration, device_limit, is_unlimited, badge, name, description, features_json, service_code, module_id, billing_period, price_monthly, price_yearly, size_label) VALUES (?, 'absenta', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
           [
             planCode, 
-            'absenta', 
+            planName, 
             priceStr, 
             durationStr, 
             tier.max_user, 
