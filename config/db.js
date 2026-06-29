@@ -215,7 +215,7 @@ async function initDatabase() {
   await db.exec(`
     CREATE TABLE IF NOT EXISTS subscriptions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      license_id INTEGER NOT NULL UNIQUE,
+      license_id INTEGER NOT NULL,
       school_name TEXT NOT NULL,
       product_id TEXT NOT NULL,
       plan_id TEXT NOT NULL,
@@ -228,6 +228,36 @@ async function initDatabase() {
       FOREIGN KEY (license_id) REFERENCES licenses (id) ON DELETE CASCADE
     )
   `);
+
+  // Migration to drop UNIQUE constraint on subscriptions.license_id
+  try {
+    const masterInfo = await db.get("SELECT sql FROM sqlite_master WHERE type='table' AND name='subscriptions'");
+    if (masterInfo && masterInfo.sql.includes('license_id INTEGER NOT NULL UNIQUE')) {
+      console.log('[MIGRATION] Recreating subscriptions table to remove UNIQUE constraint on license_id...');
+      await db.exec("ALTER TABLE subscriptions RENAME TO subscriptions_old");
+      await db.exec(`
+        CREATE TABLE subscriptions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          license_id INTEGER NOT NULL,
+          school_name TEXT NOT NULL,
+          product_id TEXT NOT NULL,
+          plan_id TEXT NOT NULL,
+          status TEXT DEFAULT 'pending',
+          start_date TEXT,
+          end_date TEXT,
+          auto_renew INTEGER DEFAULT 0,
+          created_at TEXT DEFAULT (datetime('now', 'localtime')),
+          updated_at TEXT DEFAULT (datetime('now', 'localtime')),
+          FOREIGN KEY (license_id) REFERENCES licenses (id) ON DELETE CASCADE
+        )
+      `);
+      await db.exec("INSERT INTO subscriptions (id, license_id, school_name, product_id, plan_id, status, start_date, end_date, auto_renew, created_at, updated_at) SELECT id, license_id, school_name, product_id, plan_id, status, start_date, end_date, auto_renew, created_at, updated_at FROM subscriptions_old");
+      await db.exec("DROP TABLE subscriptions_old");
+      console.log('[MIGRATION] Recreated subscriptions table successfully.');
+    }
+  } catch (e) {
+    console.error('[MIGRATION] Failed to remove UNIQUE constraint on subscriptions:', e.message);
+  }
 
   // 8. Table system_settings
   await db.exec(`
