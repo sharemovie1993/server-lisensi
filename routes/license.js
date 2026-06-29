@@ -360,7 +360,7 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
     const plan = await db.get("SELECT * FROM pricing_plans WHERE id = ?", [resolvedPlanId]) || {
       id: resolvedPlanId,
       title: isUnlimited ? 'Tahunan' : 'Bulanan',
-      price: isUnlimited ? 'Rp 1.199.000' : 'Rp 299.000'
+      price: req.body.price || req.body.amount || (isUnlimited ? 'Rp 1.199.000' : 'Rp 299.000')
     };
 
     const activeGatewayRow = await db.get("SELECT value FROM system_settings WHERE key = 'active_gateway'") || { value: 'tripay' };
