@@ -1281,14 +1281,14 @@ router.post('/api/license/tripay-callback', async (req, res) => {
       );
 
       await db.run(
-        "UPDATE subscriptions SET status = 'active', plan_id = ?, end_date = ?, updated_at = (datetime('now', 'localtime')) WHERE license_id = ?",
-        [planId, expiresStr, license.id]
+        "UPDATE subscriptions SET status = 'active', end_date = ?, updated_at = (datetime('now', 'localtime')) WHERE license_id = ? AND plan_id = ?",
+        [expiresStr, license.id, planId]
       );
 
       if (license.status !== 'active' || !license.expires_at || license.expires_at <= todayStr) {
         await db.run(
-          "UPDATE subscriptions SET start_date = datetime('now', 'localtime') WHERE license_id = ?",
-          [license.id]
+          "UPDATE subscriptions SET start_date = datetime('now', 'localtime') WHERE license_id = ? AND plan_id = ?",
+          [license.id, planId]
         );
       }
 
@@ -1492,8 +1492,8 @@ router.post('/api/license/tripay-callback', async (req, res) => {
         );
         
         await db.run(
-          "UPDATE subscriptions SET status = 'expired' WHERE license_id = ?",
-          [invoice.license_id]
+          "UPDATE subscriptions SET status = 'expired' WHERE license_id = ? AND plan_id = ?",
+          [invoice.license_id, invoice.plan_id]
         );
         
         const license = await db.get('SELECT * FROM licenses WHERE id = ?', [invoice.license_id]);
@@ -1576,14 +1576,14 @@ router.post('/api/license/xendit-callback', async (req, res) => {
       );
 
       await db.run(
-        "UPDATE subscriptions SET status = 'active', plan_id = ?, end_date = ?, updated_at = (datetime('now', 'localtime')) WHERE license_id = ?",
-        [planId, expiresStr, license.id]
+        "UPDATE subscriptions SET status = 'active', end_date = ?, updated_at = (datetime('now', 'localtime')) WHERE license_id = ? AND plan_id = ?",
+        [expiresStr, license.id, planId]
       );
 
       if (license.status !== 'active' || !license.expires_at || license.expires_at <= todayStr) {
         await db.run(
-          "UPDATE subscriptions SET start_date = datetime('now', 'localtime') WHERE license_id = ?",
-          [license.id]
+          "UPDATE subscriptions SET start_date = datetime('now', 'localtime') WHERE license_id = ? AND plan_id = ?",
+          [license.id, planId]
         );
       }
 
@@ -1774,7 +1774,7 @@ router.post('/api/license/xendit-callback', async (req, res) => {
       if (invoice) {
         await db.run("UPDATE invoices SET status = 'expired' WHERE id = ?", [invoice.id]);
         await db.run("UPDATE licenses SET status = 'expired', is_active = 0 WHERE id = ?", [invoice.license_id]);
-        await db.run("UPDATE subscriptions SET status = 'expired' WHERE license_id = ?", [invoice.license_id]);
+        await db.run("UPDATE subscriptions SET status = 'expired' WHERE license_id = ? AND plan_id = ?", [invoice.license_id, invoice.plan_id]);
         
         console.log(`[XENDIT Webhook] Transaction ${external_id} marked as expired.`);
       }
