@@ -375,7 +375,7 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
       }
     }
 
-    let basePrice = parseInt(plan.price.replace(/[^\d]/g, ''), 10) || 0;
+    let basePrice = parseInt(String(plan.price || '').replace(/[^\d]/g, ''), 10) || 0;
     if (vpnPrice > 0) {
       basePrice += vpnPrice;
     }
