@@ -357,6 +357,31 @@ async function initDatabase() {
     await db.run("UPDATE products SET key_prefix = 'ETN', display_name = 'Easy Tunnel Gateway', capacity_label = '1 Port per Aplikasi' WHERE id = 'easy-tunnel'");
   }
 
+  // Ensure absenta module products exist
+  const modulesToSeed = [
+    { id: 'absenta-module-absensi', name: 'Modul Absensi', desc: 'Modul absensi digital dengan validasi lokasi & face recognition', prefix: 'ABS', dispName: 'Absensi Premium', capLabel: 'Akses Penuh' },
+    { id: 'absenta-module-cooperative', name: 'Modul Koperasi', desc: 'Modul tabungan, pinjaman, dan kasir koperasi sekolah', prefix: 'COP', dispName: 'Koperasi Premium', capLabel: 'Akses Penuh' },
+    { id: 'absenta-module-sarpras', name: 'Modul Sarpras', desc: 'Modul inventarisasi aset dan peminjaman ruang sarpras', prefix: 'SRP', dispName: 'Sarpras Premium', capLabel: 'Akses Penuh' },
+    { id: 'absenta-module-hubin', name: 'Modul Hubin', desc: 'Modul penempatan, absensi, dan monitoring PKL siswa', prefix: 'HBN', dispName: 'Hubin Premium', capLabel: 'Akses Penuh' },
+    { id: 'absenta-module-whatsapp', name: 'Modul WhatsApp Gateway', desc: 'Modul integrasi blast notifikasi WhatsApp real-time', prefix: 'WA', dispName: 'WhatsApp Gateway Premium', capLabel: 'Akses Penuh' }
+  ];
+
+  for (const m of modulesToSeed) {
+    const existingMod = await db.get("SELECT id FROM products WHERE id = ?", [m.id]);
+    if (!existingMod) {
+      await db.run(
+        "INSERT INTO products (id, name, description, key_prefix, display_name, capacity_label) VALUES (?, ?, ?, ?, ?, ?)",
+        [m.id, m.name, m.desc, m.prefix, m.dispName, m.capLabel]
+      );
+      console.log(`[SEED] Registered module product: ${m.id}`);
+    } else {
+      await db.run(
+        "UPDATE products SET key_prefix = ?, display_name = ?, capacity_label = ?, name = ?, description = ? WHERE id = ?",
+        [m.prefix, m.dispName, m.capLabel, m.name, m.desc, m.id]
+      );
+    }
+  }
+
   // Seeding Demo License
   const count = await db.get('SELECT COUNT(*) as count FROM licenses');
   if (parseInt(count.count, 10) === 0) {
@@ -407,6 +432,28 @@ async function initDatabase() {
   await db.run("INSERT INTO pricing_plans (id, product_id, title, price, duration, device_limit, is_unlimited, badge) VALUES ('easy_tunnel_monthly', 'easy-tunnel', 'Easy Tunnel Bulanan', 'Rp 50.000', '30 Hari', 1, 0, null)");
   await db.run("INSERT INTO pricing_plans (id, product_id, title, price, duration, device_limit, is_unlimited, badge) VALUES ('easy_tunnel_semester', 'easy-tunnel', 'Easy Tunnel Semester', 'Rp 250.000', '180 Hari', 1, 0, 'Hemat 17%')");
   await db.run("INSERT INTO pricing_plans (id, product_id, title, price, duration, device_limit, is_unlimited, badge) VALUES ('easy_tunnel_annual', 'easy-tunnel', 'Easy Tunnel Tahunan', 'Rp 480.000', '365 Hari', 1, 0, 'Terbaik')");
+
+  // Seeding pricing plans untuk modul-modul Absenta
+  const modulePlans = [
+    { id: 'absensi_monthly', pid: 'absenta-module-absensi', title: 'Absensi Bulanan', price: 'Rp 49.000', dur: '30 Hari' },
+    { id: 'absensi_annual', pid: 'absenta-module-absensi', title: 'Absensi Tahunan', price: 'Rp 499.000', dur: '365 Hari', badge: 'Terbaik' },
+    { id: 'cooperative_monthly', pid: 'absenta-module-cooperative', title: 'Koperasi Bulanan', price: 'Rp 99.000', dur: '30 Hari' },
+    { id: 'cooperative_annual', pid: 'absenta-module-cooperative', title: 'Koperasi Tahunan', price: 'Rp 999.000', dur: '365 Hari', badge: 'Terbaik' },
+    { id: 'sarpras_monthly', pid: 'absenta-module-sarpras', title: 'Sarpras Bulanan', price: 'Rp 79.000', dur: '30 Hari' },
+    { id: 'sarpras_annual', pid: 'absenta-module-sarpras', title: 'Sarpras Tahunan', price: 'Rp 799.000', dur: '365 Hari', badge: 'Terbaik' },
+    { id: 'hubin_monthly', pid: 'absenta-module-hubin', title: 'Hubin Bulanan', price: 'Rp 59.000', dur: '30 Hari' },
+    { id: 'hubin_annual', pid: 'absenta-module-hubin', title: 'Hubin Tahunan', price: 'Rp 599.000', dur: '365 Hari', badge: 'Terbaik' },
+    { id: 'whatsapp_monthly', pid: 'absenta-module-whatsapp', title: 'WhatsApp Gateway Bulanan', price: 'Rp 39.000', dur: '30 Hari' },
+    { id: 'whatsapp_annual', pid: 'absenta-module-whatsapp', title: 'WhatsApp Gateway Tahunan', price: 'Rp 399.000', dur: '365 Hari', badge: 'Terbaik' }
+  ];
+
+  for (const p of modulePlans) {
+    await db.run(
+      "INSERT INTO pricing_plans (id, product_id, title, price, duration, device_limit, is_unlimited, badge) VALUES (?, ?, ?, ?, ?, 0, 1, ?)",
+      [p.id, p.pid, p.title, p.price, p.dur, p.badge || null]
+    );
+  }
+
   console.log('[SEED] Premium school-grade pricing plans seeded/refreshed successfully.');
 
   // Seeding System Settings

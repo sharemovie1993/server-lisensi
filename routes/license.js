@@ -112,7 +112,14 @@ router.get('/api/license/packages', async (req, res) => {
   const { product_id } = req.query;
   const productId = product_id || 'gform-orkestrator';
   try {
-    const list = await db.all('SELECT * FROM pricing_plans WHERE product_id = ?', [productId]);
+    let list;
+    if (productId === 'absenta' || productId === 'platform-absenta') {
+      list = await db.all(
+        "SELECT * FROM pricing_plans WHERE product_id = 'absenta' OR product_id = 'platform-absenta' OR product_id LIKE 'absenta-module-%'"
+      );
+    } else {
+      list = await db.all('SELECT * FROM pricing_plans WHERE product_id = ?', [productId]);
+    }
     res.json({ success: true, data: list });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Gagal mengambil konfigurasi paket.' });
