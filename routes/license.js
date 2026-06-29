@@ -627,6 +627,9 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
     let feeFlat = 0;
     let feePercent = 0;
     let resolvedPaymentMethod = payment_method || 'QRIS2';
+    if (resolvedPaymentMethod === 'tripay' || resolvedPaymentMethod === 'Tripay') {
+      resolvedPaymentMethod = 'QRIS2';
+    }
     
     try {
       const fetch = require('node-fetch');
