@@ -182,7 +182,7 @@ export function renderPendingList(items) {
           </div>
         `;
         approveBtnHtml = `
-          <button onclick="approveLicense(${item.id})" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold py-2.5 rounded-xl text-xs tracking-wider uppercase flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95">
+          <button onclick="approveLicense('${item.id}')" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold py-2.5 rounded-xl text-xs tracking-wider uppercase flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95">
             ✅ SETUJUI PEMBAYARAN MANUAL
           </button>
         `;
@@ -191,7 +191,7 @@ export function renderPendingList(items) {
         proofHtml = `
           <div class="p-3 rounded-xl bg-slate-900/50 border border-amber-500/20 flex flex-col gap-2">
             <input type="file" id="file-${item.id}" class="text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-amber-500/10 file:text-amber-500 hover:file:bg-amber-500/20">
-            <button onclick="uploadProof(${item.id})" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-2 rounded-lg text-[10px] uppercase tracking-wider transition-all">
+            <button onclick="uploadProof('${item.id}')" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-2 rounded-lg text-[10px] uppercase tracking-wider transition-all">
               📤 Upload Bukti Bayar
             </button>
           </div>
@@ -236,7 +236,7 @@ export function renderPendingList(items) {
           <span class="text-[10px] text-slate-500 font-semibold leading-relaxed flex items-center">
             ${noteText}
           </span>
-          <button onclick="deleteLicense(${item.id})" class="bg-slate-700 hover:bg-red-600 hover:text-white text-slate-300 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 whitespace-nowrap">
+          <button onclick="deleteLicense('${item.id}')" class="bg-slate-700 hover:bg-red-600 hover:text-white text-slate-300 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 whitespace-nowrap">
             🗑️ Batalkan
           </button>
         </div>
@@ -316,10 +316,10 @@ export function renderLicenseTable(items) {
       </td>
       <td class="p-4 text-right">
         <div class="flex items-center justify-end gap-1.5">
-          <button onclick="printInvoice(${item.id})" class="bg-slate-800 border border-slate-700/50 hover:border-blue-500/50 hover:bg-blue-600/10 text-blue-400 hover:text-blue-300 p-2 rounded-lg transition-all duration-300" title="Cetak Invoice Resmi (BOS)">
+          <button onclick="printInvoice('${item.id}')" class="bg-slate-800 border border-slate-700/50 hover:border-blue-500/50 hover:bg-blue-600/10 text-blue-400 hover:text-blue-300 p-2 rounded-lg transition-all duration-300" title="Cetak Invoice Resmi (BOS)">
             📄
           </button>
-          <button onclick="deleteLicense(${item.id})" class="bg-slate-800 border border-slate-700/50 hover:border-red-500/50 hover:bg-red-600/10 text-slate-400 hover:text-red-500 p-2 rounded-lg transition-all duration-300" title="Hapus Lisensi">
+          <button onclick="deleteLicense('${item.id}')" class="bg-slate-800 border border-slate-700/50 hover:border-red-500/50 hover:bg-red-600/10 text-slate-400 hover:text-red-500 p-2 rounded-lg transition-all duration-300" title="Hapus Lisensi">
             🗑️
           </button>
         </div>
@@ -444,7 +444,7 @@ export function renderInvoiceTable(list) {
     } else {
       statusBadge = `<span class="bg-amber-500/10 text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/20 uppercase tracking-widest">Belum Bayar</span>`;
       payAction = `
-        <button onclick="manuallyPayInvoice(${inv.id})" class="bg-slate-800 border border-slate-700/50 hover:border-emerald-500/50 hover:bg-emerald-600/10 text-emerald-400 hover:text-emerald-300 p-2 rounded-lg transition-all duration-300 cursor-pointer" title="Persetujuan Manual Keuangan">
+        <button onclick="manuallyPayInvoice('${inv.id}')" class="bg-slate-800 border border-slate-700/50 hover:border-emerald-500/50 hover:bg-emerald-600/10 text-emerald-400 hover:text-emerald-300 p-2 rounded-lg transition-all duration-300 cursor-pointer" title="Persetujuan Manual Keuangan">
           💰
         </button>
       `;
@@ -461,7 +461,7 @@ export function renderInvoiceTable(list) {
       <td class="p-4 text-right">
         <div class="flex justify-end gap-1.5">
           ${payAction}
-          <button onclick="printInvoice(${inv.id})" class="bg-slate-800 border border-slate-700/50 hover:border-blue-500/50 hover:bg-blue-600/10 text-blue-400 hover:text-blue-300 p-2 rounded-lg transition-all duration-300 cursor-pointer" title="Cetak SPJ BOS A4">
+          <button onclick="printInvoice('${inv.id}')" class="bg-slate-800 border border-slate-700/50 hover:border-blue-500/50 hover:bg-blue-600/10 text-blue-400 hover:text-blue-300 p-2 rounded-lg transition-all duration-300 cursor-pointer" title="Cetak SPJ BOS A4">
             📄
           </button>
         </div>
@@ -949,7 +949,7 @@ export function printInvoice(id) {
     }
   </style>
 </head>
-<body onload="setTimeout(()=>window.print(), 300)">
+<body>
   <!-- Watermark -->
   <div class="watermark">${statusLabel}</div>
 
@@ -1099,6 +1099,9 @@ export function printInvoice(id) {
 </html>
   `);
   invoiceWindow.document.close();
+  setTimeout(() => {
+    invoiceWindow.print();
+  }, 350);
 }
 
 export const menuItems = [

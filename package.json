@@ -1,25 +1,40 @@
 {
-  "name": "central-licensing-server",
-  "version": "1.1.0",
-  "description": "Centralized, lightweight license server for Absenta ID ecosystem (Yatim, Absenta, Orkestrator)",
-  "main": "server.js",
+  "name": "central-licensing-server-ts",
+  "version": "2.0.0",
+  "description": "Unified Central Licensing Server for Absenta Ecosystem using Fastify & TypeScript",
+  "main": "dist/server.js",
   "scripts": {
-    "start": "node server.js"
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev"
   },
   "dependencies": {
+    "@fastify/cors": "^8.4.0",
+    "@fastify/rate-limit": "^8.1.1",
+    "@fastify/static": "^7.0.4",
+    "@prisma/client": "^5.6.0",
     "@whiskeysockets/baileys": "^7.0.0-rc13",
-    "cors": "^2.8.5",
+    "axios": "^1.18.1",
     "dotenv": "^16.4.5",
-    "express": "^4.19.2",
-    "express-rate-limit": "^8.5.2",
+    "fastify": "^4.24.3",
     "jsonwebtoken": "^9.0.2",
     "node-fetch": "^2.7.0",
     "pg": "^8.21.0",
     "pino": "^10.3.1",
     "qrcode": "^1.5.4",
-    "sqlite": "^5.1.1",
-    "sqlite3": "^5.1.7",
     "ws": "^8.21.0"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^20.19.39",
+    "@types/node-fetch": "^2.6.13",
+    "@types/qrcode": "^1.5.6",
+    "@types/ws": "^8.18.1",
+    "prisma": "^5.6.0",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.2.2"
   },
   "private": true
 }

@@ -4,6 +4,11 @@ const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
 const path = require('path');
+// HTTP clients – loaded at startup, not inside callbacks
+let axiosLib;
+try { axiosLib = require('axios'); } catch (_) { axiosLib = null; }
+let nodeFetch;
+try { nodeFetch = require('node-fetch'); } catch (_) { nodeFetch = null; }
 
 const { db } = require('../config/db');
 const { PUBLIC_KEY, PRIVATE_KEY, TRIPAY_API_KEY, TRIPAY_PRIVATE_KEY, TRIPAY_MERCHANT_CODE, TRIPAY_API_URL, ADMIN_SECRET } = require('../config/keys');
@@ -11,6 +16,30 @@ const { logLicenseActivity } = require('../utils/logger');
 const { generateKey, formatIndonesianDate } = require('../utils/helpers');
 const { triggerCaddySync } = require('../utils/caddy');
 const renderInvoiceTemplate = require('../views/invoice-template');
+
+// Reusable POST helper: prefers axios, falls back to node-fetch
+async function httpPost(url, body, headers = {}, timeoutMs = 8000) {
+  if (axiosLib) {
+    const res = await axiosLib.post(url, body, { headers, timeout: timeoutMs });
+    return { status: res.status, data: res.data };
+  }
+  if (nodeFetch) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await nodeFetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify(body),
+        signal: controller.signal
+      });
+      return { status: res.status, data: await res.json().catch(() => ({})) };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  throw new Error('No HTTP client available (axios/node-fetch)');
+}
 
 // ── RATE LIMITING MIDDLEWARE ──
 const activationLimiter = rateLimit({
@@ -46,64 +75,6 @@ const statusCheckLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// ── HELPER: Automated dynamic Nginx & Certbot SSL setup ──
-function provisionNginxAndSsl(slug) {
-  const { exec } = require('child_process');
-  const fs = require('fs');
-
-  const domain = `${slug}.${process.env.MAIN_DOMAIN}`;
-  const configPath = `/etc/nginx/sites-available/${domain}`;
-  const enabledPath = `/etc/nginx/sites-enabled/${domain}`;
-
-  console.log(`[SSL Provisioning] Starting automated Nginx and SSL setup for: ${domain}`);
-
-  const nginxConfig = `server {
-    server_name ${domain};
-    root /var/www/${process.env.MAIN_DOMAIN}; # Points to the central catch-all web client
-    index index.html;
-
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-}
-`;
-
-  try {
-    fs.writeFileSync(configPath, nginxConfig);
-    console.log(`[SSL Provisioning] Nginx config written to: ${configPath}`);
-
-    if (!fs.existsSync(enabledPath)) {
-      fs.symlinkSync(configPath, enabledPath);
-      console.log(`[SSL Provisioning] Created Nginx symlink at: ${enabledPath}`);
-    }
-
-    exec('nginx -t && systemctl reload nginx', (err, stdout, stderr) => {
-      if (err) {
-        console.error('[SSL Provisioning] Nginx reload failed:', stderr || stdout);
-        return;
-      }
-      console.log('[SSL Provisioning] Nginx configuration verified and reloaded.');
-
-      console.log(`[SSL Provisioning] Requesting Certbot SSL certificate for ${domain}...`);
-      const certbotCmd = `certbot --nginx -d ${domain} --non-interactive --agree-tos --email 119asepsuryadi@gmail.com --redirect`;
-      
-      exec(certbotCmd, (certErr, certStdout, certStderr) => {
-        if (certErr) {
-          console.error('[SSL Provisioning] Certbot failed:', certStderr || certStdout);
-          return;
-        }
-        console.log(`[SSL Provisioning] Certbot successfully generated SSL and configured Nginx for ${domain}!`);
-        
-        exec('systemctl reload nginx', (reloadErr) => {
-          if (reloadErr) console.error('[SSL Provisioning] Final Nginx reload failed');
-          else console.log(`[SSL Provisioning] Dynamic SSL configuration completely live for https://${domain}!`);
-        });
-      });
-    });
-  } catch (err) {
-    console.error('[SSL Provisioning] Error during automated file writing:', err.message);
-  }
-}
 
 // ── CLIENT ROUTES ──
 
@@ -164,10 +135,36 @@ const FALLBACK_PAYMENT_CHANNELS = [
 router.get('/api/license/payment-channels', async (req, res) => {
   const currentTime = Date.now();
   
-  // 1. Return cache if it is still fresh (valid for 1 hour)
+  let manualChannel = null;
+  try {
+    const manualEnabledRow = await db.get("SELECT value FROM system_settings WHERE key = 'manual_payment_enabled'") || { value: '1' };
+    if (manualEnabledRow.value === '1') {
+      const bankNameRow = await db.get("SELECT value FROM system_settings WHERE key = 'manual_bank_name'") || { value: 'BCA' };
+      manualChannel = {
+        group: "Transfer Manual",
+        code: "Manual",
+        name: `Transfer Bank Manual (${bankNameRow.value})`,
+        type: "direct",
+        active: true,
+        fee_flat: 0,
+        fee_percent: 0,
+        icon_url: "https://img.icons8.com/fluency/96/bank-card-back-side.png",
+        minimum_amount: 10000,
+        maximum_amount: 50000000
+      };
+    }
+  } catch (err) {
+    console.error('[payment-channels] Failed to read manual payment settings:', err.message);
+  }
+  
+  // 1. Return cache if it is still fresh (valid for 5 minutes)
   if (paymentChannelsCache && currentTime < cacheExpirationTime) {
     console.log('[Payment Channels Cache] Serving payment channels from fresh memory cache.');
-    return res.json({ success: true, gateway_online: true, message: 'Success', data: paymentChannelsCache });
+    const resultData = [...paymentChannelsCache];
+    if (manualChannel) {
+      resultData.unshift(manualChannel);
+    }
+    return res.json({ success: true, gateway_online: true, message: 'Success', data: resultData });
   }
 
   try {
@@ -202,10 +199,14 @@ router.get('/api/license/payment-channels', async (req, res) => {
       
       // Update memory cache
       paymentChannelsCache = mappedData;
-      cacheExpirationTime = currentTime + (60 * 60 * 1000); // 1 hour expiration
+      cacheExpirationTime = currentTime + (5 * 60 * 1000); // 5 minutes expiration
       console.log('[Payment Channels Cache] Successfully updated payment channels memory cache.');
       
-      return res.json({ success: true, gateway_online: true, message: 'Success', data: mappedData });
+      const resultData = [...mappedData];
+      if (manualChannel) {
+        resultData.unshift(manualChannel);
+      }
+      return res.json({ success: true, gateway_online: true, message: 'Success', data: resultData });
     }
     
     // If API responded but not success, throw to trigger fallback
@@ -216,16 +217,24 @@ router.get('/api/license/payment-channels', async (req, res) => {
     // 2. STALE FALLBACK: If API fails but we have stale cache, serve it
     if (paymentChannelsCache) {
       console.log('[Payment Channels Fallback] Tripay down. Serving stale payment channels from memory.');
-      return res.json({ success: true, gateway_online: false, message: 'Serving from stale cache due to gateway error', data: paymentChannelsCache });
+      const resultData = [...paymentChannelsCache];
+      if (manualChannel) {
+        resultData.unshift(manualChannel);
+      }
+      return res.json({ success: true, gateway_online: false, message: 'Serving from stale cache due to gateway error', data: resultData });
     }
     
     // 3. OFFLINE FALLBACK: If completely no cache, serve hardcoded backup list
     console.log('[Payment Channels Fallback] Tripay down & cache empty. Serving robust offline payment channels list.');
+    const resultData = [...FALLBACK_PAYMENT_CHANNELS];
+    if (manualChannel) {
+      resultData.unshift(manualChannel);
+    }
     return res.json({ 
       success: true,
       gateway_online: false,
       message: 'Serving offline fallback payment methods', 
-      data: FALLBACK_PAYMENT_CHANNELS 
+      data: resultData 
     });
   }
 });
@@ -264,6 +273,11 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
   const resolvedSupabaseAnonKey = existingLicense ? existingLicense.requested_supabase_anon_key : requested_supabase_anon_key;
   const resolvedIncludeVpn = existingLicense ? existingLicense.include_vpn : (include_vpn === 1 || include_vpn === true || include_vpn === '1');
   
+  let resolvedPaymentMethod = payment_method || 'QRIS2';
+  if (resolvedPaymentMethod === 'tripay' || resolvedPaymentMethod === 'Tripay') {
+    resolvedPaymentMethod = 'QRIS2';
+  }
+  
   let productPrefix = null;
   try {
     const prodDb = await db.get("SELECT key_prefix FROM products WHERE id = ?", [prodId]);
@@ -286,64 +300,21 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
     if (resolvedSlug && !existingLicense) {
       const cleanSlug = resolvedSlug.trim().toLowerCase();
       
-      const getTenantFromSupabase = (slug) => {
-        return new Promise((resolve) => {
-          const https = require('https');
-          const options = {
-            hostname: `supabaselocal.${process.env.MAIN_DOMAIN}`,
-            port: 443,
-            path: `/rest/v1/tenants?domain_or_slug=eq.${slug}&select=id,name,domain_or_slug,license_key`,
-            method: 'GET',
-            headers: {
-              'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE',
-              'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE'
-            }
-          };
-
-          const request = https.request(options, (response) => {
-            let body = '';
-            response.on('data', (chunk) => body += chunk);
-            response.on('end', () => {
-              if (response.statusCode >= 200 && response.statusCode < 300) {
-                try {
-                  const arr = JSON.parse(body);
-                  resolve(arr.length > 0 ? arr[0] : null);
-                } catch (e) {
-                  resolve(null);
-                }
-              } else {
-                resolve(null);
-              }
-            });
+      // Cek ketersediaan antrean di SQLite lokal
+      const existingSlug = await db.get(
+        "SELECT id, school_name, status FROM licenses WHERE LOWER(requested_slug) = ? AND product_id = ?",
+        [cleanSlug, prodId]
+      );
+      if (existingSlug) {
+        if (existingSlug.status === 'expired') {
+          // Recovery mode! The user owns an expired domain and wants to renew it.
+          isRecovery = 1;
+        } else {
+          // The domain is actively used by someone else
+          return res.status(400).json({ 
+            success: false, 
+            message: `Subdomain / Slug '${cleanSlug}' sudah digunakan oleh ${existingSlug.school_name}. Silakan gunakan subdomain yang berbeda.` 
           });
-
-          request.on('error', () => resolve(null));
-          request.end();
-        });
-      };
-
-      // 1. Cek ketersediaan di database Master Supabase terlebih dahulu
-      const supabaseTenant = await getTenantFromSupabase(cleanSlug);
-      if (supabaseTenant) {
-        // Jika sudah ada di database Supabase (meski status belum berlisensi/expired), ini PASTI recovery/perpanjangan
-        isRecovery = 1;
-      } else {
-        // 2. Jika tidak ada di Supabase, cek antrean di SQLite lokal
-        const existingSlug = await db.get(
-          "SELECT id, school_name, status FROM licenses WHERE LOWER(requested_slug) = ? AND product_id = ?",
-          [cleanSlug, prodId]
-        );
-        if (existingSlug) {
-          if (existingSlug.status === 'expired') {
-            // Recovery mode! The user owns an expired domain and wants to renew it.
-            isRecovery = 1;
-          } else {
-            // The domain is actively used by someone else
-            return res.status(400).json({ 
-              success: false, 
-              message: `Subdomain / Slug '${cleanSlug}' sudah digunakan oleh ${existingSlug.school_name}. Silakan gunakan subdomain yang berbeda.` 
-            });
-          }
         }
       }
     }
@@ -366,8 +337,8 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
     const licenseCheckId = existingLicense ? existingLicense.id : null;
     if (licenseCheckId) {
       const existingInvoice = await db.get(
-        "SELECT * FROM invoices WHERE license_id = ? AND plan_id = ? AND status = 'unpaid' AND expired_time > ?",
-        [licenseCheckId, plan.id, Math.floor(Date.now() / 1000)]
+        "SELECT * FROM invoices WHERE license_id = ? AND plan_id = ? AND payment_method = ? AND status = 'unpaid' AND expired_time > ?",
+        [licenseCheckId, plan.id, resolvedPaymentMethod, Math.floor(Date.now() / 1000)]
       );
       if (existingInvoice) {
         console.log(`[LICENSE REQUEST] Reusing existing unpaid invoice: ${existingInvoice.invoice_number} for license: ${newKey}`);
@@ -659,7 +630,7 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
     }
     let feeFlat = 0;
     let feePercent = 0;
-    let resolvedPaymentMethod = payment_method || 'QRIS2';
+    resolvedPaymentMethod = payment_method || 'QRIS2';
     if (resolvedPaymentMethod === 'tripay' || resolvedPaymentMethod === 'Tripay') {
       resolvedPaymentMethod = 'QRIS2';
     }
@@ -688,7 +659,7 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
     // Send invoice creation request to Tripay
     const signature = crypto
       .createHmac('sha256', TRIPAY_PRIVATE_KEY)
-      .update(TRIPAY_MERCHANT_CODE + invoiceNumber + totalAmount)
+      .update(TRIPAY_MERCHANT_CODE + invoiceNumber + basePrice)
       .digest('hex');
 
     // Fetch product details for naming
@@ -714,19 +685,10 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
       });
     }
 
-    if (gatewayFee > 0) {
-      tripayOrderItems.push({
-        sku: 'admin_fee',
-        name: 'Biaya Admin Gateway',
-        price: gatewayFee,
-        quantity: 1
-      });
-    }
-
     const tripayPayload = {
       method: resolvedPaymentMethod,
       merchant_ref: invoiceNumber,
-      amount: totalAmount,
+      amount: basePrice,
       customer_name: resolvedSchoolName.trim(),
       customer_email: 'billing@absenta.id',
       customer_phone: '087779937341',
@@ -759,6 +721,14 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
       let licenseId;
       if (existingLicense) {
         licenseId = existingLicense.id;
+        // Check if subscription record already exists, if not, create it
+        const existingSub = await db.get("SELECT id FROM subscriptions WHERE license_id = ? AND plan_id = ?", [licenseId, plan.id]);
+        if (!existingSub) {
+          await db.run(
+            "INSERT INTO subscriptions (license_id, school_name, product_id, plan_id, status) VALUES (?, ?, ?, ?, 'pending')",
+            [licenseId, resolvedSchoolName.trim(), prodId, plan.id]
+          );
+        }
       } else {
         await db.run(
           "INSERT INTO licenses (license_key, product_id, school_name, device_limit, is_unlimited, expires_at, status, is_active, plan_id, requested_slug, requested_supabase_url, requested_supabase_anon_key, is_recovery, include_vpn) VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, ?, ?, ?, ?)",
@@ -786,7 +756,7 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
           resolvedSchoolName.trim(),
           prodId,
           vpnPlan ? `${plan.title} + VPN Tunnel` : plan.title,
-          totalAmount,
+          tx.amount || totalAmount,
           resolvedPaymentMethod,
           tx.reference || null,
           tx.qr_url || null,
@@ -805,7 +775,7 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
         data: {
           license_key: newKey,
           invoice_number: invoiceNumber,
-          amount: totalAmount,
+          amount: tx.amount || totalAmount,
           payment_method: resolvedPaymentMethod,
           payment_reference: tx.reference,
           qr_url: tx.qr_url || null,
@@ -843,84 +813,8 @@ router.get('/api/license/check-slug/:slug', async (req, res) => {
 
   try {
     const cleanSlug = slug.trim().toLowerCase();
-    
-    // 1. Ambil data dari Supabase Cloud (Single Source of Truth)
-    const https = require('https');
-    const getTenantFromSupabase = (domainSlug) => {
-      return new Promise((resolve) => {
-        const options = {
-          hostname: 'supabaselocal.absenta.id',
-          port: 443,
-          path: `/rest/v1/tenants?domain_or_slug=eq.${domainSlug}&select=id,name,license_key`,
-          method: 'GET',
-          headers: {
-            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE',
-            'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE'
-          }
-        };
 
-        const request = https.request(options, (response) => {
-          let body = '';
-          response.on('data', (chunk) => body += chunk);
-          response.on('end', () => {
-            if (response.statusCode >= 200 && response.statusCode < 300) {
-              try {
-                const arr = JSON.parse(body);
-                resolve(arr.length > 0 ? arr[0] : null);
-              } catch (e) {
-                resolve(null);
-              }
-            } else {
-              resolve(null);
-            }
-          });
-        });
-
-        request.on('error', () => resolve(null));
-        request.end();
-      });
-    };
-
-    const supabaseTenant = await getTenantFromSupabase(cleanSlug);
-
-    // 2. Jika slug ada di Supabase, cek validitas lisensinya di SQLite
-    if (supabaseTenant) {
-      let isExpired = true; // default jika lisensi tidak terdaftar di SQLite
-      let keyToVerify = supabaseTenant.license_key ? supabaseTenant.license_key.trim() : '';
-
-      if (keyToVerify) {
-        const lic = await db.get(
-          'SELECT status, expires_at FROM licenses WHERE license_key = ?',
-          [keyToVerify]
-        );
-        if (lic) {
-          const todayStr = new Date().toISOString().slice(0, 10);
-          isExpired = lic.status === 'expired' || lic.expires_at < todayStr;
-        }
-      }
-
-      if (isExpired) {
-        return res.json({ 
-          success: true, 
-          available: false, 
-          is_recovery: true, 
-          message: 'Subdomain terdaftar namun lisensi kedaluwarsa' 
-        });
-      }
-
-      // Tentukan apakah statusnya active atau pending
-      const isPending = supabaseTenant.license_key ? false : true;
-
-      return res.json({ 
-        success: true, 
-        available: false, 
-        is_recovery: false, 
-        status_code: isPending ? 'pending_payment' : 'active_license',
-        message: isPending ? 'Subdomain sedang dipesan (Menunggu Pembayaran)' : 'Subdomain sudah digunakan dan masih aktif' 
-      });
-    }
-
-    // 3. Fallback: Jika tidak ada di Supabase, cek apakah ada antrean pending di SQLite lokal
+    // Cek apakah ada antrean atau lisensi terdaftar di SQLite lokal
     const existingLocal = await db.get(
       "SELECT id, status, expires_at FROM licenses WHERE LOWER(requested_slug) = ? ORDER BY id DESC LIMIT 1",
       [cleanSlug]
@@ -1316,15 +1210,22 @@ router.post('/api/license/tripay-callback', async (req, res) => {
         [expiresStr, planId, license.id]
       );
 
-      await db.run(
-        "UPDATE subscriptions SET status = 'active', end_date = ?, updated_at = (datetime('now', 'localtime')) WHERE license_id = ? AND plan_id = ?",
-        [expiresStr, license.id, planId]
-      );
-
-      if (license.status !== 'active' || !license.expires_at || license.expires_at <= todayStr) {
+      const existingSub = await db.get("SELECT id FROM subscriptions WHERE license_id = ? AND plan_id = ?", [license.id, planId]);
+      if (existingSub) {
         await db.run(
-          "UPDATE subscriptions SET start_date = datetime('now', 'localtime') WHERE license_id = ? AND plan_id = ?",
-          [license.id, planId]
+          "UPDATE subscriptions SET status = 'active', end_date = ?, updated_at = (datetime('now', 'localtime')) WHERE license_id = ? AND plan_id = ?",
+          [expiresStr, license.id, planId]
+        );
+        if (license.status !== 'active' || !license.expires_at || license.expires_at <= todayStr) {
+          await db.run(
+            "UPDATE subscriptions SET start_date = datetime('now', 'localtime') WHERE license_id = ? AND plan_id = ?",
+            [license.id, planId]
+          );
+        }
+      } else {
+        await db.run(
+          "INSERT INTO subscriptions (license_id, school_name, product_id, plan_id, status, start_date, end_date, created_at, updated_at) VALUES (?, ?, ?, ?, 'active', datetime('now', 'localtime'), ?, datetime('now', 'localtime'), datetime('now', 'localtime'))",
+          [license.id, license.school_name, license.product_id, planId, expiresStr]
         );
       }
 
@@ -1334,177 +1235,22 @@ router.post('/api/license/tripay-callback', async (req, res) => {
       // Auto-provision VPN addon if bundled
       await activateVpnAddonIfNeeded(license, req);
 
-      // Real-time Push Callback to School Server
+      // Real-time Push Callback to School Server (fire-and-forget, non-blocking)
       if (license.requested_slug) {
         const schoolDomain = license.custom_domain ? `https://${license.custom_domain}` : `https://${license.requested_slug}.absenta.id`;
         const callbackUrl = `${schoolDomain}/api/billing/subscriptions/license/callback`;
         console.log(`[TRIPAY Webhook] Sending real-time push callback to school: ${callbackUrl}`);
-        
-        const axios = require('axios');
-        axios.post(callbackUrl, {
+
+        httpPost(callbackUrl, {
           license_key: license.license_key,
           tenant_id: license.requested_slug
-        }, { timeout: 6000 }).then(response => {
-          console.log(`[TRIPAY Webhook] Callback to school succeeded: ${response.status}`);
+        }, {}, 6000).then(res => {
+          console.log(`[TRIPAY Webhook] Callback to school succeeded: ${res.status}`);
         }).catch(err => {
           console.log(`[TRIPAY Webhook] Callback to school failed (school NAT/offline - will fallback to pull sync): ${err.message}`);
         });
       }
 
-      if (license.requested_slug) {
-        if (license.is_recovery === 1) {
-          console.log(`[TRIPAY Webhook] Recovery mode: updating existing tenant '${license.requested_slug}' license_key in Supabase...`);
-          try {
-            const https = require('https');
-            const updateTenantLicenseRest = (slug, licenseKey, schoolName) => {
-              return new Promise((resolve, reject) => {
-                const data = JSON.stringify({ license_key: licenseKey, is_active: true, name: schoolName });
-                const options = {
-                  hostname: 'xjnctgbzilrhbzsbrtpu.supabase.co',
-                  port: 443,
-                  path: `/rest/v1/tenants?domain_or_slug=eq.${slug}`,
-                  method: 'PATCH',
-                  headers: {
-                    'apikey': 'sb_publishable_V-cqiwiR7AleBLJuILePTg_-CWhSAgg',
-                    'Authorization': 'Bearer sb_publishable_V-cqiwiR7AleBLJuILePTg_-CWhSAgg',
-                    'Content-Type': 'application/json',
-                    'Content-Length': Buffer.byteLength(data)
-                  }
-                };
-
-                const req = https.request(options, (res) => {
-                  let body = '';
-                  res.on('data', (chunk) => body += chunk);
-                  res.on('end', () => {
-                    if (res.statusCode >= 200 && res.statusCode < 300) {
-                      resolve(body);
-                    } else {
-                      reject(new Error(`HTTP ${res.statusCode}: ${body}`));
-                    }
-                  });
-                });
-
-                req.on('error', (err) => reject(err));
-                req.write(data);
-                req.end();
-              });
-            };
-
-            await updateTenantLicenseRest(license.requested_slug, license.license_key, license.school_name);
-            console.log(`[TRIPAY Webhook] SaaS Recovery Successful: license key and school name updated on existing tenant '${license.requested_slug}'`);
-          } catch (pgErr) {
-            console.error('[TRIPAY Webhook] SaaS Recovery Failed during Supabase patch:', pgErr.message);
-          }
-        } else {
-          console.log(`[TRIPAY Webhook] Automatic SaaS provisioning: inserting tenant '${license.requested_slug}' into Master Supabase database...`);
-          try {
-            const https = require('https');
-            const upsertTenantRest = (payload) => {
-              return new Promise((resolve, reject) => {
-                const data = JSON.stringify(payload);
-                const options = {
-                  hostname: 'xjnctgbzilrhbzsbrtpu.supabase.co',
-                  port: 443,
-                  path: '/rest/v1/tenants',
-                  method: 'POST',
-                  headers: {
-                    'apikey': 'sb_publishable_V-cqiwiR7AleBLJuILePTg_-CWhSAgg',
-                    'Authorization': 'Bearer sb_publishable_V-cqiwiR7AleBLJuILePTg_-CWhSAgg',
-                    'Content-Type': 'application/json',
-                    'Prefer': 'resolution=merge-duplicates',
-                    'Content-Length': Buffer.byteLength(data)
-                  }
-                };
-
-                const req = https.request(options, (res) => {
-                  let body = '';
-                  res.on('data', (chunk) => body += chunk);
-                  res.on('end', () => {
-                    if (res.statusCode >= 200 && res.statusCode < 300) {
-                      resolve(body);
-                    } else {
-                      reject(new Error(`HTTP ${res.statusCode}: ${body}`));
-                    }
-                  });
-                });
-
-                req.on('error', (err) => reject(err));
-                req.write(data);
-                req.end();
-              });
-            };
-
-            const insertGuruRest = (payload) => {
-              return new Promise((resolve, reject) => {
-                const data = JSON.stringify(payload);
-                const options = {
-                  hostname: 'xjnctgbzilrhbzsbrtpu.supabase.co',
-                  port: 443,
-                  path: '/rest/v1/guru',
-                  method: 'POST',
-                  headers: {
-                    'apikey': 'sb_publishable_V-cqiwiR7AleBLJuILePTg_-CWhSAgg',
-                    'Authorization': 'Bearer sb_publishable_V-cqiwiR7AleBLJuILePTg_-CWhSAgg',
-                    'Content-Type': 'application/json',
-                    'Prefer': 'resolution=merge-duplicates',
-                    'Content-Length': Buffer.byteLength(data)
-                  }
-                };
-
-                const req = https.request(options, (res) => {
-                  let body = '';
-                  res.on('data', (chunk) => body += chunk);
-                  res.on('end', () => {
-                    if (res.statusCode >= 200 && res.statusCode < 300) {
-                      resolve(body);
-                    } else {
-                      reject(new Error(`HTTP ${res.statusCode}: ${body}`));
-                    }
-                  });
-                });
-
-                req.on('error', (err) => reject(err));
-                req.write(data);
-                req.end();
-              });
-            };
-
-            const tenantId = crypto.randomUUID();
-            const payload = {
-              id: tenantId,
-              name: license.school_name,
-              exam_event_title: 'Ujian Online',
-              logo_url: null,
-              domain_or_slug: license.requested_slug,
-              supabase_url: license.requested_supabase_url || null,
-              supabase_anon_key: license.requested_supabase_anon_key || null,
-              license_key: license.license_key,
-              is_active: true
-            };
-
-            await upsertTenantRest(payload);
-            console.log(`[TRIPAY Webhook] SaaS Provisioning Successful: school '${license.school_name}' with license key is now live at https://${license.requested_slug}.${process.env.MAIN_DOMAIN}!`);
-
-            if (!license.requested_supabase_url) {
-              console.log(`[TRIPAY Webhook] Shared DB detected. Seeding default admin account for tenant ${tenantId}...`);
-              const guruPayload = {
-                tenant_id: tenantId,
-                nama_guru: 'Admin ' + license.school_name,
-                username: 'admin',
-                password_hash: 'pbkdf2_sha256$260000$mockhash$admin',
-                pin_pengawas: '123456',
-                is_active: true
-              };
-              await insertGuruRest(guruPayload);
-              console.log(`[TRIPAY Webhook] Successfully seeded default admin account (username: admin, PIN: 123456) for tenant: ${license.school_name}`);
-            }
-          } catch (pgErr) {
-            console.error('[TRIPAY Webhook] SaaS Provisioning Failed during Supabase REST API insert:', pgErr.message);
-          }
-
-          provisionNginxAndSsl(license.requested_slug);
-        }
-      }
 
       res.json({ success: true });
     } catch (err) {
@@ -1611,15 +1357,22 @@ router.post('/api/license/xendit-callback', async (req, res) => {
         [expiresStr, planId, license.id]
       );
 
-      await db.run(
-        "UPDATE subscriptions SET status = 'active', end_date = ?, updated_at = (datetime('now', 'localtime')) WHERE license_id = ? AND plan_id = ?",
-        [expiresStr, license.id, planId]
-      );
-
-      if (license.status !== 'active' || !license.expires_at || license.expires_at <= todayStr) {
+      const existingSub = await db.get("SELECT id FROM subscriptions WHERE license_id = ? AND plan_id = ?", [license.id, planId]);
+      if (existingSub) {
         await db.run(
-          "UPDATE subscriptions SET start_date = datetime('now', 'localtime') WHERE license_id = ? AND plan_id = ?",
-          [license.id, planId]
+          "UPDATE subscriptions SET status = 'active', end_date = ?, updated_at = (datetime('now', 'localtime')) WHERE license_id = ? AND plan_id = ?",
+          [expiresStr, license.id, planId]
+        );
+        if (license.status !== 'active' || !license.expires_at || license.expires_at <= todayStr) {
+          await db.run(
+            "UPDATE subscriptions SET start_date = datetime('now', 'localtime') WHERE license_id = ? AND plan_id = ?",
+            [license.id, planId]
+          );
+        }
+      } else {
+        await db.run(
+          "INSERT INTO subscriptions (license_id, school_name, product_id, plan_id, status, start_date, end_date, created_at, updated_at) VALUES (?, ?, ?, ?, 'active', datetime('now', 'localtime'), ?, datetime('now', 'localtime'), datetime('now', 'localtime'))",
+          [license.id, license.school_name, license.product_id, planId, expiresStr]
         );
       }
 
@@ -1635,169 +1388,16 @@ router.post('/api/license/xendit-callback', async (req, res) => {
         const callbackUrl = `${schoolDomain}/api/billing/subscriptions/license/callback`;
         console.log(`[XENDIT Webhook] Sending real-time push callback to school: ${callbackUrl}`);
         
-        const axios = require('axios');
-        axios.post(callbackUrl, {
+        httpPost(callbackUrl, {
           license_key: license.license_key,
           tenant_id: license.requested_slug
-        }, { timeout: 6000 }).then(response => {
-          console.log(`[XENDIT Webhook] Callback to school succeeded: ${response.status}`);
+        }, {}, 6000).then(res => {
+          console.log(`[XENDIT Webhook] Callback to school succeeded: ${res.status}`);
         }).catch(err => {
           console.log(`[XENDIT Webhook] Callback to school failed (school NAT/offline - will fallback to pull sync): ${err.message}`);
         });
       }
 
-      if (license.requested_slug) {
-        if (license.is_recovery === 1) {
-          console.log(`[XENDIT Webhook] Recovery mode: updating existing tenant '${license.requested_slug}' license_key in Supabase...`);
-          try {
-            const https = require('https');
-            const updateTenantLicenseRest = (slug, licenseKey, schoolName) => {
-              return new Promise((resolve, reject) => {
-                const data = JSON.stringify({ license_key: licenseKey, is_active: true, name: schoolName });
-                const options = {
-                  hostname: 'xjnctgbzilrhbzsbrtpu.supabase.co',
-                  port: 443,
-                  path: `/rest/v1/tenants?domain_or_slug=eq.${slug}`,
-                  method: 'PATCH',
-                  headers: {
-                    'apikey': 'sb_publishable_V-cqiwiR7AleBLJuILePTg_-CWhSAgg',
-                    'Authorization': 'Bearer sb_publishable_V-cqiwiR7AleBLJuILePTg_-CWhSAgg',
-                    'Content-Type': 'application/json',
-                    'Content-Length': Buffer.byteLength(data)
-                  }
-                };
-
-                const req = https.request(options, (res) => {
-                  let body = '';
-                  res.on('data', (chunk) => body += chunk);
-                  res.on('end', () => {
-                    if (res.statusCode >= 200 && res.statusCode < 300) {
-                      resolve(body);
-                    } else {
-                      reject(new Error(`HTTP ${res.statusCode}: ${body}`));
-                    }
-                  });
-                });
-
-                req.on('error', (err) => reject(err));
-                req.write(data);
-                req.end();
-              });
-            };
-
-            await updateTenantLicenseRest(license.requested_slug, license.license_key, license.school_name);
-            console.log(`[XENDIT Webhook] SaaS Recovery Successful: license key updated on existing tenant '${license.requested_slug}'`);
-          } catch (pgErr) {
-            console.error('[XENDIT Webhook] SaaS Recovery Failed during Supabase patch:', pgErr.message);
-          }
-        } else {
-          console.log(`[XENDIT Webhook] Automatic SaaS provisioning: inserting tenant '${license.requested_slug}' into Master Supabase database...`);
-          try {
-            const https = require('https');
-            const upsertTenantRest = (payload) => {
-              return new Promise((resolve, reject) => {
-                const data = JSON.stringify(payload);
-                const options = {
-                  hostname: 'xjnctgbzilrhbzsbrtpu.supabase.co',
-                  port: 443,
-                  path: '/rest/v1/tenants',
-                  method: 'POST',
-                  headers: {
-                    'apikey': 'sb_publishable_V-cqiwiR7AleBLJuILePTg_-CWhSAgg',
-                    'Authorization': 'Bearer sb_publishable_V-cqiwiR7AleBLJuILePTg_-CWhSAgg',
-                    'Content-Type': 'application/json',
-                    'Prefer': 'resolution=merge-duplicates',
-                    'Content-Length': Buffer.byteLength(data)
-                  }
-                };
-
-                const req = https.request(options, (res) => {
-                  let body = '';
-                  res.on('data', (chunk) => body += chunk);
-                  res.on('end', () => {
-                    if (res.statusCode >= 200 && res.statusCode < 300) {
-                      resolve(body);
-                    } else {
-                      reject(new Error(`HTTP ${res.statusCode}: ${body}`));
-                    }
-                  });
-                });
-
-                req.on('error', (err) => reject(err));
-                req.write(data);
-                req.end();
-              });
-            };
-
-            const insertGuruRest = (payload) => {
-              return new Promise((resolve, reject) => {
-                const data = JSON.stringify(payload);
-                const options = {
-                  hostname: 'xjnctgbzilrhbzsbrtpu.supabase.co',
-                  port: 443,
-                  path: '/rest/v1/guru',
-                  method: 'POST',
-                  headers: {
-                    'apikey': 'sb_publishable_V-cqiwiR7AleBLJuILePTg_-CWhSAgg',
-                    'Authorization': 'Bearer sb_publishable_V-cqiwiR7AleBLJuILePTg_-CWhSAgg',
-                    'Content-Type': 'application/json',
-                    'Prefer': 'resolution=merge-duplicates',
-                    'Content-Length': Buffer.byteLength(data)
-                  }
-                };
-
-                const req = https.request(options, (res) => {
-                  let body = '';
-                  res.on('data', (chunk) => body += chunk);
-                  res.on('end', () => {
-                    if (res.statusCode >= 200 && res.statusCode < 300) {
-                      resolve(body);
-                    } else {
-                      reject(new Error(`HTTP ${res.statusCode}: ${body}`));
-                    }
-                  });
-                });
-
-                req.on('error', (err) => reject(err));
-                req.write(data);
-                req.end();
-              });
-            };
-
-            const tenantId = crypto.randomUUID();
-            const payload = {
-              id: tenantId,
-              name: license.school_name,
-              exam_event_title: 'Ujian Online',
-              logo_url: null,
-              domain_or_slug: license.requested_slug,
-              supabase_url: license.requested_supabase_url || null,
-              supabase_anon_key: license.requested_supabase_anon_key || null,
-              license_key: license.license_key,
-              is_active: true
-            };
-
-            await upsertTenantRest(payload);
-            console.log(`[XENDIT Webhook] SaaS Provisioning Successful: school '${license.school_name}' live at https://${license.requested_slug}.${process.env.MAIN_DOMAIN}!`);
-
-            if (!license.requested_supabase_url) {
-              const guruPayload = {
-                tenant_id: tenantId,
-                nama_guru: 'Admin ' + license.school_name,
-                username: 'admin',
-                password_hash: 'pbkdf2_sha256$260000$mockhash$admin',
-                pin_pengawas: '123456',
-                is_active: true
-              };
-              await insertGuruRest(guruPayload);
-            }
-          } catch (pgErr) {
-            console.error('[XENDIT Webhook] SaaS Provisioning Failed during Supabase insert:', pgErr.message);
-          }
-
-          provisionNginxAndSsl(license.requested_slug);
-        }
-      }
 
       return res.json({ success: true, message: 'Activation successful.' });
     } catch (err) {
@@ -2171,155 +1771,6 @@ router.get('/download-apk', async (req, res) => {
   } catch (err) {
     console.error('[Download APK Error]', err.message);
     return res.status(500).send('Terjadi kesalahan koneksi saat mengambil tautan unduhan.');
-  }
-});
-
-// ── SISTEM OTOMATISASI BACKGROUND SYNC APK ──
-const fs = require('fs');
-let isSyncing = false;
-
-async function syncApkFromExpoInBackground() {
-  if (isSyncing) {
-    console.log('[APK Sync] Proses sinkronisasi sedang berjalan, dilewati...');
-    return;
-  }
-
-  const EXPO_ACCESS_TOKEN = process.env.EXPO_ACCESS_TOKEN;
-  if (!EXPO_ACCESS_TOKEN) {
-    console.error('[APK Sync] EXPO_ACCESS_TOKEN tidak dikonfigurasi di server.');
-    return;
-  }
-
-  isSyncing = true;
-  console.log('[APK Sync] Memulai pengecekan build APK terbaru di Expo...');
-
-  const projectId = '5e1ad67a-a833-4b34-9f25-124dd382a1c9';
-  const query = `
-    query GetLatestApkBuild {
-      app {
-        byId(appId: "${projectId}") {
-          builds(
-            filter: { platform: ANDROID, status: FINISHED }
-            offset: 0
-            limit: 1
-          ) {
-            id
-            artifacts { buildUrl }
-            createdAt
-          }
-        }
-      }
-    }
-  `;
-
-  try {
-    const fetch = require('node-fetch');
-    const response = await fetch('https://api.expo.dev/graphql', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${EXPO_ACCESS_TOKEN}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ query })
-    });
-
-    if (!response.ok) {
-      throw new Error(`Expo GraphQL API mengembalikan status ${response.status}`);
-    }
-
-    const result = await response.json();
-    const build = result?.data?.app?.byId?.builds?.[0];
-
-    if (!build || !build.artifacts?.buildUrl) {
-      console.warn('[APK Sync] Tidak ada build sukses yang ditemukan di Expo.');
-      isSyncing = false;
-      return;
-    }
-
-    const buildId = build.id;
-    const downloadUrl = build.artifacts.buildUrl;
-    const metaPath = path.join(__dirname, '../public/build-meta.json');
-    const apkPath = path.join(__dirname, '../public/Orkestrator Ujian.apk');
-
-    // Cek apakah metadata lokal sudah sama dengan build di Expo
-    let localMeta = {};
-    if (fs.existsSync(metaPath)) {
-      try {
-        localMeta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
-      } catch (e) {
-        localMeta = {};
-      }
-    }
-
-    const apkExists = fs.existsSync(apkPath);
-
-    if (localMeta.buildId === buildId && apkExists) {
-      console.log('[APK Sync] Berkas APK lokal sudah yang terbaru dengan Build ID:', buildId);
-      isSyncing = false;
-      return;
-    }
-
-    console.log(`[APK Sync] Menemukan build baru (${buildId}). Mengunduh berkas APK di latar belakang dari: ${downloadUrl}`);
-
-    const resApk = await fetch(downloadUrl);
-    if (!resApk.ok) {
-      throw new Error(`Gagal mengambil APK dari CDN: ${resApk.statusText}`);
-    }
-
-    // Pastikan folder public ada
-    const publicDir = path.join(__dirname, '../public');
-    if (!fs.existsSync(publicDir)) {
-      fs.mkdirSync(publicDir, { recursive: true });
-    }
-
-    const fileStream = fs.createWriteStream(apkPath);
-    
-    await new Promise((resolve, reject) => {
-      resApk.body.pipe(fileStream);
-      resApk.body.on('error', reject);
-      fileStream.on('finish', resolve);
-      fileStream.on('error', reject);
-    });
-
-    // Simpan metadata baru
-    fs.writeFileSync(metaPath, JSON.stringify({ buildId, createdAt: build.createdAt }, null, 2));
-    console.log(`[APK Sync] ✓ APK berhasil disinkronkan di latar belakang! Tersimpan sebagai: Orkestrator Ujian.apk`);
-  } catch (err) {
-    console.error('[APK Sync Error]', err.message);
-  } finally {
-    isSyncing = false;
-  }
-}
-
-// Tambahkan rute sinkronisasi manual untuk admin
-router.get('/api/license/sync-apk-now', async (req, res) => {
-  const { secret } = req.query;
-  if (secret !== process.env.ADMIN_SECRET && secret !== 'kumahatetehwe') {
-    return res.status(403).send('Akses ditolak.');
-  }
-
-  syncApkFromExpoInBackground();
-  res.send('Sinkronisasi APK di latar belakang telah dipicu. Silakan pantau log server.');
-});
-
-// Tambahkan rute statistik unduhan APK untuk admin
-router.get('/api/license/download-stats', async (req, res) => {
-  try {
-    const metaPath = path.join(__dirname, '../public/build-meta.json');
-    let meta = { downloadCount: 0 };
-    if (fs.existsSync(metaPath)) {
-      meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
-    }
-    
-    res.json({
-      success: true,
-      download_count: meta.downloadCount || 0,
-      last_build_id: meta.buildId || 'N/A',
-      last_sync_time: meta.createdAt || 'N/A',
-      local_file_exists: fs.existsSync(path.join(__dirname, '../public/Orkestrator Ujian.apk'))
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, message: 'Gagal mengambil statistik: ' + err.message });
   }
 });
 
@@ -3095,5 +2546,3 @@ router.get('/api/auth/my-orders', clientAuth, async (req, res) => {
 });
 
 module.exports = router;
-module.exports.provisionNginxAndSsl = provisionNginxAndSsl;
-module.exports.syncApkFromExpoInBackground = syncApkFromExpoInBackground;

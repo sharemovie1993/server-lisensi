@@ -3,8 +3,8 @@ import { showPremiumDialog } from './admin-dialog.js';
 import { renderAllCachedTables, loadQrisPreview } from './admin-render.js';
 
 export function handleAuth(pin, code, authErrorMsg, authModal, onAuthSuccess) {
-  if (!pin || !code) {
-    authErrorMsg.textContent = '⚠️ PIN Admin dan Kode 2FA wajib diisi!';
+  if (!pin) {
+    authErrorMsg.textContent = '⚠️ PIN Admin wajib diisi!';
     authErrorMsg.classList.remove('hidden');
     return;
   }
