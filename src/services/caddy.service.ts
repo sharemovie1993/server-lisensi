@@ -28,7 +28,8 @@ export async function triggerCaddySync(): Promise<void> {
         requestedSlug: true,
         wireguardIp: true,
         productId: true,
-        localPort: true
+        localPort: true,
+        customDomain: true
       }
     });
 
@@ -51,7 +52,9 @@ export async function triggerCaddySync(): Promise<void> {
         const alreadyMapped = upstreams.some(u => u.slug.toLowerCase() === slugClean);
         if (!alreadyMapped) {
           const domains = [`${slugClean}.${MAIN_DOMAIN}`];
-          // We can add custom domains here if needed in the future
+          if (lic.customDomain) {
+            domains.push(lic.customDomain.trim().toLowerCase());
+          }
           upstreams.push({
             slug: lic.requestedSlug,
             domains,

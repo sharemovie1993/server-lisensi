@@ -30,7 +30,8 @@ async function triggerCaddySync() {
                 requestedSlug: true,
                 wireguardIp: true,
                 productId: true,
-                localPort: true
+                localPort: true,
+                customDomain: true
             }
         });
         console.log(`[Caddy-Sync] Loaded ${activeLicenses.length} active licenses with WireGuard IPs.`);
@@ -44,7 +45,9 @@ async function triggerCaddySync() {
                 const alreadyMapped = upstreams.some(u => u.slug.toLowerCase() === slugClean);
                 if (!alreadyMapped) {
                     const domains = [`${slugClean}.${MAIN_DOMAIN}`];
-                    // We can add custom domains here if needed in the future
+                    if (lic.customDomain) {
+                        domains.push(lic.customDomain.trim().toLowerCase());
+                    }
                     upstreams.push({
                         slug: lic.requestedSlug,
                         domains,
