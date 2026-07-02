@@ -522,12 +522,26 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 window.provisionVpsServer = () => {
-  const btn = document.getElementById('provisionVpsBtn');
-  const consoleLog = document.getElementById('provisionLogConsole');
-  
-  if (!confirm('Apakah Anda yakin ingin memulai inisialisasi infrastruktur VPS? Proses ini akan menimpa/memperbarui konfigurasi WireGuard, Nginx, Certbot, dan firewall.')) {
+  if (typeof window.showPremiumDialog !== 'function') {
+    if (!confirm('Apakah Anda yakin ingin memulai inisialisasi infrastruktur VPS? Proses ini akan menimpa/memperbarui konfigurasi WireGuard, Nginx, Certbot, dan firewall.')) return;
+    performVpsProvision();
     return;
   }
+
+  window.showPremiumDialog({
+    type: 'confirm',
+    title: 'INISIALISASI INFRASTRUKTUR',
+    message: 'Apakah Anda yakin ingin memulai inisialisasi infrastruktur VPS? Proses ini akan menimpa/memperbarui konfigurasi WireGuard, Nginx, Certbot, dan firewall.',
+    onConfirm: () => {
+      performVpsProvision();
+    }
+  });
+};
+
+function performVpsProvision() {
+  const btn = document.getElementById('provisionVpsBtn');
+  const consoleLog = document.getElementById('provisionLogConsole');
+  if (!btn || !consoleLog) return;
   
   btn.disabled = true;
   btn.textContent = '⚡ SEDANG DIINISIALISASI...';
@@ -658,11 +672,24 @@ window.checkServerUpdate = async () => {
   }
 };
 
-window.runServerUpdate = async () => {
-  if (!confirm('Apakah Anda yakin ingin memperbarui Server Lisensi sekarang? Layanan server akan tidak dapat diakses selama beberapa detik saat proses restart.')) {
+window.runServerUpdate = () => {
+  if (typeof window.showPremiumDialog !== 'function') {
+    if (!confirm('Apakah Anda yakin ingin memperbarui Server Lisensi sekarang? Layanan server akan tidak dapat diakses selama beberapa detik saat proses restart.')) return;
+    performServerUpdate();
     return;
   }
 
+  window.showPremiumDialog({
+    type: 'confirm',
+    title: 'UPDATE SERVER LISENSI',
+    message: 'Apakah Anda yakin ingin memperbarui Server Lisensi sekarang? Layanan server akan tidak dapat diakses selama beberapa detik saat proses restart.',
+    onConfirm: () => {
+      performServerUpdate();
+    }
+  });
+};
+
+async function performServerUpdate() {
   const statusInfo = document.getElementById('updateStatusInfo');
   const executeBtn = document.getElementById('executeUpdateBtn');
   const checkBtn = document.getElementById('checkUpdateBtn');
@@ -918,17 +945,29 @@ function parseCaddyfile(caddyfileText) {
   }
   return routes;
 }
-
-window.runCaddySync = async () => {
-  if (!confirm('Apakah Anda yakin ingin menyinkronkan ulang konfigurasi rute Caddy? Tindakan ini akan memperbarui berkas Caddyfile dan memuat ulang service Caddy.')) {
+window.runCaddySync = () => {
+  if (typeof window.showPremiumDialog !== 'function') {
+    if (!confirm('Apakah Anda yakin ingin menyinkronkan ulang konfigurasi rute Caddy?')) return;
+    performCaddySync();
     return;
   }
 
+  window.showPremiumDialog({
+    type: 'confirm',
+    title: 'SINKRONISASI CADDY',
+    message: 'Apakah Anda yakin ingin menyinkronkan ulang konfigurasi rute Caddy? Tindakan ini akan memperbarui berkas Caddyfile dan memuat ulang service Caddy.',
+    onConfirm: () => {
+      performCaddySync();
+    }
+  });
+};
+
+async function performCaddySync() {
   const badge = document.getElementById('caddyServiceBadge');
   const view = document.getElementById('caddyfileView');
   if (!badge || !view) return;
 
-  view.textContent = "Running sync and reloading Caddy... Please wait...";
+  view.textContent = "Menjalankan sinkronisasi dan memuat ulang Caddy... Harap tunggu...";
 
   try {
     const secret = localStorage.getItem('@license_admin_secret') || '';
@@ -937,22 +976,55 @@ window.runCaddySync = async () => {
       headers: { 
         'Content-Type': 'application/json',
         'x-admin-secret': secret 
-      }
+      },
+      body: JSON.stringify({})
     });
-    const result = await res.json();
+    
+    let result;
+    try {
+      result = await res.json();
+    } catch (e) {
+      throw new Error(`Respon server tidak valid (${res.status} ${res.statusText})`);
+    }
 
-    if (result.success) {
-      alert(result.message || 'Sinkronisasi Caddy berhasil!');
+    if (res.ok && result.success) {
+      if (typeof window.showPremiumDialog === 'function') {
+        window.showPremiumDialog({
+          type: 'success',
+          title: 'BERHASIL',
+          message: result.message || 'Sinkronisasi konfigurasi Caddy berhasil!'
+        });
+      } else {
+        alert(result.message || 'Sinkronisasi Caddy berhasil!');
+      }
       checkCaddyStatus();
     } else {
-      alert(`Gagal sinkronisasi: ${result.error || 'Unknown error'}`);
+      const errorMsg = result?.message || result?.error || 'Gagal sinkronisasi';
+      if (typeof window.showPremiumDialog === 'function') {
+        window.showPremiumDialog({
+          type: 'error',
+          title: 'GAGAL',
+          message: errorMsg
+        });
+      } else {
+        alert(`Gagal: ${errorMsg}`);
+      }
       checkCaddyStatus();
     }
   } catch (err) {
-    alert(`Error: ${err.message}`);
+    if (typeof window.showPremiumDialog === 'function') {
+      window.showPremiumDialog({
+        type: 'error',
+        title: 'ERROR',
+        message: err.message
+      });
+    } else {
+      alert(`Error: ${err.message}`);
+    }
     checkCaddyStatus();
   }
-};
+}
+
 
 // Auto check Caddy & Fail2Ban status on loading tab
 const originalSwitchTab = window.switchTab;
