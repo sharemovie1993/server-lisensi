@@ -448,8 +448,14 @@ export const adminRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
     }
 
     const cleanDomain = domain.trim().toLowerCase();
-    const MAIN_DOMAIN = process.env.MAIN_DOMAIN || 'absenta.id';
+    const MAIN_DOMAIN = (process.env.MAIN_DOMAIN || 'absenta.id').toLowerCase();
 
+    // 1. Allow main domain and its platform subdomains
+    if (cleanDomain === MAIN_DOMAIN || cleanDomain === `www.${MAIN_DOMAIN}` || cleanDomain === `api.${MAIN_DOMAIN}`) {
+      return reply.status(200).send('OK');
+    }
+
+    // 2. Allow registered active platform subdomains (*.absenta.id)
     if (cleanDomain.endsWith(`.${MAIN_DOMAIN}`)) {
       const slug = cleanDomain.replace(`.${MAIN_DOMAIN}`, '');
       try {
@@ -462,8 +468,19 @@ export const adminRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
       } catch (e) {}
     }
 
+    // 3. Allow registered active custom domains (e.g. absensi.tefatjkt.net)
+    try {
+      const lic = await prisma.license.findFirst({
+        where: { customDomain: cleanDomain, isActive: 1 }
+      });
+      if (lic) {
+        return reply.status(200).send('OK');
+      }
+    } catch (e) {}
+
     return reply.status(404).send('Domain not found or inactive');
   });
+
 
   // 16. Restart server (PM2 command)
   fastify.post('/api/admin/restart', async (request: FastifyRequest, reply: FastifyReply) => {
