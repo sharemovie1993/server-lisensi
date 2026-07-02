@@ -441,6 +441,32 @@ const adminRoutes = async (fastify) => {
         catch (e) { }
         return reply.status(404).send('Domain not found or inactive');
     });
+    // 15b. GET /api/public/release/check (Public check for latest product releases)
+    fastify.get('/api/public/release/check', async (_request, reply) => {
+        try {
+            const manifestPath = path_1.default.join(__dirname, '../../public/releases/manifest.json');
+            if (fs_1.default.existsSync(manifestPath)) {
+                const manifestContent = fs_1.default.readFileSync(manifestPath, 'utf8');
+                const manifest = JSON.parse(manifestContent);
+                return reply.send({
+                    success: true,
+                    ...manifest
+                });
+            }
+            else {
+                return reply.status(404).send({
+                    success: false,
+                    message: 'Release manifest not found'
+                });
+            }
+        }
+        catch (err) {
+            return reply.status(500).send({
+                success: false,
+                message: 'Failed to read release manifest: ' + err.message
+            });
+        }
+    });
     // 16. Restart server (PM2 command)
     fastify.post('/api/admin/restart', async (request, reply) => {
         await verifyAdmin(request, reply);
