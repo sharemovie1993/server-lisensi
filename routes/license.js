@@ -2545,4 +2545,46 @@ router.get('/api/auth/my-orders', clientAuth, async (req, res) => {
   }
 });
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🔐 CADDY ON-DEMAND TLS: VALIDATE DOMAIN
+// Dipanggil oleh Caddy setiap kali ada request SSL untuk domain yang belum dikenal.
+// Return 200 → Caddy boleh terbitkan SSL cert via Let's Encrypt (ACME HTTP-01)
+// Return 403 → Caddy TOLAK penerbitan cert (domain tidak terdaftar)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+router.get('/api/public/validate-domain', async (req, res) => {
+  const domain = (req.query.domain || '').trim().toLowerCase();
+
+  if (!domain) {
+    return res.status(400).end();
+  }
+
+  try {
+    // Izinkan domain utama platform itu sendiri selalu lolos
+    const MAIN_DOMAIN = (process.env.MAIN_DOMAIN || '').toLowerCase();
+    if (MAIN_DOMAIN && (domain === MAIN_DOMAIN || domain === `www.${MAIN_DOMAIN}` || domain === `api.${MAIN_DOMAIN}`)) {
+      return res.status(200).end();
+    }
+
+    // Cek apakah domain terdaftar sebagai custom_domain pada lisensi aktif
+    const license = await db.get(
+      `SELECT id FROM licenses WHERE LOWER(TRIM(custom_domain)) = ? AND is_active = 1`,
+      [domain]
+    );
+
+    if (license) {
+      console.log(`[validate-domain] ✅ Allowed SSL for custom domain: ${domain}`);
+      return res.status(200).end();
+    }
+
+    console.log(`[validate-domain] ❌ Rejected SSL for unregistered domain: ${domain}`);
+    return res.status(403).end();
+
+  } catch (err) {
+    console.error('[validate-domain] DB error:', err.message);
+    // Fail-closed: jika DB error, tolak penerbitan cert
+    return res.status(500).end();
+  }
+});
+
 module.exports = router;
+
