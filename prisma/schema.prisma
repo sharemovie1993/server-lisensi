@@ -1,19 +1,19 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-}
-
-generator client {
-  provider = "prisma-client-js"
 }
 
 model Product {
   id        String    @id
   name      String
   prefix    String    @unique
-  plans     Plan[]
-  licenses  License[]
   createdAt DateTime  @default(now()) @map("created_at")
+  licenses  License[]
+  plans     Plan[]
 
   @@map("products")
 }
@@ -21,7 +21,6 @@ model Product {
 model Plan {
   id            String    @id
   productId     String    @map("product_id")
-  product       Product   @relation(fields: [productId], references: [id])
   name          String
   priceMonthly  Float     @map("price_monthly")
   priceYearly   Float     @map("price_yearly")
@@ -29,44 +28,45 @@ model Plan {
   featuresJson  Json      @map("features_json")
   billingPeriod String    @map("billing_period")
   isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now()) @map("created_at")
   moduleId      String?   @map("module_id")
   serviceCode   String?   @map("service_code")
-  licenses      License[]
   invoices      Invoice[]
-  createdAt     DateTime  @default(now()) @map("created_at")
+  licenses      License[]
+  product       Product   @relation(fields: [productId], references: [id])
 
   @@map("plans")
 }
 
 model License {
-  id            String         @id @default(uuid())
-  licenseKey    String         @unique @map("license_key")
-  productId     String         @map("product_id")
-  product       Product        @relation(fields: [productId], references: [id])
-  schoolName    String         @map("school_name")
-  deviceLimit   Int            @map("device_limit")
-  isUnlimited   Int            @map("is_unlimited")
-  expiresAt     String         @map("expires_at")
-  status        String         @default("pending")
-  isActive      Int            @default(0) @map("is_active")
-  planId        String?        @map("plan_id")
-  plan          Plan?          @relation(fields: [planId], references: [id])
-  requestedSlug            String?        @map("requested_slug")
-  requestedSupabaseUrl     String?        @map("requested_supabase_url")
-  requestedSupabaseAnonKey String?        @map("requested_supabase_anon_key")
-  wireguardIp              String?        @map("wireguard_ip")
-  includeVpn               Int            @default(0) @map("include_vpn")
-  customDomain             String?        @map("custom_domain")
-  localPort                Int?           @map("local_port")
-  appName                  String?        @map("app_name")
-  operatorPhone            String?        @map("operator_phone")
-  activeHostname           String?        @map("active_hostname")
-  createdAt                DateTime       @default(now()) @map("created_at")
-  updatedAt                DateTime       @updatedAt @map("updated_at")
-  subscriptions            Subscription[]
-  invoices                 Invoice[]
-  logs                     ActivityLog[]
+  id                       String            @id @default(uuid())
+  licenseKey               String            @unique @map("license_key")
+  productId                String            @map("product_id")
+  schoolName               String            @map("school_name")
+  deviceLimit              Int               @map("device_limit")
+  isUnlimited              Int               @map("is_unlimited")
+  expiresAt                String            @map("expires_at")
+  status                   String            @default("pending")
+  isActive                 Int               @default(0) @map("is_active")
+  planId                   String?           @map("plan_id")
+  requestedSlug            String?           @map("requested_slug")
+  wireguardIp              String?           @map("wireguard_ip")
+  includeVpn               Int               @default(0) @map("include_vpn")
+  createdAt                DateTime          @default(now()) @map("created_at")
+  updatedAt                DateTime          @updatedAt @map("updated_at")
+  activeHostname           String?           @map("active_hostname")
+  appName                  String?           @map("app_name")
+  customDomain             String?           @map("custom_domain")
+  localPort                Int?              @map("local_port")
+  operatorPhone            String?           @map("operator_phone")
+  requestedSupabaseAnonKey String?           @map("requested_supabase_anon_key")
+  requestedSupabaseUrl     String?           @map("requested_supabase_url")
   activatedDevices         ActivatedDevice[]
+  logs                     ActivityLog[]
+  invoices                 Invoice[]
+  plan                     Plan?             @relation(fields: [planId], references: [id])
+  product                  Product           @relation(fields: [productId], references: [id])
+  subscriptions            Subscription[]
 
   @@map("licenses")
 }
@@ -74,9 +74,9 @@ model License {
 model ActivatedDevice {
   id          Int      @id @default(autoincrement())
   licenseId   String   @map("license_id")
-  license     License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
   deviceId    String   @map("device_id")
   activatedAt DateTime @default(now()) @map("activated_at")
+  license     License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
 
   @@unique([licenseId, deviceId])
   @@map("activated_devices")
@@ -85,7 +85,6 @@ model ActivatedDevice {
 model Subscription {
   id         String   @id @default(uuid())
   licenseId  String   @map("license_id")
-  license    License  @relation(fields: [licenseId], references: [id])
   schoolName String   @map("school_name")
   productId  String   @map("product_id")
   planId     String   @map("plan_id")
@@ -94,6 +93,7 @@ model Subscription {
   endDate    String   @map("end_date")
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
+  license    License  @relation(fields: [licenseId], references: [id])
 
   @@map("subscriptions")
 }
@@ -102,7 +102,6 @@ model Invoice {
   id                  String    @id @default(uuid())
   invoiceNumber       String    @unique @map("invoice_number")
   licenseId           String    @map("license_id")
-  license             License   @relation(fields: [licenseId], references: [id])
   schoolName          String    @map("school_name")
   productId           String    @map("product_id")
   planTitle           String    @map("plan_title")
@@ -110,12 +109,13 @@ model Invoice {
   status              String    @default("unpaid")
   paymentMethod       String    @map("payment_method")
   paymentInstructions Json?     @map("payment_instructions")
-  paymentProof        String?   @map("payment_proof")
   expiredTime         String    @map("expired_time")
   paidAt              DateTime? @map("paid_at")
   planId              String?   @map("plan_id")
-  plan                Plan?     @relation(fields: [planId], references: [id])
   createdAt           DateTime  @default(now()) @map("created_at")
+  paymentProof        String?   @map("payment_proof")
+  license             License   @relation(fields: [licenseId], references: [id])
+  plan                Plan?     @relation(fields: [planId], references: [id])
 
   @@map("invoices")
 }
@@ -123,11 +123,11 @@ model Invoice {
 model ActivityLog {
   id         String   @id @default(uuid())
   licenseKey String   @map("license_key")
-  license    License  @relation(fields: [licenseKey], references: [licenseKey])
   productId  String   @map("product_id")
   ipAddress  String   @map("ip_address")
   action     String
   createdAt  DateTime @default(now()) @map("created_at")
+  license    License  @relation(fields: [licenseKey], references: [licenseKey])
 
   @@map("activity_logs")
 }

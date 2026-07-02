@@ -11,6 +11,8 @@ const totp_1 = require("../utils/totp");
 const whatsapp_service_1 = require("../services/whatsapp.service");
 const caddy_service_1 = require("../services/caddy.service");
 const child_process_1 = require("child_process");
+const fs_1 = __importDefault(require("fs"));
+const path_1 = __importDefault(require("path"));
 const prisma = new client_1.PrismaClient();
 const ADMIN_SECRET = process.env.ADMIN_SECRET || 'kumahatetehwe';
 const TOTP_SECRET = process.env.TOTP_SECRET || 'ABSENTASECRETKEYMYSECURETOKEN';
@@ -473,6 +475,45 @@ const adminRoutes = async (fastify) => {
         }
         catch (err) {
             return reply.status(500).send({ success: false, message: 'Gagal mengirim pesan test: ' + err.message });
+        }
+    });
+    // 21. GET /api/admin/caddy/status
+    fastify.get('/api/admin/caddy/status', async (request, reply) => {
+        await verifyAdmin(request, reply);
+        if (reply.sent)
+            return;
+        const checkCmd = process.platform === 'linux' ? 'systemctl is-active caddy' : 'echo active';
+        return new Promise((resolve) => {
+            (0, child_process_1.exec)(checkCmd, (err, stdout) => {
+                const isActive = !err && stdout.trim() === 'active';
+                let caddyfileContent = '';
+                try {
+                    const caddyPath = process.platform === 'linux' ? '/etc/caddy/Caddyfile' : path_1.default.join(__dirname, '../../Caddyfile.generated');
+                    if (fs_1.default.existsSync(caddyPath)) {
+                        caddyfileContent = fs_1.default.readFileSync(caddyPath, 'utf8');
+                    }
+                }
+                catch (e) { }
+                resolve(reply.send({
+                    success: true,
+                    status: isActive ? 'online' : 'offline',
+                    caddyfile: caddyfileContent
+                }));
+            });
+        });
+    });
+    // 22. POST /api/admin/caddy/sync
+    fastify.post('/api/admin/caddy/sync', async (request, reply) => {
+        await verifyAdmin(request, reply);
+        if (reply.sent)
+            return;
+        try {
+            await (0, caddy_service_1.triggerCaddySync)();
+            return reply.send({ success: true, message: 'Sinkronisasi konfigurasi Caddy berhasil dan Caddy telah dimuat ulang.' });
+        }
+        catch (err) {
+            console.error('[Caddy Sync API] Manual sync failed:', err.message);
+            return reply.status(500).send({ success: false, error: err.message });
         }
     });
 };

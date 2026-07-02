@@ -888,10 +888,13 @@ function parseCaddyfile(caddyfileText) {
         if (subLine === '}') blockDepth--;
         
         if (subLine.startsWith('reverse_proxy')) {
-          const proxyParts = subLine.split(/\s+/);
-          const lastPart = proxyParts[proxyParts.length - 1];
-          if (lastPart.includes('10.0.0.') || lastPart.includes('127.0.0.1') || lastPart.includes('10.0.0.2') || lastPart.includes('10.0.0.3')) {
-            targetIp = lastPart.replace('http://', '');
+          let cleanLine = subLine.replace(/^reverse_proxy\s+(\*\s+)?/, '').trim();
+          if (cleanLine.endsWith('{')) {
+            cleanLine = cleanLine.slice(0, -1).trim();
+          }
+          const target = cleanLine.replace(/^https?:\/\//, '');
+          if (target) {
+            targetIp = target;
           }
         }
         j++;

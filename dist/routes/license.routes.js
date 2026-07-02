@@ -1857,7 +1857,7 @@ PersistentKeepalive = 25
             return reply.status(500).send({ success: false, message: 'Gagal mengubah port di VPS: ' + err.message });
         }
     });
-    // 31. Easy Tunnel: Release License (Device Unlock)
+    // 31. Easy Tunnel: Device Unlock
     fastify.post('/api/license/easy-tunnel/release', async (request, reply) => {
         const { license_key } = request.body;
         if (!license_key) {
@@ -1886,6 +1886,81 @@ PersistentKeepalive = 25
         catch (err) {
             console.error('[Tunnel Release Error]', err.message);
             return reply.status(500).send({ success: false, message: 'Gagal melepas kunci perangkat: ' + err.message });
+        }
+    });
+    // 32. Update Academic Tier for existing school license
+    fastify.post('/api/license/update-academic-tier', async (request, reply) => {
+        const { license_key, tier } = request.body;
+        if (!license_key || !tier) {
+            return reply.status(400).send({ success: false, message: 'license_key dan tier wajib diisi.' });
+        }
+        const tierUpper = tier.trim().toUpperCase();
+        if (!['MICRO', 'SMALL', 'MEDIUM', 'LARGE', 'ENTERPRISE'].includes(tierUpper)) {
+            return reply.status(400).send({ success: false, message: 'Tier tidak valid. Gunakan: MICRO, SMALL, MEDIUM, LARGE, atau ENTERPRISE.' });
+        }
+        try {
+            const license = await prisma.license.findUnique({
+                where: { licenseKey: license_key.trim() }
+            });
+            if (!license) {
+                return reply.status(404).send({ success: false, message: 'Lisensi tidak ditemukan.' });
+            }
+            const targetPlanId = `ACADEMIC_${tierUpper}_TAHUNAN`;
+            const plan = await prisma.plan.findUnique({
+                where: { id: targetPlanId }
+            });
+            if (!plan) {
+                return reply.status(404).send({ success: false, message: `Academic plan ${targetPlanId} tidak ditemukan di server lisensi.` });
+            }
+            // Deactivate any other CORE subscriptions for this license key
+            const corePlans = await prisma.plan.findMany({
+                where: { serviceCode: 'CORE' },
+                select: { id: true }
+            });
+            const corePlanIds = corePlans.map(p => p.id);
+            const coreSubs = await prisma.subscription.findMany({
+                where: {
+                    licenseId: license.id,
+                    planId: { in: corePlanIds }
+                }
+            });
+            for (const sub of coreSubs) {
+                await prisma.subscription.delete({
+                    where: { id: sub.id }
+                });
+            }
+            // Create new active CORE subscription
+            const nowStr = new Date().toISOString().slice(0, 10);
+            const end = new Date();
+            end.setFullYear(end.getFullYear() + 100);
+            const endStr = end.toISOString().slice(0, 10);
+            const newSub = await prisma.subscription.create({
+                data: {
+                    licenseId: license.id,
+                    schoolName: license.schoolName,
+                    productId: license.productId,
+                    planId: plan.id,
+                    status: 'active',
+                    startDate: nowStr,
+                    endDate: endStr
+                }
+            });
+            console.log(`[Licensing Server] Successfully updated academic tier to ${tierUpper} for license: ${license_key}`);
+            return reply.send({
+                success: true,
+                message: `Kapasitas sekolah berhasil diubah ke ${tierUpper}.`,
+                subscription: {
+                    id: newSub.id,
+                    plan_id: newSub.planId,
+                    status: newSub.status,
+                    start_date: newSub.startDate,
+                    end_date: newSub.endDate
+                }
+            });
+        }
+        catch (err) {
+            console.error('[Update Academic Tier Error]', err.message);
+            return reply.status(500).send({ success: false, message: 'Gagal memperbarui kapasitas sekolah: ' + err.message });
         }
     });
 };

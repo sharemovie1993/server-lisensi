@@ -27,7 +27,8 @@ export async function triggerCaddySync(): Promise<void> {
         licenseKey: true,
         requestedSlug: true,
         wireguardIp: true,
-        productId: true
+        productId: true,
+        localPort: true
       }
     });
 
@@ -56,7 +57,7 @@ export async function triggerCaddySync(): Promise<void> {
             domains,
             wireguard_ip: lic.wireguardIp!,
             product_id: lic.productId,
-            local_port: lic.productId === 'easy-tunnel' ? 5002 : undefined // default
+            local_port: lic.productId === 'easy-tunnel' ? (lic.localPort || 5002) : undefined
           });
         }
       }
@@ -107,10 +108,20 @@ pos.${MAIN_DOMAIN} {
       const domainListStr = up.domains.join(', ');
 
       if (up.product_id === 'easy-tunnel') {
+        const port = up.local_port || 5002;
+        const isDevVitePort = port >= 5173 && port <= 5179;
+        const isHttpsPort = port === 443;
+        const upstreamProtocol = (isDevVitePort || isHttpsPort) ? 'https' : 'http';
+        const tlsConfig = (isDevVitePort || isHttpsPort) ? ` {
+        transport http {
+            tls_insecure_skip_verify
+        }
+    }` : '';
+
         caddyfile += `
 # Tenant: ${up.slug} (Easy Tunnel)
 ${domainListStr} {
-    reverse_proxy * http://${up.wireguard_ip}:${up.local_port || 5002}
+    reverse_proxy * ${upstreamProtocol}://${up.wireguard_ip}:${port}${tlsConfig}
 }
 `;
       } else {
