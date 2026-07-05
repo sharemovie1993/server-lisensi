@@ -5,8 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
 const https = require('https');
-const sqlite3 = require('sqlite3');
-const { open } = require('sqlite');
+const { Client } = require('pg');
 
 // Load environment variables
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
@@ -19,7 +18,7 @@ if (!MAIN_DOMAIN) {
 
 const isLinux = process.platform === 'linux';
 const caddyfilePath = isLinux ? '/etc/caddy/Caddyfile' : path.join(__dirname, '../Caddyfile.generated');
-const dbPath = path.join(__dirname, '../licenses.db');
+// Database URL is loaded from env for PostgreSQL
 
 const PORT_EXCEPTIONS = {
   'cibinong': { backend: 5006, frontend: 5176 },
@@ -69,20 +68,21 @@ function getTenantsFromSupabase() {
 async function run() {
   console.log('[Caddy-Sync] Starting Caddy configuration sync...');
 
-  let db;
+  let client;
   try {
-    // 1. Fetch data from SQLite
-    db = await open({
-      filename: dbPath,
-      driver: sqlite3.Database
+    // 1. Fetch data from PostgreSQL
+    client = new Client({
+      connectionString: process.env.DATABASE_URL
     });
+    await client.connect();
 
-    const activeLicenses = await db.all(
+    const res = await client.query(
       `SELECT license_key, requested_slug, wireguard_ip, custom_domain, product_id, local_port FROM licenses 
        WHERE is_active = 1 AND wireguard_ip IS NOT NULL AND wireguard_ip != ''`
     );
+    const activeLicenses = res.rows;
 
-    console.log(`[Caddy-Sync] Loaded ${activeLicenses.length} active licenses with WireGuard IPs from SQLite.`);
+    console.log(`[Caddy-Sync] Loaded ${activeLicenses.length} active licenses with WireGuard IPs from PostgreSQL.`);
 
     // Map license details by key & slug
     const licenseMapByKey = {};
@@ -289,8 +289,8 @@ ${domainListStr} {
     console.error('[Caddy-Sync] Critical error during sync:', err.message);
     process.exit(1);
   } finally {
-    if (db) {
-      await db.close().catch(() => {});
+    if (client) {
+      await client.end().catch(() => {});
     }
   }
 }
