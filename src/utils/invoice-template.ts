@@ -22,6 +22,8 @@ export interface InvoiceTemplateData {
   planDuration: string;
   capacityStr: string;
   planPrice: string;
+  adminFee?: string | null;
+  totalPrice: string;
   verifyHash: string;
   items?: InvoiceTemplateItem[] | null;
 }
@@ -42,6 +44,8 @@ export function renderInvoiceTemplate(data: InvoiceTemplateData): string {
     planDuration,
     capacityStr,
     planPrice,
+    adminFee,
+    totalPrice,
     verifyHash,
     items
   } = data;
@@ -461,7 +465,7 @@ export function renderInvoiceTemplate(data: InvoiceTemplateData): string {
           <tr>
             <td>
               <div class="product-name">${productName} &mdash; ${planTitle}</div>
-              <div class="product-desc">${productDesc}. Termasuk dukungan teknis, pembaruan berkala, dan akses dashboard admin.</div>
+              <div class="product-desc">${productDesc.endsWith('.') ? productDesc : productDesc + '.'} Termasuk dukungan teknis, pembaruan berkala, dan akses dashboard admin.</div>
             </td>
             <td>${planDuration}</td>
             <td>${capacityStr}</td>
@@ -485,6 +489,12 @@ export function renderInvoiceTemplate(data: InvoiceTemplateData): string {
           <span class="t-label">Subtotal</span>
           <span class="t-value">${planPrice}</span>
         </div>
+        ${adminFee && adminFee !== 'Rp 0' ? `
+        <div class="totals-row">
+          <span class="t-label">Biaya Transaksi / Admin</span>
+          <span class="t-value">${adminFee}</span>
+        </div>
+        ` : ''}
         <div class="totals-row">
           <span class="t-label">PPN (0%)</span>
           <span class="t-value">Rp 0</span>
@@ -495,7 +505,7 @@ export function renderInvoiceTemplate(data: InvoiceTemplateData): string {
         </div>
         <div class="totals-row grand">
           <span class="t-label">TOTAL</span>
-          <span class="t-value">${planPrice}</span>
+          <span class="t-value">${totalPrice}</span>
         </div>
       </div>
     </div>

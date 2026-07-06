@@ -18,6 +18,8 @@ class WhatsappService extends events_1.EventEmitter {
     isInitialized = false;
     retryCount = 0;
     MAX_RETRY = 10;
+    messagesSentToday = 0;
+    messagesFailedToday = 0;
     constructor() {
         super();
     }
@@ -38,6 +40,16 @@ class WhatsappService extends events_1.EventEmitter {
     }
     async connect() {
         this.ensureAuthDir();
+        // Clean up any existing socket/listeners first to prevent duplicate loops
+        if (this.sock) {
+            try {
+                this.sock.ev.removeAllListeners('connection.update');
+                this.sock.ev.removeAllListeners('creds.update');
+                this.sock.end();
+            }
+            catch (_) { }
+            this.sock = null;
+        }
         const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, makeCacheableSignalKeyStore } = await import('@whiskeysockets/baileys');
         const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
         const { version } = await fetchLatestBaileysVersion();
@@ -80,11 +92,17 @@ class WhatsappService extends events_1.EventEmitter {
                 const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
                 console.log(`[WA] Koneksi terputus (kode: ${statusCode}). Reconnect: ${shouldReconnect}`);
                 this.emit('disconnected', statusCode);
-                if (shouldReconnect && this.retryCount < this.MAX_RETRY) {
-                    this.retryCount++;
-                    const delay = Math.min(5000 * this.retryCount, 30000);
-                    console.log(`[WA] Mencoba reconnect ke-${this.retryCount} dalam ${delay / 1000}s...`);
-                    setTimeout(() => this.connect(), delay);
+                if (shouldReconnect) {
+                    if (this.retryCount < this.MAX_RETRY) {
+                        this.retryCount++;
+                        const delay = Math.min(5000 * this.retryCount, 30000);
+                        console.log(`[WA] Mencoba reconnect ke-${this.retryCount} dalam ${delay / 1000}s...`);
+                        setTimeout(() => this.connect(), delay);
+                    }
+                    else {
+                        console.log('[WA] Max retry tercapai. Mencoba reconnect berkala setiap 60s...');
+                        setTimeout(() => this.connect(), 60000);
+                    }
                 }
                 else if (statusCode === DisconnectReason.loggedOut) {
                     console.log('[WA] Sesi di-logout. Hapus auth state dan scan ulang.');
@@ -110,14 +128,24 @@ class WhatsappService extends events_1.EventEmitter {
         if (this.connectionStatus !== 'connected' || !this.sock) {
             throw new Error('WhatsApp Gateway belum terhubung.');
         }
-        const jid = nomor.replace(/[^0-9]/g, '') + '@s.whatsapp.net';
+        // Clean all non-numeric characters and format to international format (62)
+        let cleaned = nomor.replace(/[^0-9]/g, '');
+        if (cleaned.startsWith('08')) {
+            cleaned = '62' + cleaned.slice(1);
+        }
+        else if (cleaned.startsWith('8') && cleaned.length >= 9) {
+            cleaned = '62' + cleaned;
+        }
+        const jid = cleaned + '@s.whatsapp.net';
         try {
             await this.sock.sendMessage(jid, { text: pesan });
-            console.log(`[WA] Pesan terkirim ke ${nomor}`);
+            this.messagesSentToday++;
+            console.log(`[WA] Pesan terkirim ke ${nomor} (JID: ${jid})`);
             return true;
         }
         catch (err) {
-            console.error(`[WA] Gagal kirim pesan ke ${nomor}:`, err.message);
+            this.messagesFailedToday++;
+            console.error(`[WA] Gagal kirim pesan ke ${nomor} (JID: ${jid}):`, err.message);
             throw err;
         }
     }
@@ -125,6 +153,8 @@ class WhatsappService extends events_1.EventEmitter {
         console.log('[WA] Memulai ulang koneksi WA...');
         if (this.sock) {
             try {
+                this.sock.ev.removeAllListeners('connection.update');
+                this.sock.ev.removeAllListeners('creds.update');
                 this.sock.end();
             }
             catch (_) { }
@@ -137,17 +167,23 @@ class WhatsappService extends events_1.EventEmitter {
     }
     clearAuthState() {
         if (fs_1.default.existsSync(AUTH_DIR)) {
-            fs_1.default.readdirSync(AUTH_DIR).forEach(f => {
-                fs_1.default.unlinkSync(path_1.default.join(AUTH_DIR, f));
-            });
-            console.log('[WA] Auth state dihapus.');
+            try {
+                fs_1.default.rmSync(AUTH_DIR, { recursive: true, force: true });
+                console.log('[WA] Auth state directory removed.');
+            }
+            catch (e) {
+                console.error('[WA] Gagal hapus auth dir:', e.message);
+            }
         }
+        this.ensureAuthDir();
     }
     getStatus() {
         return {
             status: this.connectionStatus,
             number: this.connectedNumber,
-            has_qr: !!this.qrBase64
+            has_qr: !!this.qrBase64,
+            sentToday: this.messagesSentToday,
+            failedToday: this.messagesFailedToday
         };
     }
     getQRBase64() {

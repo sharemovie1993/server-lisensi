@@ -55,12 +55,20 @@ model License {
   createdAt                DateTime          @default(now()) @map("created_at")
   updatedAt                DateTime          @updatedAt @map("updated_at")
   activeHostname           String?           @map("active_hostname")
+  activeOs                 String?           @map("active_os")
   appName                  String?           @map("app_name")
   customDomain             String?           @map("custom_domain")
   localPort                Int?              @map("local_port")
   operatorPhone            String?           @map("operator_phone")
   requestedSupabaseAnonKey String?           @map("requested_supabase_anon_key")
   requestedSupabaseUrl     String?           @map("requested_supabase_url")
+  originalDeviceId         String?           @map("original_device_id")
+  lastHeartbeatAt          DateTime?         @map("last_heartbeat_at")
+  deployMode               String?           @map("deploy_mode")
+  activeUsers              Int?              @map("active_users")
+  dbSize                   Float?            @map("db_size")
+  memoryUsage              Float?            @map("memory_usage")
+  lastTapped               DateTime?         @map("last_tapped")
   activatedDevices         ActivatedDevice[]
   logs                     ActivityLog[]
   invoices                 Invoice[]
@@ -138,3 +146,80 @@ model SystemSetting {
 
   @@map("system_settings")
 }
+
+model TenantMetrics {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  activeUsers Int      @map("active_users")
+  dbSize      Float    @map("db_size")
+  memoryUsage Float    @map("memory_usage")
+  lastTapped  DateTime @map("last_tapped")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@map("tenant_metrics")
+}
+
+model PlatformRisk {
+  id                 String   @id @default(uuid())
+  tenantId           String   @unique @map("tenant_id")
+  riskScore          Int      @map("risk_score")
+  riskLevel          String   @map("risk_level") // HEALTHY, WARNING, HIGH_RISK, CRITICAL
+  emailFailureRate   Float    @map("email_failure_rate")
+  paymentFailureRate Float    @map("payment_failure_rate")
+  lastCalculatedAt   DateTime @map("last_calculated_at")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@map("platform_risk")
+}
+
+model UpgradeIntelligence {
+  id                 String   @id @default(uuid())
+  tenantId           String   @unique @map("tenant_id")
+  intentScore        Int      @map("intent_score")
+  intentLevel        String   @map("intent_level") // LOW, MEDIUM, HIGH
+  usageGrowthPercent Float?   @map("usage_growth_percent")
+  lastCalculatedAt   DateTime @map("last_calculated_at")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@map("upgrade_intelligence")
+}
+
+model SupportTicket {
+  id            String          @id @default(uuid())
+  tenantId      String          @map("tenant_id")
+  schoolName    String          @map("school_name")
+  subject       String
+  description   String
+  status        String          @default("open") // open, answered, closed
+  priority      String          @default("medium") // low, medium, high
+  category      String          @default("TECHNICAL")
+  rating        Int?
+  ratingComment String?         @map("rating_comment")
+  attachments   Json?
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+  messages      TicketMessage[]
+
+  @@index([tenantId])
+  @@map("support_tickets")
+}
+
+model TicketMessage {
+  id          String        @id @default(uuid())
+  ticketId    String        @map("ticket_id")
+  sender      String        // tenant, agent
+  senderName  String        @map("sender_name")
+  message     String
+  attachments Json?
+  createdAt   DateTime      @default(now()) @map("created_at")
+  ticket      SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@map("ticket_messages")
+}
+

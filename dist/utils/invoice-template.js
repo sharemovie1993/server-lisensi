@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.renderInvoiceTemplate = renderInvoiceTemplate;
 exports.formatIndonesianDate = formatIndonesianDate;
 function renderInvoiceTemplate(data) {
-    const { invoiceNumber, cleanSchoolName, dateStr, statusLabel, isPaid, isExpired = false, payMethodLabel, licenseKey, productName, planTitle, productDesc, planDuration, capacityStr, planPrice, verifyHash, items } = data;
+    const { invoiceNumber, cleanSchoolName, dateStr, statusLabel, isPaid, isExpired = false, payMethodLabel, licenseKey, productName, planTitle, productDesc, planDuration, capacityStr, planPrice, adminFee, totalPrice, verifyHash, items } = data;
     const statusColor = isPaid
         ? 'var(--success)'
         : (isExpired ? 'var(--text-muted)' : 'var(--warning)');
@@ -418,7 +418,7 @@ function renderInvoiceTemplate(data) {
           <tr>
             <td>
               <div class="product-name">${productName} &mdash; ${planTitle}</div>
-              <div class="product-desc">${productDesc}. Termasuk dukungan teknis, pembaruan berkala, dan akses dashboard admin.</div>
+              <div class="product-desc">${productDesc.endsWith('.') ? productDesc : productDesc + '.'} Termasuk dukungan teknis, pembaruan berkala, dan akses dashboard admin.</div>
             </td>
             <td>${planDuration}</td>
             <td>${capacityStr}</td>
@@ -442,6 +442,12 @@ function renderInvoiceTemplate(data) {
           <span class="t-label">Subtotal</span>
           <span class="t-value">${planPrice}</span>
         </div>
+        ${adminFee && adminFee !== 'Rp 0' ? `
+        <div class="totals-row">
+          <span class="t-label">Biaya Transaksi / Admin</span>
+          <span class="t-value">${adminFee}</span>
+        </div>
+        ` : ''}
         <div class="totals-row">
           <span class="t-label">PPN (0%)</span>
           <span class="t-value">Rp 0</span>
@@ -452,7 +458,7 @@ function renderInvoiceTemplate(data) {
         </div>
         <div class="totals-row grand">
           <span class="t-label">TOTAL</span>
-          <span class="t-value">${planPrice}</span>
+          <span class="t-value">${totalPrice}</span>
         </div>
       </div>
     </div>
