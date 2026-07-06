@@ -12,12 +12,13 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const MAIN_DOMAIN = process.env.MAIN_DOMAIN;
 if (!MAIN_DOMAIN) {
-  console.error("CRITICAL ERROR: MAIN_DOMAIN is not defined in .env");
+  console.log("CRITICAL ERROR: MAIN_DOMAIN is not defined in .env");
   process.exit(1);
 }
 
+const DISABLE_HTTPS = process.env.DISABLE_HTTPS === 'true';
 const CF_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
-const tlsBlock = CF_TOKEN ? `\n    tls {\n        dns cloudflare ${CF_TOKEN}\n    }` : '';
+const tlsBlock = (CF_TOKEN && !DISABLE_HTTPS) ? `\n    tls {\n        dns cloudflare ${CF_TOKEN}\n    }` : '';
 
 const isLinux = process.platform === 'linux';
 const caddyfilePath = isLinux ? '/etc/caddy/Caddyfile' : path.join(__dirname, '../Caddyfile.generated');
@@ -171,9 +172,7 @@ async function run() {
 
 {
     email sharemovie1993@gmail.com
-    on_demand_tls {
-        ask http://127.0.0.1:5001/api/public/validate-domain
-    }
+    \${DISABLE_HTTPS ? 'auto_https off' : 'on_demand_tls {\\n        ask http://127.0.0.1:5001/api/public/validate-domain\\n    }'}
 }
 
 # --- STATIC CENTRAL ROUTES ---
