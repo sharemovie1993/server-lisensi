@@ -907,7 +907,7 @@ router.post('/api/license/request-local-free', async (req, res) => {
     }
     const newKey = generateKey('absenta', productPrefix);
     const expiresStr = '2099-12-31';
-    const planId = 'PAKET_LENGKAP_MULTI_LARGE_YEAR';
+    const planId = 'PAKET_LENGKAP_MULTI_LARGE_TAHUNAN';
 
     // 3. Masukkan lisensi ke database
     const result = await db.run(

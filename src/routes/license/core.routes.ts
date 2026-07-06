@@ -593,7 +593,7 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
 
       const newKey = generateLicenseKey(productPrefix);
       const expiresStr = '2099-12-31';
-      const planId = 'PAKET_LENGKAP_MULTI_LARGE_YEAR';
+      const planId = 'PAKET_LENGKAP_MULTI_LARGE_TAHUNAN';
 
       // 3. Masukkan lisensi ke database
       const newLicense = await prisma.license.create({
