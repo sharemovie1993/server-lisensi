@@ -648,6 +648,21 @@ router.post('/api/admin/invoices/pay/:id', adminAuth, async (req, res) => {
 
     triggerCaddySync();
 
+    if (license.operator_phone) {
+      try {
+        const waGateway = require('../services/waGateway');
+        const waMessage = `Selamat! Pengajuan lisensi untuk *${license.school_name}* (${license.product_id}) telah *DISETUJUI*.\n\n` +
+                          `Kunci Lisensi Anda:\n` +
+                          `\`\`\`${license.license_key}\`\`\`\n\n` +
+                          `Masa aktif hingga: ${expiresStr}\n\n` +
+                          `Silakan masukkan kunci lisensi di atas pada wizard deployment/installer Anda.\n` +
+                          `Terima kasih.`;
+        await waGateway.sendMessage(license.operator_phone, waMessage);
+      } catch (waErr) {
+        console.error('[WA Send Error on Admin Approval]', waErr.message);
+      }
+    }
+
     res.json({
       success: true,
       message: `Invoice ${invoice.invoice_number} berhasil disetujui secara manual! Masa aktif sekolah ${license.school_name} aktif hingga ${expiresStr}.`
@@ -751,6 +766,21 @@ router.post('/api/license/approve/:id', adminAuth, async (req, res) => {
     );
 
     await logLicenseActivity(license.license_key, license.product_id, null, req.ip, 'ADMIN_APPROVED');
+
+    if (license.operator_phone) {
+      try {
+        const waGateway = require('../services/waGateway');
+        const waMessage = `Selamat! Pengajuan lisensi untuk *${license.school_name}* (${license.product_id}) telah *DISETUJUI*.\n\n` +
+                          `Kunci Lisensi Anda:\n` +
+                          `\`\`\`${license.license_key}\`\`\`\n\n` +
+                          `Masa aktif hingga: ${expiresStr}\n\n` +
+                          `Silakan masukkan kunci lisensi di atas pada wizard deployment/installer Anda.\n` +
+                          `Terima kasih.`;
+        await waGateway.sendMessage(license.operator_phone, waMessage);
+      } catch (waErr) {
+        console.error('[WA Send Error on Admin Approval]', waErr.message);
+      }
+    }
 
     // ── AUTOMATED SAAS PROVISIONING ON MANUAL APPROVAL ──
     if (license.requested_slug) {

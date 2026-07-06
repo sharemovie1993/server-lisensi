@@ -8,6 +8,7 @@ import {
 } from './helpers';
 import { PRIVATE_KEY, PUBLIC_KEY } from '../../utils/keys';
 import { logLicenseActivity } from '../../utils/logger';
+import { waGateway } from '../../services/whatsapp.service';
 
 export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
 
@@ -533,6 +534,145 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
     } catch (err: any) {
       console.error('[Request Billing Error]', err.message);
       return reply.status(500).send({ success: false, message: 'Gagal memproses request billing: ' + err.message });
+    }
+  });
+
+  // 1b. Request local-free active license with automatic WhatsApp notification
+  fastify.post('/api/license/request-local-free', async (request: FastifyRequest, reply: FastifyReply) => {
+    const { school_name, wa_number, requested_slug } = request.body as {
+      school_name: string;
+      wa_number: string;
+      requested_slug: string;
+    };
+
+    if (!school_name || !wa_number || !requested_slug) {
+      return reply.status(400).send({ success: false, message: 'school_name, wa_number, dan requested_slug wajib diisi.' });
+    }
+
+    const cleanSlug = requested_slug.trim().toLowerCase();
+    const cleanSchoolName = school_name.trim();
+    const cleanWaNumber = wa_number.trim();
+
+    // Local license key generator helper
+    const generateLicenseKey = (prefix: string) => {
+      const rand = crypto.randomBytes(8).toString('hex').toUpperCase();
+      return `${prefix}-${rand.slice(0, 4)}-${rand.slice(4, 8)}-${rand.slice(8, 12)}`;
+    };
+
+    try {
+      // 1. Validasi ketersediaan slug
+      const existingLicense = await prisma.license.findFirst({
+        where: { requestedSlug: cleanSlug },
+        orderBy: { id: 'desc' }
+      });
+
+      if (existingLicense) {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const isExpired = existingLicense.status === 'expired' || existingLicense.expiresAt < todayStr;
+        
+        if (!isExpired) {
+          return reply.status(400).send({ 
+            success: false, 
+            message: `Subdomain '${cleanSlug}.absenta.id' sudah digunakan oleh sekolah lain dan masih aktif. Silakan pilih subdomain yang berbeda.` 
+          });
+        }
+      }
+
+      // 2. Generate license key untuk Absenta (ABS)
+      let productPrefix = 'ABS';
+      try {
+        const prod = await prisma.product.findUnique({
+          where: { id: 'absenta' }
+        });
+        if (prod && prod.prefix) {
+          productPrefix = prod.prefix;
+        }
+      } catch (e: any) {
+        console.error('[Local Free License] Failed to fetch product prefix:', e.message);
+      }
+
+      const newKey = generateLicenseKey(productPrefix);
+      const expiresStr = '2099-12-31';
+      const planId = 'PAKET_LENGKAP_MULTI_LARGE_YEAR';
+
+      // 3. Masukkan lisensi ke database
+      const newLicense = await prisma.license.create({
+        data: {
+          licenseKey: newKey,
+          productId: 'absenta',
+          schoolName: cleanSchoolName,
+          deviceLimit: 9999,
+          isUnlimited: 1,
+          expiresAt: expiresStr,
+          status: 'active',
+          isActive: 1,
+          planId: planId,
+          requestedSlug: cleanSlug,
+          operatorPhone: cleanWaNumber
+        }
+      });
+
+      // 4. Masukkan subscription ke database
+      await prisma.subscription.create({
+        data: {
+          licenseId: newLicense.id,
+          schoolName: cleanSchoolName,
+          productId: 'absenta',
+          planId: planId,
+          status: 'active',
+          startDate: new Date().toISOString().slice(0, 10),
+          endDate: expiresStr
+        }
+      });
+
+      // 5. Masukkan invoice ke database
+      const randomPrefix = Math.floor(1000 + Math.random() * 9000);
+      const invoiceNumber = `INV-LOC-${randomPrefix}-${new Date().getFullYear()}`;
+      await prisma.invoice.create({
+        data: {
+          invoiceNumber: invoiceNumber,
+          licenseId: newLicense.id,
+          schoolName: cleanSchoolName,
+          productId: 'absenta',
+          planTitle: 'Local Free Platform',
+          amount: 0,
+          status: 'paid',
+          paymentMethod: 'Gateway',
+          paidAt: new Date(),
+          planId: planId,
+          expiredTime: (Math.floor(Date.now() / 1000) + 86400).toString()
+        }
+      });
+
+      // 6. Kirim WhatsApp notifikasi via waGateway
+      try {
+        const waMessage = `🟢 *[AKTIVASI LISENSI LOKAL ABSENTA SUCCESS]*\n\n` +
+          `Yth. Operator *${cleanSchoolName}*,\n` +
+          `Lisensi lokal gratis untuk sekolah Anda telah berhasil didaftarkan dan diaktifkan secara instan.\n\n` +
+          `Berikut adalah detail lisensi Anda:\n` +
+          `🔑 Kunci Lisensi: \`${newKey}\`\n` +
+          `🌐 Subdomain: *${cleanSlug}.absenta.id*\n` +
+          `📅 Status: *AKTIF (Lokal Mandiri - Unlimited)*\n\n` +
+          `*Catatan Penting*:\n` +
+          `- Server lokal Anda kini sudah berjalan dengan valid HTTPS secara lokal (Split DNS).\n` +
+          `- Koneksi dari internet luar (Easy-Tunnel) saat ini belum aktif. Untuk mengonlinekannya agar bisa diakses dari HP android di luar sekolah, silakan lakukan aktivasi Easy Tunnel melalui menu yang tersedia di dalam aplikasi Absenta Anda.\n\n` +
+          `Simpan pesan ini sebagai bukti catatan lisensi Anda. Terima kasih!`;
+        
+        await waGateway.sendMessage(cleanWaNumber, waMessage);
+        await logLicenseActivity(newKey, 'absenta', '127.0.0.1', 'WA_LOCAL_FREE_ACTIVATION_SENT');
+      } catch (waErr: any) {
+        console.error('[Local Free License] Gagal mengirim pesan WA:', waErr.message);
+      }
+
+      return reply.send({
+        success: true,
+        license_key: newKey,
+        message: 'Registrasi lisensi lokal gratis berhasil.'
+      });
+
+    } catch (err: any) {
+      console.error('[Local Free License Request Error]', err);
+      return reply.status(500).send({ success: false, message: 'Gagal membuat lisensi lokal gratis: ' + err.message });
     }
   });
 

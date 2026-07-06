@@ -16,6 +16,7 @@ const { logLicenseActivity } = require('../utils/logger');
 const { generateKey, formatIndonesianDate } = require('../utils/helpers');
 const { triggerCaddySync } = require('../utils/caddy');
 const renderInvoiceTemplate = require('../views/invoice-template');
+const waGateway = require('../services/waGateway');
 
 // Reusable POST helper: prefers axios, falls back to node-fetch
 async function httpPost(url, body, headers = {}, timeoutMs = 8000) {
@@ -241,7 +242,7 @@ router.get('/api/license/payment-channels', async (req, res) => {
 
 // 4. Request license key creation with billing (Tripay QRIS / Bank Transfer)
 router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
-  const { school_name, device_limit, is_unlimited, product_id, plan_id, payment_method, requested_slug, requested_supabase_url, requested_supabase_anon_key, include_vpn, renew_license_key } = req.body;
+  const { school_name, device_limit, is_unlimited, product_id, plan_id, payment_method, requested_slug, requested_supabase_url, requested_supabase_anon_key, include_vpn, renew_license_key, operator_phone } = req.body;
 
   let existingLicense = null;
   let resolvedSchoolName = school_name;
@@ -394,8 +395,8 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
         licenseId = existingLicense.id;
       } else {
         await db.run(
-          "INSERT INTO licenses (license_key, product_id, school_name, device_limit, is_unlimited, expires_at, status, is_active, plan_id, requested_slug, requested_supabase_url, requested_supabase_anon_key, is_recovery, include_vpn) VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, ?, ?, ?, ?)",
-          [newKey, prodId, resolvedSchoolName.trim(), limit, isUnlimited, expiresStr, plan.id, resolvedSlug || null, resolvedSupabaseUrl || null, resolvedSupabaseAnonKey || null, isRecovery, vpnPlan ? 1 : 0]
+          "INSERT INTO licenses (license_key, product_id, school_name, device_limit, is_unlimited, expires_at, status, is_active, plan_id, requested_slug, requested_supabase_url, requested_supabase_anon_key, is_recovery, include_vpn, operator_phone) VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, ?, ?, ?, ?, ?)",
+          [newKey, prodId, resolvedSchoolName.trim(), limit, isUnlimited, expiresStr, plan.id, resolvedSlug || null, resolvedSupabaseUrl || null, resolvedSupabaseAnonKey || null, isRecovery, vpnPlan ? 1 : 0, operator_phone || null]
         );
 
         const insertedLicense = await db.get("SELECT id FROM licenses WHERE license_key = ?", [newKey]);
@@ -422,6 +423,18 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
       );
 
       await logLicenseActivity(newKey, prodId, null, req.ip, 'REQUEST_FREE_REGISTRATION_SUCCESS');
+
+      if (operator_phone) {
+        try {
+          const waMessage = `Halo! Pengajuan lisensi untuk *${resolvedSchoolName.trim()}* (${prodId}) telah diterima dengan status *PENDING*.\n\n` +
+                            `Kunci Lisensi Anda akan dikirimkan secara otomatis melalui WhatsApp ke nomor ini setelah disetujui oleh Admin.\n\n` +
+                            `Nomor Invoice: ${invoiceNumber}\n` +
+                            `Terima kasih.`;
+          await waGateway.sendMessage(operator_phone, waMessage);
+        } catch (waErr) {
+          console.error('[WA Send Error on License Request]', waErr.message);
+        }
+      }
 
       return res.json({
         success: true,
@@ -462,8 +475,8 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
         licenseId = existingLicense.id;
       } else {
         await db.run(
-          "INSERT INTO licenses (license_key, product_id, school_name, device_limit, is_unlimited, expires_at, status, is_active, plan_id, requested_slug, requested_supabase_url, requested_supabase_anon_key, is_recovery, include_vpn) VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, ?, ?, ?, ?)",
-          [newKey, prodId, resolvedSchoolName.trim(), limit, isUnlimited, expiresStr, plan.id, resolvedSlug || null, resolvedSupabaseUrl || null, resolvedSupabaseAnonKey || null, isRecovery, vpnPlan ? 1 : 0]
+          "INSERT INTO licenses (license_key, product_id, school_name, device_limit, is_unlimited, expires_at, status, is_active, plan_id, requested_slug, requested_supabase_url, requested_supabase_anon_key, is_recovery, include_vpn, operator_phone) VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, ?, ?, ?, ?, ?)",
+          [newKey, prodId, resolvedSchoolName.trim(), limit, isUnlimited, expiresStr, plan.id, resolvedSlug || null, resolvedSupabaseUrl || null, resolvedSupabaseAnonKey || null, isRecovery, vpnPlan ? 1 : 0, operator_phone || null]
         );
 
         const insertedLicense = await db.get("SELECT id FROM licenses WHERE license_key = ?", [newKey]);
@@ -494,6 +507,23 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
       );
 
       await logLicenseActivity(newKey, prodId, null, req.ip, 'REQUEST_BILLING_MANUAL_SUCCESS');
+
+      if (operator_phone) {
+        try {
+          const waMessage = `Halo! Pengajuan lisensi untuk *${resolvedSchoolName.trim()}* (${prodId}) telah diterima dengan status *PENDING*.\n\n` +
+                            `Silakan lakukan transfer sesuai rincian tagihan.\n\n` +
+                            `Nomor Invoice: ${invoiceNumber}\n` +
+                            `Total Tagihan: Rp ${basePrice.toLocaleString('id-ID')}\n` +
+                            `Metode Pembayaran: Transfer Bank Manual (${bankNameRow.value})\n` +
+                            `Nomor Rekening: ${bankAccNoRow.value}\n` +
+                            `Atas Nama: ${bankAccNameRow.value}\n\n` +
+                            `Setelah transfer, silakan konfirmasi bukti bayar ke nomor admin: ${waNumberRow.value}\n` +
+                            `Terima kasih.`;
+          await waGateway.sendMessage(operator_phone, waMessage);
+        } catch (waErr) {
+          console.error('[WA Send Error on License Request]', waErr.message);
+        }
+      }
 
       return res.json({
         success: true,
@@ -556,8 +586,8 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
           licenseId = existingLicense.id;
         } else {
           await db.run(
-            "INSERT INTO licenses (license_key, product_id, school_name, device_limit, is_unlimited, expires_at, status, is_active, plan_id, requested_slug, requested_supabase_url, requested_supabase_anon_key, is_recovery, include_vpn) VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, ?, ?, ?, ?)",
-            [newKey, prodId, resolvedSchoolName.trim(), limit, isUnlimited, expiresStr, plan.id, resolvedSlug || null, resolvedSupabaseUrl || null, resolvedSupabaseAnonKey || null, isRecovery, vpnPlan ? 1 : 0]
+            "INSERT INTO licenses (license_key, product_id, school_name, device_limit, is_unlimited, expires_at, status, is_active, plan_id, requested_slug, requested_supabase_url, requested_supabase_anon_key, is_recovery, include_vpn, operator_phone) VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, ?, ?, ?, ?, ?)",
+            [newKey, prodId, resolvedSchoolName.trim(), limit, isUnlimited, expiresStr, plan.id, resolvedSlug || null, resolvedSupabaseUrl || null, resolvedSupabaseAnonKey || null, isRecovery, vpnPlan ? 1 : 0, operator_phone || null]
           );
 
           const insertedLicense = await db.get("SELECT id FROM licenses WHERE license_key = ?", [newKey]);
@@ -588,6 +618,20 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
         );
 
         await logLicenseActivity(newKey, prodId, null, req.ip, 'REQUEST_BILLING_XENDIT_SUCCESS');
+
+        if (operator_phone) {
+          try {
+            const waMessage = `Halo! Pengajuan lisensi untuk *${resolvedSchoolName.trim()}* (${prodId}) telah diterima dengan status *PENDING*.\n\n` +
+                              `Silakan lakukan pembayaran sesuai tautan tagihan Xendit berikut:\n` +
+                              `${xenditResponseData.invoice_url}\n\n` +
+                              `Nomor Invoice: ${invoiceNumber}\n` +
+                              `Total Tagihan: Rp ${basePrice.toLocaleString('id-ID')}\n\n` +
+                              `Terima kasih.`;
+            await waGateway.sendMessage(operator_phone, waMessage);
+          } catch (waErr) {
+            console.error('[WA Send Error on License Request]', waErr.message);
+          }
+        }
 
         return res.json({
           success: true,
@@ -731,8 +775,8 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
         }
       } else {
         await db.run(
-          "INSERT INTO licenses (license_key, product_id, school_name, device_limit, is_unlimited, expires_at, status, is_active, plan_id, requested_slug, requested_supabase_url, requested_supabase_anon_key, is_recovery, include_vpn) VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, ?, ?, ?, ?)",
-          [newKey, prodId, resolvedSchoolName.trim(), limit, isUnlimited, expiresStr, plan.id, resolvedSlug || null, resolvedSupabaseUrl || null, resolvedSupabaseAnonKey || null, isRecovery, vpnPlan ? 1 : 0]
+          "INSERT INTO licenses (license_key, product_id, school_name, device_limit, is_unlimited, expires_at, status, is_active, plan_id, requested_slug, requested_supabase_url, requested_supabase_anon_key, is_recovery, include_vpn, operator_phone) VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, ?, ?, ?, ?, ?)",
+          [newKey, prodId, resolvedSchoolName.trim(), limit, isUnlimited, expiresStr, plan.id, resolvedSlug || null, resolvedSupabaseUrl || null, resolvedSupabaseAnonKey || null, isRecovery, vpnPlan ? 1 : 0, operator_phone || null]
         );
 
         const insertedLicense = await db.get("SELECT id FROM licenses WHERE license_key = ?", [newKey]);
@@ -768,6 +812,22 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
       );
 
       await logLicenseActivity(newKey, prodId, null, req.ip, 'REQUEST_BILLING_TRIPAY_SUCCESS');
+
+      if (operator_phone) {
+        try {
+          const payCodeStr = tx.pay_code ? `\nKode Bayar / VA: ${tx.pay_code}` : '';
+          const qrStr = tx.qr_url ? `\nTautan QR: ${tx.qr_url}` : '';
+          const waMessage = `Halo! Pengajuan lisensi untuk *${resolvedSchoolName.trim()}* (${prodId}) telah diterima dengan status *PENDING*.\n\n` +
+                            `Silakan lakukan pembayaran sesuai rincian tagihan.\n\n` +
+                            `Nomor Invoice: ${invoiceNumber}\n` +
+                            `Total Tagihan: Rp ${(tx.amount || totalAmount).toLocaleString('id-ID')}\n` +
+                            `Metode Pembayaran: ${resolvedPaymentMethod}${payCodeStr}${qrStr}\n\n` +
+                            `Terima kasih.`;
+          await waGateway.sendMessage(operator_phone, waMessage);
+        } catch (waErr) {
+          console.error('[WA Send Error on License Request]', waErr.message);
+        }
+      }
       
       return res.json({
         success: true,
@@ -801,6 +861,110 @@ router.post('/api/license/request', licenseRequestLimiter, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: 'Gagal mengajukan permintaan lisensi.' });
+  }
+});
+
+// 4b. Request local-free active license with automatic WhatsApp notification
+router.post('/api/license/request-local-free', async (req, res) => {
+  const { school_name, wa_number, requested_slug } = req.body;
+
+  if (!school_name || !wa_number || !requested_slug) {
+    return res.status(400).json({ success: false, message: 'school_name, wa_number, dan requested_slug wajib diisi.' });
+  }
+
+  const cleanSlug = requested_slug.trim().toLowerCase();
+  const cleanSchoolName = school_name.trim();
+  const cleanWaNumber = wa_number.trim();
+
+  try {
+    // 1. Validasi ketersediaan slug
+    const existingLocal = await db.get(
+      "SELECT id, status, expires_at FROM licenses WHERE LOWER(requested_slug) = ? ORDER BY id DESC LIMIT 1",
+      [cleanSlug]
+    );
+
+    if (existingLocal) {
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const isExpired = existingLocal.status === 'expired' || existingLocal.expires_at < todayStr;
+      
+      if (!isExpired) {
+        return res.status(400).json({ 
+          success: false, 
+          message: `Subdomain '${cleanSlug}.absenta.id' sudah digunakan oleh sekolah lain dan masih aktif. Silakan pilih subdomain yang berbeda.` 
+        });
+      }
+    }
+
+    // 2. Generate license key untuk Absenta (ABS)
+    let productPrefix = 'ABS';
+    try {
+      const prodDb = await db.get("SELECT key_prefix FROM products WHERE id = 'absenta'");
+      if (prodDb && prodDb.key_prefix) {
+        productPrefix = prodDb.key_prefix;
+      }
+    } catch (e) {
+      console.error('[Local Free License] Failed to fetch product key prefix:', e.message);
+    }
+    const newKey = generateKey('absenta', productPrefix);
+    const expiresStr = '2099-12-31';
+    const planId = 'PAKET_LENGKAP_MULTI_LARGE_YEAR';
+
+    // 3. Masukkan lisensi ke database
+    const result = await db.run(
+      "INSERT INTO licenses (license_key, product_id, school_name, device_limit, is_unlimited, expires_at, status, is_active, plan_id, requested_slug, operator_phone) VALUES (?, 'absenta', ?, 9999, 1, ?, 'active', 1, ?, ?, ?)",
+      [newKey, cleanSchoolName, expiresStr, planId, cleanSlug, cleanWaNumber]
+    );
+    
+    // SQLite: get last inserted id
+    let licenseId = result.lastID;
+    if (!licenseId) {
+      const row = await db.get("SELECT id FROM licenses WHERE license_key = ?", [newKey]);
+      if (row) licenseId = row.id;
+    }
+
+    // 4. Masukkan subscription ke database
+    await db.run(
+      "INSERT INTO subscriptions (license_id, school_name, product_id, plan_id, status, start_date, end_date) VALUES (?, ?, 'absenta', ?, 'active', (date('now', 'localtime')), ?)",
+      [licenseId, cleanSchoolName, planId, expiresStr]
+    );
+
+    // 5. Masukkan invoice ke database
+    const randomPrefix = Math.floor(1000 + Math.random() * 9000);
+    const invoiceNumber = `INV-LOC-${randomPrefix}-${new Date().getFullYear()}`;
+    await db.run(
+      "INSERT INTO invoices (invoice_number, license_id, school_name, product_id, plan_title, amount, status, payment_method, paid_at, plan_id) VALUES (?, ?, ?, 'absenta', 'Local Free Platform', 0, 'paid', 'Gateway', (datetime('now', 'localtime')), ?)",
+      [invoiceNumber, licenseId, cleanSchoolName, planId]
+    );
+
+    // 6. Kirim WhatsApp notifikasi via waGateway
+    try {
+      const waMessage = `🟢 *[AKTIVASI LISENSI LOKAL ABSENTA SUCCESS]*\n\n` +
+        `Yth. Operator *${cleanSchoolName}*,\n` +
+        `Lisensi lokal gratis untuk sekolah Anda telah berhasil didaftarkan dan diaktifkan secara instan.\n\n` +
+        `Berikut adalah detail lisensi Anda:\n` +
+        `🔑 Kunci Lisensi: \`${newKey}\`\n` +
+        `🌐 Subdomain: *${cleanSlug}.absenta.id*\n` +
+        `📅 Status: *AKTIF (Lokal Mandiri - Unlimited)*\n\n` +
+        `*Catatan Penting*:\n` +
+        `- Server lokal Anda kini sudah berjalan dengan valid HTTPS secara lokal (Split DNS).\n` +
+        `- Koneksi dari internet luar (Easy-Tunnel) saat ini belum aktif. Untuk mengonlinekannya agar bisa diakses dari HP android di luar sekolah, silakan lakukan aktivasi Easy Tunnel melalui menu yang tersedia di dalam aplikasi Absenta Anda.\n\n` +
+        `Simpan pesan ini sebagai bukti catatan lisensi Anda. Terima kasih!`;
+      
+      await waGateway.sendMessage(cleanWaNumber, waMessage);
+      await logLicenseActivity(newKey, 'absenta', null, 'system', 'WA_LOCAL_FREE_ACTIVATION_SENT');
+    } catch (waErr) {
+      console.error('[Local Free License] Gagal mengirim pesan WA:', waErr.message);
+    }
+
+    res.json({
+      success: true,
+      license_key: newKey,
+      message: 'Registrasi lisensi lokal gratis berhasil.'
+    });
+
+  } catch (err) {
+    console.error('[Local Free License Request Error]', err);
+    res.status(500).json({ success: false, message: 'Gagal membuat lisensi lokal gratis: ' + err.message });
   }
 });
 
@@ -2583,6 +2747,139 @@ router.get('/api/public/validate-domain', async (req, res) => {
     console.error('[validate-domain] DB error:', err.message);
     // Fail-closed: jika DB error, tolak penerbitan cert
     return res.status(500).end();
+  }
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🔒 SECURE PRIVATE SSL DOWNLOAD ENDPOINT FOR HYBRID CLIENTS
+// Hanya boleh diakses oleh IP VPN WireGuard (10.0.0.0/24)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+router.get('/api/public/download-ssl', async (req, res) => {
+  const domain = (req.query.domain || '').trim().toLowerCase();
+  
+  if (!domain) {
+    return res.status(400).json({ success: false, message: 'Parameter domain wajib diisi.' });
+  }
+
+  const licenseKey = (req.query.license_key || req.headers['x-license-key'] || '').trim();
+
+  // 1. IP Security Hardening or License Key Authentication
+  let clientIp = req.ip || req.connection.remoteAddress || '';
+  if (clientIp.startsWith('::ffff:')) {
+    clientIp = clientIp.substring(7);
+  }
+
+  const isVpnIp = clientIp.startsWith('10.0.0.') || clientIp === '127.0.0.1' || clientIp === '::1';
+  let isAuthorized = false;
+
+  if (isVpnIp) {
+    isAuthorized = true;
+  } else if (licenseKey) {
+    try {
+      const lic = await db.get(
+        "SELECT id FROM licenses WHERE license_key = ? AND is_active = 1",
+        [licenseKey]
+      );
+      if (lic) {
+        isAuthorized = true;
+      }
+    } catch (err) {
+      console.error('[Download SSL] License auth error:', err.message);
+    }
+  }
+
+  if (!isAuthorized) {
+    console.warn(`[Download SSL] ❌ Unauthorized access attempt from IP: ${clientIp}, license: ${licenseKey}`);
+    return res.status(403).json({ success: false, message: 'Forbidden: Akses memerlukan koneksi VPN atau Kunci Lisensi aktif.' });
+  }
+
+  try {
+    // 2. Cek apakah domain terdaftar dan aktif di database
+    const MAIN_DOMAIN = (process.env.MAIN_DOMAIN || '').toLowerCase();
+    const isMainDomain = domain === MAIN_DOMAIN || domain === `www.${MAIN_DOMAIN}` || domain === `api.${MAIN_DOMAIN}`;
+    
+    // Cek di database licenses
+    const license = await db.get(
+      `SELECT id, requested_slug, product_id FROM licenses WHERE (LOWER(TRIM(custom_domain)) = ? OR LOWER(TRIM(requested_slug)) = ?) AND is_active = 1`,
+      [domain, domain.replace(`.${MAIN_DOMAIN}`, '')]
+    );
+
+    if (!isMainDomain && !license) {
+      console.log(`[Download SSL] ❌ Domain not active or unregistered: ${domain}`);
+      return res.status(404).json({ success: false, message: 'Domain tidak terdaftar atau tidak aktif.' });
+    }
+
+    // 3. Tentukan lokasi folder sertifikat Caddy di VPS Linux
+    const fs = require('fs');
+    const path = require('path');
+    
+    const baseCaddyDir = '/var/lib/caddy/.local/share/caddy/certificates';
+    
+    const cas = [
+      'acme-v02.api.letsencrypt.org-directory',
+      'acme.zerossl.com-v2-dv90'
+    ];
+
+    let certPath = null;
+    let keyPath = null;
+    
+    const isSubdomain = domain.endsWith(`.${MAIN_DOMAIN}`) && domain !== MAIN_DOMAIN && domain !== `www.${MAIN_DOMAIN}` && domain !== `api.${MAIN_DOMAIN}`;
+    
+    const searchDomains = [domain];
+    if (isSubdomain) {
+      searchDomains.unshift(`wildcard_.${MAIN_DOMAIN}`);
+      searchDomains.unshift(`_.${MAIN_DOMAIN}`);
+    }
+
+    for (const ca of cas) {
+      for (const d of searchDomains) {
+        const dDir = path.join(baseCaddyDir, ca, d);
+        const cFile = path.join(dDir, `${d}.crt`);
+        const kFile = path.join(dDir, `${d}.key`);
+        if (fs.existsSync(cFile) && fs.existsSync(kFile)) {
+          certPath = cFile;
+          keyPath = kFile;
+          break;
+        }
+      }
+      if (certPath) break;
+    }
+
+    if (!certPath) {
+      // Jika di VPS tidak ditemukan (misal di local testing), coba cari di folder local testing Windows/Dev
+      const localCaddyDir = path.join(process.env.APPDATA || '', 'Caddy/certificates');
+      for (const ca of cas) {
+        for (const d of searchDomains) {
+          const dDir = path.join(localCaddyDir, ca, d);
+          const cFile = path.join(dDir, `${d}.crt`);
+          const kFile = path.join(dDir, `${d}.key`);
+          if (fs.existsSync(cFile) && fs.existsSync(kFile)) {
+            certPath = cFile;
+            keyPath = kFile;
+            break;
+          }
+        }
+        if (certPath) break;
+      }
+    }
+
+    if (!certPath) {
+      console.error(`[Download SSL] ❌ Cert files not found on disk for domain: ${domain}`);
+      return res.status(404).json({ success: false, message: 'Berkas sertifikat SSL tidak ditemukan di penyimpanan server.' });
+    }
+
+    const certContent = fs.readFileSync(certPath, 'utf8');
+    const keyContent = fs.readFileSync(keyPath, 'utf8');
+    
+    console.log(`[Download SSL] ✅ SSL cert successfully served for domain: ${domain} (to IP: ${clientIp})`);
+    return res.json({
+      success: true,
+      domain: domain,
+      cert: certContent,
+      key: keyContent
+    });
+
+  } catch (err) {
+    console.error('[Download SSL] Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Server error: ' + err.message });
   }
 });
 

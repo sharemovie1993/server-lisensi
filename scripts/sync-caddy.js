@@ -172,10 +172,18 @@ async function run() {
 
 {
     email sharemovie1993@gmail.com
-    \${DISABLE_HTTPS ? 'auto_https off' : 'on_demand_tls {\\n        ask http://127.0.0.1:5001/api/public/validate-domain\\n    }'}
+    ${DISABLE_HTTPS ? 'auto_https off' : 'on_demand_tls {\n        ask http://127.0.0.1:5001/api/public/validate-domain\n    }'}
 }
 
 # --- STATIC CENTRAL ROUTES ---
+
+# Wildcard SSL Certificate Management (Brings wildcard cert into memory)
+${(CF_TOKEN && !DISABLE_HTTPS) ? `*.${MAIN_DOMAIN} {
+    tls {
+        dns cloudflare ${CF_TOKEN}
+    }
+    respond "Not Found" 404
+}` : ''}
 
 # Central Landing/Portal Page
 ${MAIN_DOMAIN}, www.${MAIN_DOMAIN} {
@@ -186,24 +194,24 @@ ${MAIN_DOMAIN}, www.${MAIN_DOMAIN} {
 
 # Central License Server API & admin UI
 api.${MAIN_DOMAIN} {
-    reverse_proxy 127.0.0.1:5001${tlsBlock}
+    reverse_proxy 127.0.0.1:5001
 }
 
 # Local Supabase Kong Instance
 supabaselocal.${MAIN_DOMAIN} {
-    reverse_proxy 10.0.0.2:8000${tlsBlock}
+    reverse_proxy 10.0.0.2:8000
 }
 
 # Central POS System
 pos.${MAIN_DOMAIN} {
-    reverse_proxy 10.0.0.3:3002${tlsBlock}
+    reverse_proxy 10.0.0.3:3002
 }
 
 # Catch-all web client for selected subdomains (Serving static files directly)
 1pwk.${MAIN_DOMAIN}, 2krw.${MAIN_DOMAIN}, 1krw.${MAIN_DOMAIN}, 1subang.${MAIN_DOMAIN}, smkn1pld.${MAIN_DOMAIN}, 3cianjur.${MAIN_DOMAIN}, 1maniis.${MAIN_DOMAIN} {
     root * /var/www/${MAIN_DOMAIN}
     file_server
-    try_files {path} {path}/ /index.html${tlsBlock}
+    try_files {path} {path}/ /index.html
 }
 
 # --- DYNAMIC TENANT GATEWAYS ---
@@ -214,12 +222,6 @@ pos.${MAIN_DOMAIN} {
       const domainListStr = up.domains.join(', ');
 
       let tenantTlsBlock = '';
-      if (CF_TOKEN) {
-        const allAreSubdomains = up.domains.every(d => d.endsWith(`.${MAIN_DOMAIN}`));
-        if (allAreSubdomains) {
-          tenantTlsBlock = `\n    tls {\n        dns cloudflare ${CF_TOKEN}\n    }`;
-        }
-      }
 
       if (up.product_id === 'easy-tunnel') {
         // Jika port lokal adalah 443, asumsikan target menggunakan HTTPS (Caddy Lokal)

@@ -1,8 +1,13 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.registerTunnelLicenseRoutes = void 0;
 const helpers_1 = require("./helpers");
 const caddy_service_1 = require("../../services/caddy.service");
+const fs_1 = __importDefault(require("fs"));
+const path_1 = __importDefault(require("path"));
 const registerTunnelLicenseRoutes = (fastify) => {
     // 1. Wireguard Client Tunnel Request
     fastify.post('/api/license/tunnel/request', async (request, reply) => {
@@ -486,6 +491,85 @@ PersistentKeepalive = 25
         catch (err) {
             console.error('[Tunnel Release Error]', err.message);
             return reply.status(500).send({ success: false, message: 'Gagal melepas kunci perangkat: ' + err.message });
+        }
+    });
+    // 9. GET /api/public/download-ssl
+    fastify.get('/api/public/download-ssl', async (request, reply) => {
+        const query = request.query;
+        const domain = (query.domain || '').trim().toLowerCase();
+        const licenseKey = (query.license_key || request.headers['x-license-key'] || '').toString().trim();
+        if (!domain) {
+            return reply.status(400).send({ success: false, message: 'Parameter domain wajib diisi.' });
+        }
+        // 1. IP Security Hardening or License Key Authentication
+        let clientIp = request.ip || '';
+        const isVpnIp = clientIp.startsWith('10.0.0.') || clientIp === '127.0.0.1' || clientIp === '::1';
+        let isAuthorized = false;
+        if (isVpnIp) {
+            isAuthorized = true;
+        }
+        else if (licenseKey) {
+            try {
+                const lic = await helpers_1.prisma.license.findFirst({
+                    where: { licenseKey: licenseKey, isActive: 1 }
+                });
+                if (lic) {
+                    isAuthorized = true;
+                }
+            }
+            catch (err) {
+                console.error('[Download SSL] License auth error:', err.message);
+            }
+        }
+        if (!isAuthorized) {
+            console.warn(`[Download SSL] ❌ Unauthorized access attempt from IP: ${clientIp}, license: ${licenseKey}`);
+            return reply.status(403).send({ success: false, message: 'Forbidden: Akses memerlukan koneksi VPN atau Kunci Lisensi aktif.' });
+        }
+        try {
+            // 2. Cek apakah domain terdaftar dan aktif di database
+            const MAIN_DOMAIN = (process.env.MAIN_DOMAIN || '').toLowerCase();
+            const isMainDomain = domain === MAIN_DOMAIN || domain === `www.${MAIN_DOMAIN}` || domain === `api.${MAIN_DOMAIN}`;
+            const slugToCheck = domain.replace(`.${MAIN_DOMAIN}`, '');
+            const license = await helpers_1.prisma.license.findFirst({
+                where: {
+                    OR: [
+                        { customDomain: domain },
+                        { requestedSlug: slugToCheck }
+                    ],
+                    isActive: 1
+                }
+            });
+            if (!isMainDomain && !license) {
+                console.log(`[Download SSL] ❌ Domain not active or unregistered: ${domain}`);
+                return reply.status(404).send({ success: false, message: 'Domain tidak terdaftar atau tidak aktif.' });
+            }
+            // 3. Tentukan lokasi folder sertifikat Caddy di VPS Linux
+            const homeDir = process.env.HOME || '/root';
+            const caddySslBase = process.env.CADDY_SSL_BASE || `${homeDir}/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory`;
+            const domainFolder = path_1.default.join(caddySslBase, MAIN_DOMAIN);
+            const certPath = path_1.default.join(domainFolder, `${MAIN_DOMAIN}.crt`);
+            const keyPath = path_1.default.join(domainFolder, `${MAIN_DOMAIN}.key`);
+            if (!fs_1.default.existsSync(certPath) || !fs_1.default.existsSync(keyPath)) {
+                console.error(`[Download SSL] ❌ Cert files not found at: ${domainFolder}`);
+                return reply.status(500).send({
+                    success: false,
+                    message: 'Berkas sertifikat SSL wildcard belum diterbitkan di server. Hubungi Administrator.'
+                });
+            }
+            // 4. Baca berkas dan kirimkan dalam format JSON
+            const certContent = fs_1.default.readFileSync(certPath, 'utf8');
+            const keyContent = fs_1.default.readFileSync(keyPath, 'utf8');
+            console.log(`[Download SSL] ✓ Wildcard SSL successfully downloaded for domain: ${domain} by client ${clientIp}`);
+            return reply.send({
+                success: true,
+                domain: MAIN_DOMAIN,
+                cert: certContent,
+                key: keyContent
+            });
+        }
+        catch (err) {
+            console.error('[Download SSL Error]', err.message);
+            return reply.status(500).send({ success: false, message: 'Gagal mengunduh sertifikat SSL: ' + err.message });
         }
     });
 };
