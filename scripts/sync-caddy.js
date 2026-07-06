@@ -16,6 +16,9 @@ if (!MAIN_DOMAIN) {
   process.exit(1);
 }
 
+const CF_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
+const tlsBlock = CF_TOKEN ? `\n    tls {\n        dns cloudflare ${CF_TOKEN}\n    }` : '';
+
 const isLinux = process.platform === 'linux';
 const caddyfilePath = isLinux ? '/etc/caddy/Caddyfile' : path.join(__dirname, '../Caddyfile.generated');
 // Database URL is loaded from env for PostgreSQL
@@ -179,29 +182,29 @@ async function run() {
 ${MAIN_DOMAIN}, www.${MAIN_DOMAIN} {
     root * /var/www/${MAIN_DOMAIN}
     file_server
-    try_files {path} {path}/ /index.html
+    try_files {path} {path}/ /index.html${tlsBlock}
 }
 
 # Central License Server API & admin UI
 api.${MAIN_DOMAIN} {
-    reverse_proxy 127.0.0.1:5001
+    reverse_proxy 127.0.0.1:5001${tlsBlock}
 }
 
 # Local Supabase Kong Instance
 supabaselocal.${MAIN_DOMAIN} {
-    reverse_proxy 10.0.0.2:8000
+    reverse_proxy 10.0.0.2:8000${tlsBlock}
 }
 
 # Central POS System
 pos.${MAIN_DOMAIN} {
-    reverse_proxy 10.0.0.3:3002
+    reverse_proxy 10.0.0.3:3002${tlsBlock}
 }
 
 # Catch-all web client for selected subdomains (Serving static files directly)
 1pwk.${MAIN_DOMAIN}, 2krw.${MAIN_DOMAIN}, 1krw.${MAIN_DOMAIN}, 1subang.${MAIN_DOMAIN}, smkn1pld.${MAIN_DOMAIN}, 3cianjur.${MAIN_DOMAIN}, 1maniis.${MAIN_DOMAIN} {
     root * /var/www/${MAIN_DOMAIN}
     file_server
-    try_files {path} {path}/ /index.html
+    try_files {path} {path}/ /index.html${tlsBlock}
 }
 
 # --- DYNAMIC TENANT GATEWAYS ---
@@ -210,6 +213,14 @@ pos.${MAIN_DOMAIN} {
     upstreams.forEach(up => {
       const ports = PORT_EXCEPTIONS[up.slug.toLowerCase()] || { backend: 5002, frontend: 5174 };
       const domainListStr = up.domains.join(', ');
+
+      let tenantTlsBlock = '';
+      if (CF_TOKEN) {
+        const allAreSubdomains = up.domains.every(d => d.endsWith(`.${MAIN_DOMAIN}`));
+        if (allAreSubdomains) {
+          tenantTlsBlock = `\n    tls {\n        dns cloudflare ${CF_TOKEN}\n    }`;
+        }
+      }
 
       if (up.product_id === 'easy-tunnel') {
         // Jika port lokal adalah 443, asumsikan target menggunakan HTTPS (Caddy Lokal)
@@ -233,7 +244,7 @@ ${domainListStr} {
         transport http {
             tls_server_name ${up.domains[0]}
         }
-    }
+    }${tenantTlsBlock}
 }
 `;
         } else {
@@ -241,7 +252,7 @@ ${domainListStr} {
 # Tenant: ${up.slug} (Easy Tunnel)
 ${domainListStr} {
     reverse_proxy /socket.io/* http://${up.wireguard_ip}:${up.local_port || 5002}
-    reverse_proxy http://${up.wireguard_ip}:${up.local_port || 5002}
+    reverse_proxy http://${up.wireguard_ip}:${up.local_port || 5002}${tenantTlsBlock}
 }
 `;
         }
@@ -253,7 +264,7 @@ ${domainListStr} {
     reverse_proxy /api/* http://${up.wireguard_ip}:${ports.backend}
     
     # Route frontend Vite / Web client
-    reverse_proxy * http://${up.wireguard_ip}:${ports.frontend}
+    reverse_proxy * http://${up.wireguard_ip}:${ports.frontend}${tenantTlsBlock}
 }
 `;
       }
