@@ -36,6 +36,23 @@ const products = [
 
 const plans = [
   {
+    "id": "FREE_LICENSE_SERVER_ACTIVATION",
+    "productId": "absenta",
+    "name": "Free Lisensi - Aktivasi Server",
+    "priceMonthly": 0,
+    "priceYearly": 0,
+    "deviceLimit": 9999,
+    "featuresJson": [
+      "Akses Seluruh Modul (PAKET LENGKAP)",
+      "Dukungan Integrasi Server Lokal",
+      "Lisensi Server Mandiri (On-Premise)"
+    ],
+    "billingPeriod": "YEAR",
+    "isActive": true,
+    "moduleId": "PAKET_LENGKAP",
+    "serviceCode": "CORE"
+  },
+  {
     "id": "INVENTORY_SEKOLAH_LARGE_BULANAN",
     "productId": "absenta",
     "name": "Inventory Sekolah (Large) - Bulanan",

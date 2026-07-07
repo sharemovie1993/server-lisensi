@@ -60,6 +60,7 @@ model License {
   customDomain             String?           @map("custom_domain")
   localPort                Int?              @map("local_port")
   operatorPhone            String?           @map("operator_phone")
+  npsn                     String?           @map("npsn")
   requestedSupabaseAnonKey String?           @map("requested_supabase_anon_key")
   requestedSupabaseUrl     String?           @map("requested_supabase_url")
   originalDeviceId         String?           @map("original_device_id")

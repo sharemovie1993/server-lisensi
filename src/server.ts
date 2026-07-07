@@ -5,6 +5,7 @@ import { buildApp } from './app';
 import { waGateway } from './services/whatsapp.service';
 import { checkExpirations } from './services/cron.service';
 import { setupVncProxy } from './services/vnc-proxy.service';
+import { triggerCaddySync } from './services/caddy.service';
 
 // Load .env variables
 dotenv.config({ path: path.join(__dirname, '../.env') });
@@ -54,7 +55,8 @@ async function startServer() {
     await checkExpirations();
   });
 
-  // Start cron checks
+  // Start cron checks and Caddy configuration sync
+  await triggerCaddySync().catch(err => console.error('[CADDY SYNC ERROR]', err));
   await checkExpirations();
   setInterval(checkExpirations, 30 * 1000); // 30s quick testing loop
 

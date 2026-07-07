@@ -7,6 +7,7 @@ const prisma = new PrismaClient();
 const MAIN_DOMAIN = process.env.MAIN_DOMAIN || 'absenta.id';
 const isLinux = process.platform === 'linux';
 const caddyfilePath = isLinux ? '/etc/caddy/Caddyfile' : path.join(__dirname, '../../Caddyfile.generated');
+const caddySslBase = process.env.CADDY_SSL_BASE || '/var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory';
 
 const PORT_EXCEPTIONS: Record<string, { backend: number; frontend: number }> = {
   'cibinong': { backend: 5006, frontend: 5176 },
@@ -96,12 +97,7 @@ pos.${MAIN_DOMAIN} {
     reverse_proxy 10.0.0.3:3002
 }
 
-# Catch-all web client for selected subdomains (Serving static files directly)
-1pwk.${MAIN_DOMAIN}, 2krw.${MAIN_DOMAIN}, 1krw.${MAIN_DOMAIN}, 1subang.${MAIN_DOMAIN}, smkn1pld.${MAIN_DOMAIN}, 3cianjur.${MAIN_DOMAIN}, 1maniis.${MAIN_DOMAIN} {
-    root * /var/www/${MAIN_DOMAIN}
-    file_server
-    try_files {path} {path}/ /index.html
-}
+
 
 # --- DYNAMIC TENANT GATEWAYS ---
 `;
@@ -140,6 +136,20 @@ ${domainListStr} {
 `;
       }
     });
+
+    // Add fallback for inactive subdomains to show blocked.html
+    caddyfile += `
+# Fallback catch-all for inactive/unmapped subdomains
+*.${MAIN_DOMAIN} {
+    tls ${caddySslBase}/wildcard_.${MAIN_DOMAIN}/wildcard_.${MAIN_DOMAIN}.crt ${caddySslBase}/wildcard_.${MAIN_DOMAIN}/wildcard_.${MAIN_DOMAIN}.key
+    root * /var/www/${MAIN_DOMAIN}
+    @notAssets {
+        not path /assets/* /css/* /js/* /_expo/* /favicon.ico /metadata.json /BTI-compact-logo.png /logo.png
+    }
+    rewrite @notAssets /blocked.html
+    file_server
+}
+`;
 
     // Write to Caddyfile
     fs.writeFileSync(caddyfilePath, caddyfile, 'utf8');

@@ -10,6 +10,7 @@ const app_1 = require("./app");
 const whatsapp_service_1 = require("./services/whatsapp.service");
 const cron_service_1 = require("./services/cron.service");
 const vnc_proxy_service_1 = require("./services/vnc-proxy.service");
+const caddy_service_1 = require("./services/caddy.service");
 // Load .env variables
 dotenv_1.default.config({ path: path_1.default.join(__dirname, '../.env') });
 const PORT = parseInt(process.env.PORT || '5001', 10);
@@ -50,7 +51,8 @@ async function startServer() {
         console.log(`[WA] WA Gateway terhubung ke ${num}. Menjalankan checkExpirations...`);
         await (0, cron_service_1.checkExpirations)();
     });
-    // Start cron checks
+    // Start cron checks and Caddy configuration sync
+    await (0, caddy_service_1.triggerCaddySync)().catch(err => console.error('[CADDY SYNC ERROR]', err));
     await (0, cron_service_1.checkExpirations)();
     setInterval(cron_service_1.checkExpirations, 30 * 1000); // 30s quick testing loop
     // Initialize Firewall rules

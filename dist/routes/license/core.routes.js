@@ -500,7 +500,7 @@ const registerCoreLicenseRoutes = (fastify) => {
             }
             const newKey = generateLicenseKey(productPrefix);
             const expiresStr = '2099-12-31';
-            const planId = 'PAKET_LENGKAP_MULTI_LARGE_TAHUNAN';
+            const planId = 'FREE_LICENSE_SERVER_ACTIVATION';
             // 3. Masukkan lisensi ke database
             const newLicense = await helpers_1.prisma.license.create({
                 data: {
@@ -538,10 +538,10 @@ const registerCoreLicenseRoutes = (fastify) => {
                     licenseId: newLicense.id,
                     schoolName: cleanSchoolName,
                     productId: 'absenta',
-                    planTitle: 'Local Free Platform',
+                    planTitle: 'Free Lisensi - Aktivasi Server',
                     amount: 0,
                     status: 'paid',
-                    paymentMethod: 'Gateway',
+                    paymentMethod: 'License Verification',
                     paidAt: new Date(),
                     planId: planId,
                     expiredTime: (Math.floor(Date.now() / 1000) + 86400).toString()
@@ -626,6 +626,8 @@ const registerCoreLicenseRoutes = (fastify) => {
                     requested_slug: license.requestedSlug,
                     created_at: license.createdAt.toISOString(),
                     expires_at: license.expiresAt,
+                    operator_phone: license.operatorPhone,
+                    npsn: license.npsn,
                     devices_count: devices.length,
                     devices: mappedDevices
                 }
@@ -996,6 +998,73 @@ const registerCoreLicenseRoutes = (fastify) => {
         catch (err) {
             console.error('[Update Academic Tier Error]', err.message);
             return reply.status(500).send({ success: false, message: 'Gagal memperbarui kapasitas sekolah: ' + err.message });
+        }
+    });
+    // 12. Update school name and NPSN for an existing license
+    fastify.post('/api/license/update-info', async (request, reply) => {
+        const { license_key, school_name, npsn } = request.body;
+        if (!license_key) {
+            return reply.status(400).send({ success: false, message: 'license_key wajib disertakan.' });
+        }
+        try {
+            const license = await helpers_1.prisma.license.findUnique({
+                where: { licenseKey: license_key.trim() }
+            });
+            if (!license) {
+                return reply.status(404).send({ success: false, message: 'Kunci lisensi tidak ditemukan.' });
+            }
+            const updateData = {};
+            if (school_name !== undefined) {
+                updateData.schoolName = school_name.trim();
+            }
+            if (npsn !== undefined) {
+                updateData.npsn = npsn.trim();
+            }
+            if (Object.keys(updateData).length === 0) {
+                return reply.status(400).send({ success: false, message: 'Tidak ada data yang diperbarui.' });
+            }
+            await helpers_1.prisma.license.update({
+                where: { id: license.id },
+                data: updateData
+            });
+            console.log(`[Licensing Server] Successfully updated info for license: ${license_key}`, updateData);
+            return reply.send({
+                success: true,
+                message: 'Informasi lisensi berhasil diperbarui.'
+            });
+        }
+        catch (err) {
+            console.error('[Update License Info Error]', err.message);
+            return reply.status(500).send({ success: false, message: 'Gagal memperbarui info lisensi: ' + err.message });
+        }
+    });
+    // 13. Send registration WhatsApp credentials notification
+    fastify.post('/api/license/tenant-registered-wa', async (request, reply) => {
+        const { school_name, subdomain, admin_email, admin_password, admin_phone } = request.body;
+        if (!school_name || !subdomain || !admin_email || !admin_password || !admin_phone) {
+            return reply.status(400).send({ success: false, message: 'school_name, subdomain, admin_email, admin_password, dan admin_phone wajib diisi.' });
+        }
+        try {
+            const cleanSchoolName = school_name.trim();
+            const cleanSubdomain = subdomain.trim().toLowerCase();
+            const pesan = `*Registrasi Absenta Berhasil!* 🚀\n\nHalo, sekolah Anda *${cleanSchoolName}* telah berhasil terdaftar pada sistem Absenta.\n\nBerikut adalah detail akun Administrator Anda:\n- *Subdomain:* ${cleanSubdomain}.absenta.id\n- *Email:* ${admin_email}\n- *Password:* ${admin_password}\n\nMohon simpan informasi ini baik-baik dan jangan dibagikan kepada pihak lain.`;
+            let sent = false;
+            try {
+                sent = await whatsapp_service_1.waGateway.sendMessage(admin_phone.trim(), pesan);
+            }
+            catch (err) {
+                console.error('[WA Send Registrasi Error]', err.message);
+            }
+            if (sent) {
+                return reply.send({ success: true, message: 'WhatsApp notifikasi berhasil dikirim.' });
+            }
+            else {
+                return reply.status(500).send({ success: false, message: 'Gagal mengirim pesan WhatsApp. Pastikan nomor WhatsApp aktif atau gateway terhubung.' });
+            }
+        }
+        catch (err) {
+            console.error('[Tenant Registered WA Error]', err.message);
+            return reply.status(500).send({ success: false, message: 'Gagal memproses WA notifikasi: ' + err.message });
         }
     });
 };

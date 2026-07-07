@@ -610,9 +610,10 @@ PersistentKeepalive = 25
       const homeDir = process.env.HOME || '/root';
       const caddySslBase = process.env.CADDY_SSL_BASE || `${homeDir}/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory`;
 
-      const domainFolder = path.join(caddySslBase, MAIN_DOMAIN);
-      const certPath = path.join(domainFolder, `${MAIN_DOMAIN}.crt`);
-      const keyPath = path.join(domainFolder, `${MAIN_DOMAIN}.key`);
+      const wildcardDomain = `wildcard_.${MAIN_DOMAIN}`;
+      const domainFolder = path.join(caddySslBase, wildcardDomain);
+      const certPath = path.join(domainFolder, `${wildcardDomain}.crt`);
+      const keyPath = path.join(domainFolder, `${wildcardDomain}.key`);
 
       if (!fs.existsSync(certPath) || !fs.existsSync(keyPath)) {
         console.error(`[Download SSL] ❌ Cert files not found at: ${domainFolder}`);
