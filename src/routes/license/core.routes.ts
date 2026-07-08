@@ -648,14 +648,16 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
       try {
         const waMessage = `🟢 *[AKTIVASI LISENSI LOKAL ABSENTA SUCCESS]*\n\n` +
           `Yth. Operator *${cleanSchoolName}*,\n` +
-          `Lisensi lokal gratis untuk sekolah Anda telah berhasil didaftarkan dan diaktifkan secara instan.\n\n` +
-          `Berikut adalah detail lisensi Anda:\n` +
+          `Selamat! Proses registrasi server dan pemasangan platform Absenta untuk sekolah Anda telah berhasil diselesaikan secara sempurna.\n\n` +
+          `Berikut adalah detail lisensi dan akses Anda:\n` +
           `🔑 Kunci Lisensi: \`${newKey}\`\n` +
-          `🌐 Subdomain: *${cleanSlug}.absenta.id*\n` +
-          `📅 Status: *AKTIF (Lokal Mandiri - Unlimited)*\n\n` +
+          `🌐 Subdomain Akses Online: *https://${cleanSlug}.absenta.id*\n` +
+          `📅 Paket Layanan: *Free Lisensi - Aktivasi Server*\n` +
+          `📅 Status: *AKTIF (Unlimited)*\n\n` +
           `*Catatan Penting*:\n` +
-          `- Server lokal Anda kini sudah berjalan dengan valid HTTPS secara lokal (Split DNS).\n` +
-          `- Koneksi dari internet luar (Easy-Tunnel) saat ini belum aktif. Untuk mengonlinekannya agar bisa diakses dari HP android di luar sekolah, silakan lakukan aktivasi Easy Tunnel melalui menu yang tersedia di dalam aplikasi Absenta Anda.\n\n` +
+          `- *Akses Online (Easy-Tunnel)*: Sudah aktif secara otomatis. Aplikasi dapat langsung diakses dari internet luar melalui tautan domain di atas.\n` +
+          `- *Akses Lokal (Intranet)*: Dapat diakses menggunakan IP lokal server atau pengaturan Split DNS di jaringan internal sekolah.\n` +
+          `- *Langkah Selanjutnya*: Buka tautan domain sekolah Anda di atas, lalu masuk ke menu *Daftar Sekolah / Registrasi Sekolah* untuk membuat akun Administrator utama sekolah Anda.\n\n` +
           `Simpan pesan ini sebagai bukti catatan lisensi Anda. Terima kasih!`;
         
         await waGateway.sendMessage(cleanWaNumber, waMessage);
