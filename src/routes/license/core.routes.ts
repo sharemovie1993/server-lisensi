@@ -652,12 +652,11 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
           `Berikut adalah detail lisensi dan akses Anda:\n` +
           `🔑 Kunci Lisensi: \`${newKey}\`\n` +
           `🌐 Subdomain Akses Online: *https://${cleanSlug}.absenta.id*\n` +
-          `📅 Paket Layanan: *Free Lisensi - Aktivasi Server*\n` +
-          `📅 Status: *AKTIF (Unlimited)*\n\n` +
+          `📅 Status Lisensi: *AKTIF*\n\n` +
           `*Catatan Penting*:\n` +
           `- *Akses Online (Easy-Tunnel)*: Sudah aktif secara otomatis. Aplikasi dapat langsung diakses dari internet luar melalui tautan domain di atas.\n` +
           `- *Akses Lokal (Intranet)*: Dapat diakses menggunakan IP lokal server atau pengaturan Split DNS di jaringan internal sekolah.\n` +
-          `- *Langkah Selanjutnya*: Buka tautan domain sekolah Anda di atas, lalu masuk ke menu *Daftar Sekolah / Registrasi Sekolah* untuk membuat akun Administrator utama sekolah Anda.\n\n` +
+          `- *Langkah Selanjutnya*: Buka tautan domain sekolah Anda di atas, lalu masuk menu *Daftar Sekolah / Registrasi Sekolah* untuk membuat akun Administrator utama sekolah Anda.\n\n` +
           `Simpan pesan ini sebagai bukti catatan lisensi Anda. Terima kasih!`;
         
         await waGateway.sendMessage(cleanWaNumber, waMessage);
