@@ -1922,6 +1922,206 @@ const plans = [
     "isActive": true,
     "moduleId": "PAKET_LENGKAP",
     "serviceCode": "PAKET_LENGKAP"
+  },
+  {
+    "id": "BIMBINGAN_KONSELING_MICRO_BULANAN",
+    "productId": "absenta",
+    "name": "Bimbingan Konseling (Micro) - Bulanan",
+    "priceMonthly": 25000,
+    "priceYearly": 240000,
+    "deviceLimit": 100,
+    "featuresJson": [
+      "Manajemen Kasus Siswa (Pelanggaran & Prestasi)",
+      "Konseling Individual & Kelompok Digital",
+      "Sistem Pemanggilan Orang Tua & Wali",
+      "Home Visit & Rujukan Kasus Siswa",
+      "Asesmen & Angket BK Berkala",
+      "Early Warning System (EWS) Perkembangan Siswa"
+    ],
+    "billingPeriod": "MONTH",
+    "isActive": true,
+    "moduleId": "BPBK",
+    "serviceCode": "BPBK"
+  },
+  {
+    "id": "BIMBINGAN_KONSELING_MICRO_TAHUNAN",
+    "productId": "absenta",
+    "name": "Bimbingan Konseling (Micro) - Tahunan",
+    "priceMonthly": 20000,
+    "priceYearly": 240000,
+    "deviceLimit": 100,
+    "featuresJson": [
+      "Manajemen Kasus Siswa (Pelanggaran & Prestasi)",
+      "Konseling Individual & Kelompok Digital",
+      "Sistem Pemanggilan Orang Tua & Wali",
+      "Home Visit & Rujukan Kasus Siswa",
+      "Asesmen & Angket BK Berkala",
+      "Early Warning System (EWS) Perkembangan Siswa"
+    ],
+    "billingPeriod": "YEAR",
+    "isActive": true,
+    "moduleId": "BPBK",
+    "serviceCode": "BPBK"
+  },
+  {
+    "id": "BIMBINGAN_KONSELING_SMALL_BULANAN",
+    "productId": "absenta",
+    "name": "Bimbingan Konseling (Small) - Bulanan",
+    "priceMonthly": 50000,
+    "priceYearly": 480000,
+    "deviceLimit": 300,
+    "featuresJson": [
+      "Manajemen Kasus Siswa (Pelanggaran & Prestasi)",
+      "Konseling Individual & Kelompok Digital",
+      "Sistem Pemanggilan Orang Tua & Wali",
+      "Home Visit & Rujukan Kasus Siswa",
+      "Asesmen & Angket BK Berkala",
+      "Early Warning System (EWS) Perkembangan Siswa"
+    ],
+    "billingPeriod": "MONTH",
+    "isActive": true,
+    "moduleId": "BPBK",
+    "serviceCode": "BPBK"
+  },
+  {
+    "id": "BIMBINGAN_KONSELING_SMALL_TAHUNAN",
+    "productId": "absenta",
+    "name": "Bimbingan Konseling (Small) - Tahunan",
+    "priceMonthly": 40000,
+    "priceYearly": 480000,
+    "deviceLimit": 300,
+    "featuresJson": [
+      "Manajemen Kasus Siswa (Pelanggaran & Prestasi)",
+      "Konseling Individual & Kelompok Digital",
+      "Sistem Pemanggilan Orang Tua & Wali",
+      "Home Visit & Rujukan Kasus Siswa",
+      "Asesmen & Angket BK Berkala",
+      "Early Warning System (EWS) Perkembangan Siswa"
+    ],
+    "billingPeriod": "YEAR",
+    "isActive": true,
+    "moduleId": "BPBK",
+    "serviceCode": "BPBK"
+  },
+  {
+    "id": "BIMBINGAN_KONSELING_MEDIUM_BULANAN",
+    "productId": "absenta",
+    "name": "Bimbingan Konseling (Medium) - Bulanan",
+    "priceMonthly": 100000,
+    "priceYearly": 960000,
+    "deviceLimit": 600,
+    "featuresJson": [
+      "Manajemen Kasus Siswa (Pelanggaran & Prestasi)",
+      "Konseling Individual & Kelompok Digital",
+      "Sistem Pemanggilan Orang Tua & Wali",
+      "Home Visit & Rujukan Kasus Siswa",
+      "Asesmen & Angket BK Berkala",
+      "Early Warning System (EWS) Perkembangan Siswa"
+    ],
+    "billingPeriod": "MONTH",
+    "isActive": true,
+    "moduleId": "BPBK",
+    "serviceCode": "BPBK"
+  },
+  {
+    "id": "BIMBINGAN_KONSELING_MEDIUM_TAHUNAN",
+    "productId": "absenta",
+    "name": "Bimbingan Konseling (Medium) - Tahunan",
+    "priceMonthly": 80000,
+    "priceYearly": 960000,
+    "deviceLimit": 600,
+    "featuresJson": [
+      "Manajemen Kasus Siswa (Pelanggaran & Prestasi)",
+      "Konseling Individual & Kelompok Digital",
+      "Sistem Pemanggilan Orang Tua & Wali",
+      "Home Visit & Rujukan Kasus Siswa",
+      "Asesmen & Angket BK Berkala",
+      "Early Warning System (EWS) Perkembangan Siswa"
+    ],
+    "billingPeriod": "YEAR",
+    "isActive": true,
+    "moduleId": "BPBK",
+    "serviceCode": "BPBK"
+  },
+  {
+    "id": "BIMBINGAN_KONSELING_LARGE_BULANAN",
+    "productId": "absenta",
+    "name": "Bimbingan Konseling (Large) - Bulanan",
+    "priceMonthly": 200000,
+    "priceYearly": 1920000,
+    "deviceLimit": 1200,
+    "featuresJson": [
+      "Manajemen Kasus Siswa (Pelanggaran & Prestasi)",
+      "Konseling Individual & Kelompok Digital",
+      "Sistem Pemanggilan Orang Tua & Wali",
+      "Home Visit & Rujukan Kasus Siswa",
+      "Asesmen & Angket BK Berkala",
+      "Early Warning System (EWS) Perkembangan Siswa"
+    ],
+    "billingPeriod": "MONTH",
+    "isActive": true,
+    "moduleId": "BPBK",
+    "serviceCode": "BPBK"
+  },
+  {
+    "id": "BIMBINGAN_KONSELING_LARGE_TAHUNAN",
+    "productId": "absenta",
+    "name": "Bimbingan Konseling (Large) - Tahunan",
+    "priceMonthly": 160000,
+    "priceYearly": 1920000,
+    "deviceLimit": 1200,
+    "featuresJson": [
+      "Manajemen Kasus Siswa (Pelanggaran & Prestasi)",
+      "Konseling Individual & Kelompok Digital",
+      "Sistem Pemanggilan Orang Tua & Wali",
+      "Home Visit & Rujukan Kasus Siswa",
+      "Asesmen & Angket BK Berkala",
+      "Early Warning System (EWS) Perkembangan Siswa"
+    ],
+    "billingPeriod": "YEAR",
+    "isActive": true,
+    "moduleId": "BPBK",
+    "serviceCode": "BPBK"
+  },
+  {
+    "id": "BIMBINGAN_KONSELING_ENTERPRISE_BULANAN",
+    "productId": "absenta",
+    "name": "Bimbingan Konseling (Enterprise) - Bulanan",
+    "priceMonthly": 350000,
+    "priceYearly": 3360000,
+    "deviceLimit": 0,
+    "featuresJson": [
+      "Manajemen Kasus Siswa (Pelanggaran & Prestasi)",
+      "Konseling Individual & Kelompok Digital",
+      "Sistem Pemanggilan Orang Tua & Wali",
+      "Home Visit & Rujukan Kasus Siswa",
+      "Asesmen & Angket BK Berkala",
+      "Early Warning System (EWS) Perkembangan Siswa"
+    ],
+    "billingPeriod": "MONTH",
+    "isActive": true,
+    "moduleId": "BPBK",
+    "serviceCode": "BPBK"
+  },
+  {
+    "id": "BIMBINGAN_KONSELING_ENTERPRISE_TAHUNAN",
+    "productId": "absenta",
+    "name": "Bimbingan Konseling (Enterprise) - Tahunan",
+    "priceMonthly": 280000,
+    "priceYearly": 3360000,
+    "deviceLimit": 0,
+    "featuresJson": [
+      "Manajemen Kasus Siswa (Pelanggaran & Prestasi)",
+      "Konseling Individual & Kelompok Digital",
+      "Sistem Pemanggilan Orang Tua & Wali",
+      "Home Visit & Rujukan Kasus Siswa",
+      "Asesmen & Angket BK Berkala",
+      "Early Warning System (EWS) Perkembangan Siswa"
+    ],
+    "billingPeriod": "YEAR",
+    "isActive": true,
+    "moduleId": "BPBK",
+    "serviceCode": "BPBK"
   }
 ];
 
