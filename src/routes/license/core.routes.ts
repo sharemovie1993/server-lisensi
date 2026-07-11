@@ -986,6 +986,61 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
     }
   });
 
+  // 7.5 Release/Reset active device locks for a license (CLIENT APP RESET)
+  fastify.post('/api/license/release', async (request: FastifyRequest, reply: FastifyReply) => {
+    const body = request.body as { license_key: string; device_id?: string };
+    const { license_key, device_id } = body;
+
+    if (!license_key) {
+      return reply.status(400).send({ success: false, message: 'Kunci lisensi (license_key) wajib diisi.' });
+    }
+
+    try {
+      const license = await prisma.license.findUnique({
+        where: { licenseKey: license_key.trim() }
+      });
+
+      if (!license) {
+        return reply.status(404).send({ success: false, message: 'Lisensi tidak ditemukan.' });
+      }
+
+      if (device_id) {
+        // Delete specific device registration
+        await prisma.activatedDevice.deleteMany({
+          where: {
+            licenseId: license.id,
+            deviceId: device_id.trim()
+          }
+        });
+      } else {
+        // Reset all activated devices for this license
+        await prisma.activatedDevice.deleteMany({
+          where: { licenseId: license.id }
+        });
+      }
+
+      // Also reset telemetry fields in the license
+      await prisma.license.update({
+        where: { id: license.id },
+        data: {
+          activeHostname: null,
+          activeOs: null,
+          originalDeviceId: null
+        }
+      });
+
+      console.log(`[License Release] Reset devices/hosts lock for license: ${license_key}`);
+
+      return reply.send({
+        success: true,
+        message: 'Kunci perangkat (device lock) berhasil dilepas.'
+      });
+    } catch (err: any) {
+      console.error('[License Release Error]', err.message);
+      return reply.status(500).send({ success: false, message: 'Gagal melepas kunci perangkat: ' + err.message });
+    }
+  });
+
   // 8. Verify license JWT (CLIENT APP BACKGROUND CHECK)
   fastify.post('/api/license/verify', async (request: FastifyRequest, reply: FastifyReply) => {
     const { token } = request.body as { token: string };
