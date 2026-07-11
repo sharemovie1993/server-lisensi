@@ -886,7 +886,7 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
     }
 
     // ── [SOFT] product_id: default fallback dengan warning log ───────────
-    // Soft enforcement: jika client tidak kirim product_id, fallback ke 'absenta'
+    // Soft enforcement: jika client tidak kirim product_id, fallback ke 'cakola'
     // dan catat warning agar kita bisa audit client mana yang belum update
     // Upgrade ke hard reject (return 400) setelah konfirmasi semua client aman
     if (!product_id) {
