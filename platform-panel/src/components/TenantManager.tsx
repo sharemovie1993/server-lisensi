@@ -20,6 +20,8 @@ interface Tenant {
   schools?: Array<{ name: string; subdomain: string | null } | string>;
   hostname?: string | null;
   osType?: string | null;
+  activeDevices?: number | null;
+  activatedDevices?: Array<{ id: number; deviceId: string; activatedAt: string }>;
 }
 
 export default function TenantManager() {
@@ -348,7 +350,23 @@ export default function TenantManager() {
                                     {t.hostname && <div className="flex justify-between"><span className="text-slate-500">Host:</span><span className="text-white font-bold flex items-center gap-1.5"><Cpu className="w-3.5 h-3.5 text-indigo-400" /> {t.hostname}</span></div>}
                                     {t.osType && <div className="flex justify-between"><span className="text-slate-500">Sistem Operasi:</span><span className="text-slate-300">{t.osType}</span></div>}
                                     {t.lastHeartbeatAt && <div className="flex justify-between"><span className="text-slate-500">Heartbeat Terakhir:</span><span className="text-indigo-300">{new Date(t.lastHeartbeatAt).toLocaleTimeString('id-ID')} ({new Date(t.lastHeartbeatAt).toLocaleDateString('id-ID')})</span></div>}
-                                    <div className="pt-2 border-t border-slate-800 flex justify-end">
+                                    
+                                    {/* HWID Fingerprints List */}
+                                    {t.activatedDevices && t.activatedDevices.length > 0 && (
+                                      <div className="mt-4 pt-3 border-t border-slate-800 text-left">
+                                        <span className="text-[10px] text-slate-500 uppercase font-semibold block mb-2 tracking-wider">Daftar HWID Fingerprint Terdaftar:</span>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                          {t.activatedDevices.map((dev) => (
+                                            <div key={dev.id} className="bg-slate-950/80 border border-slate-850 px-2.5 py-1.5 rounded-lg flex flex-col gap-0.5">
+                                              <span className="text-indigo-300 font-bold text-[10px] truncate select-all" title={dev.deviceId}>{dev.deviceId}</span>
+                                              <span className="text-[9px] text-slate-500">Aktif: {new Date(dev.activatedAt).toLocaleDateString('id-ID')} {new Date(dev.activatedAt).toLocaleTimeString('id-ID')}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    <div className="pt-3 border-t border-slate-800 flex justify-end">
                                       <button
                                         onClick={async () => {
                                           if (!confirm('Apakah Anda yakin ingin melepas kunci perangkat (Reset Device Lock) untuk server ini?')) return;

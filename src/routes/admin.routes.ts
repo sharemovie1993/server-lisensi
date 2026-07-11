@@ -86,6 +86,9 @@ export const adminRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
     try {
       const [list, subscriptions] = await Promise.all([
         prisma.license.findMany({
+          include: {
+            activatedDevices: true
+          },
           orderBy: { createdAt: 'desc' }
         }),
         prisma.subscription.findMany({
@@ -144,6 +147,12 @@ export const adminRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
           osType: t.activeOs,
           modules: modules,
           schools: uniqueSchools.length > 0 ? uniqueSchools : [{ name: t.schoolName, subdomain: t.requestedSlug || null }],
+          activeDevices: t.activatedDevices.length,
+          activatedDevices: t.activatedDevices.map(d => ({
+            id: d.id,
+            deviceId: d.deviceId,
+            activatedAt: d.activatedAt.toISOString()
+          })),
           license_details: {
             status: t.status,
             expires_at: t.expiresAt,
