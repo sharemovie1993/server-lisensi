@@ -351,7 +351,7 @@ export default function DashboardOverview({ stats, telemetry, activity, onSwitch
 
       {/* 5. WELCOME BOX */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
-        <h2 className="text-white text-xl font-bold mb-4">Selamat Datang di Portal Pusat Absenta HQ</h2>
+        <h2 className="text-white text-xl font-bold mb-4">Selamat Datang di Portal Pusat Cakola HQ</h2>
         <p className="text-slate-400 text-sm leading-relaxed mb-4">
           Konsol kendali ini memungkinkan administrator memantau status kesehatan seluruh sekolah (tenant), 
           mengelola pembayaran lisensi bulanan, memantau risiko penurunan penggunaan (churn risk), menganalisis proyeksi pendapatan, 

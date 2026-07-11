@@ -423,7 +423,7 @@ export default function ProductsManager() {
                 type="text"
                 required
                 disabled={isEditingProduct}
-                placeholder="misal: platform-absenta, easy-tunnel"
+                placeholder="misal: cakola, easy-tunnel"
                 value={productId}
                 onChange={(e) => setProductId(e.target.value)}
                 className="w-full h-11 px-4 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:border-indigo-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
@@ -435,7 +435,7 @@ export default function ProductsManager() {
               <input
                 type="text"
                 required
-                placeholder="misal: Absenta Attendance, Easy Tunnel"
+                placeholder="misal: Platform Cakola, Easy Tunnel"
                 value={productName}
                 onChange={(e) => setProductName(e.target.value)}
                 className="w-full h-11 px-4 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:border-indigo-500 focus:outline-none"

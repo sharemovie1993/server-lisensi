@@ -78,7 +78,7 @@ export default function SystemSettings() {
             <input
               type="text"
               required
-              placeholder="Contoh: absenta.id"
+              placeholder="Contoh: cakola.id"
               value={mainDomain}
               onChange={(e) => setMainDomain(e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-650 text-sm focus:border-indigo-500 focus:outline-none"
@@ -89,7 +89,7 @@ export default function SystemSettings() {
             <input
               type="email"
               required
-              placeholder="Contoh: support@absenta.id"
+              placeholder="Contoh: support@cakola.id"
               value={supportEmail}
               onChange={(e) => setSupportEmail(e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-650 text-sm focus:border-indigo-500 focus:outline-none"
@@ -100,7 +100,7 @@ export default function SystemSettings() {
             <input
               type="text"
               required
-              placeholder="Contoh: absenta-whatsapp-session"
+              placeholder="Contoh: cakola-whatsapp-session"
               value={waSessionName}
               onChange={(e) => setWaSessionName(e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-650 text-sm focus:border-indigo-500 focus:outline-none"

@@ -204,7 +204,7 @@ export default function App() {
             <ShieldAlert className="w-8 h-8" />
           </div>
           <div>
-            <h2 className="text-white text-2xl font-black tracking-tight">Console Platform Absenta</h2>
+            <h2 className="text-white text-2xl font-black tracking-tight">Console Platform Cakola</h2>
             <p className="text-slate-400 text-sm mt-1.5">Akses terbatas untuk administrator sistem pusat.</p>
           </div>
           <form onSubmit={handleLogin} className="space-y-4">
@@ -265,7 +265,7 @@ export default function App() {
               <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-extrabold shadow-lg shadow-indigo-600/20">
                 A
               </div>
-              <span className="text-white font-extrabold tracking-wide text-lg">Absenta HQ</span>
+              <span className="text-white font-extrabold tracking-wide text-lg">Cakola HQ</span>
             </div>
 
             <nav className="flex-1 p-4 space-y-1 overflow-y-auto">

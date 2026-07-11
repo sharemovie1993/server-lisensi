@@ -38,8 +38,10 @@ export default function AuditLogs() {
   }, []);
 
   const filteredLogs = logs.filter(log => {
-    const targetProduct = log.productId === 'platform-absenta' ? 'absenta' : log.productId;
-    return selectedProductId === 'all' || targetProduct === selectedProductId;
+    // Normalisasi alias lama: platform-absenta dan absenta → cakola
+    const normalId = (log.productId === 'platform-absenta' || log.productId === 'absenta')
+      ? 'cakola' : log.productId;
+    return selectedProductId === 'all' || normalId === selectedProductId;
   });
 
   return (

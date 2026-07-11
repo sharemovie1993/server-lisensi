@@ -62,8 +62,10 @@ export default function InvoicesList() {
   };
 
   const filteredInvoices = invoices.filter(inv => {
-    const targetId = inv.product_id === 'platform-absenta' ? 'absenta' : inv.product_id;
-    return selectedProductId === 'all' || targetId === selectedProductId;
+    // Normalisasi alias lama: platform-absenta dan absenta → cakola
+    const normalId = (inv.product_id === 'platform-absenta' || inv.product_id === 'absenta')
+      ? 'cakola' : inv.product_id;
+    return selectedProductId === 'all' || normalId === selectedProductId;
   });
 
   return (

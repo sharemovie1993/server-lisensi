@@ -162,7 +162,17 @@ export default function SupportSidebarDiagnostic({
             <div className="space-y-1">
               <span className="text-[8px] uppercase font-black text-indigo-400 block">Produk / Aplikasi</span>
               <span className="text-white font-extrabold text-xs block">
-                {selectedTicket.productId === 'absenta' ? '📅 Absenta (SaaS Absensi)' : '🔒 G-Form Orkestrator'}
+                {(() => {
+                  const pid = selectedTicket.productId ?? '';
+                  const normalId = (pid === 'absenta' || pid === 'platform-absenta') ? 'cakola' : pid;
+                  const labels: Record<string, string> = {
+                    'cakola': '📅 Platform Cakola',
+                    'easy-tunnel': '🔧 Easy Tunnel',
+                    'gform-orkestrator': '📝 GForm Orkestrator',
+                    'project-yatim': '🎙️ Project Yatim',
+                  };
+                  return labels[normalId] ?? pid ?? 'Unknown';
+                })()}
               </span>
             </div>
             
