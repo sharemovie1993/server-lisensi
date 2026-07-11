@@ -749,6 +749,15 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
         activated_at: d.activatedAt.toISOString()
       }));
 
+      // ── Ambil featuresJson dari Plan ─────────────────────────────────
+      let features: string[] = [];
+      try {
+        if (license.planId) {
+          const plan = await prisma.plan.findUnique({ where: { id: license.planId } });
+          features = (plan?.featuresJson as string[]) ?? [];
+        }
+      } catch (_) {}
+
       return reply.send({
         success: true,
         data: {
@@ -765,7 +774,8 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
           operator_phone: license.operatorPhone,
           npsn: (license as any).npsn,
           devices_count: devices.length,
-          devices: mappedDevices
+          devices: mappedDevices,
+          features                               // ← NEW: daftar fitur aktif dari plan
         }
       });
     } catch (err: any) {
@@ -942,6 +952,15 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
       });
 
       if (alreadyActive) {
+        // ── Ambil featuresJson dari Plan yang terkait dengan lisensi ini ──
+        let features: string[] = [];
+        try {
+          if (license.planId) {
+            const plan = await prisma.plan.findUnique({ where: { id: license.planId } });
+            features = (plan?.featuresJson as string[]) ?? [];
+          }
+        } catch (_) {}
+
         const token = jwt.sign(
           {
             license_key: license.licenseKey,
@@ -951,7 +970,8 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
             expires_at: license.expiresAt,
             include_vpn: license.includeVpn,
             vpn_enabled: license.includeVpn,
-            vpn_license_key: vpnLicenseKey
+            vpn_license_key: vpnLicenseKey,
+            features                               // ← NEW: daftar fitur dari plan
           },
           PRIVATE_KEY,
           { algorithm: 'RS256', expiresIn: '365d' }
@@ -966,7 +986,8 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
           school_name: license.schoolName,
           expires_at: license.expiresAt,
           include_vpn: license.includeVpn,
-          vpn_license_key: vpnLicenseKey
+          vpn_license_key: vpnLicenseKey,
+          features                                 // ← NEW: juga di response langsung
         });
       }
 
@@ -989,6 +1010,15 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
         }
       });
 
+      // ── Ambil featuresJson dari Plan untuk token payload ────────────────
+      let features: string[] = [];
+      try {
+        if (license.planId) {
+          const plan = await prisma.plan.findUnique({ where: { id: license.planId } });
+          features = (plan?.featuresJson as string[]) ?? [];
+        }
+      } catch (_) {}
+
       const token = jwt.sign(
         {
           license_key: license.licenseKey,
@@ -998,7 +1028,8 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
           expires_at: license.expiresAt,
           include_vpn: license.includeVpn,
           vpn_enabled: license.includeVpn,
-          vpn_license_key: vpnLicenseKey
+          vpn_license_key: vpnLicenseKey,
+          features                               // ← NEW: daftar fitur dari plan
         },
         PRIVATE_KEY,
         { algorithm: 'RS256', expiresIn: '365d' }
@@ -1013,7 +1044,8 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
         school_name: license.schoolName,
         expires_at: license.expiresAt,
         include_vpn: license.includeVpn,
-        vpn_license_key: vpnLicenseKey
+        vpn_license_key: vpnLicenseKey,
+        features                                 // ← NEW: juga di response langsung
       });
 
     } catch (err) {

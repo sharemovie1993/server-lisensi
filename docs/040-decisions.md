@@ -6,6 +6,15 @@ Format: `YYYY-MM: Judul Keputusan`
 
 ---
 
+2026-07: Fase 2 — Feature Control via featuresJson di JWT Token
+- **Keputusan**: Field `features` (array string dari `Plan.featuresJson`) dimasukkan ke dalam payload JWT token saat aktivasi lisensi, dan dikembalikan di response `GET /api/license/check/:key`. Filter per-produk di admin panel menggunakan state `selectedProductId` yang sudah tersedia.
+- **Rasional**: Memungkinkan aplikasi client (node sekolah) membaca daftar fitur yang diizinkan langsung dari token yang sudah ter-sign, tanpa perlu request tambahan ke server lisensi. Ini membuat enforcement fitur bisa berjalan secara offline dan aman (token tidak bisa dimanipulasi tanpa private key).
+
+2026-07: Fase 1 — Refactoring Multi-Produk & Normalisasi
+- **Keputusan**: Mengimplementasikan 5 perbaikan fondasi: (1) prefix license key dari DB via `getProductPrefix()`, (2) helper terpusat `normalizeProductId()`, (3) migrasi data `platform-absenta` → `absenta` + hapus `vpn-tunnel`, (4) bersihkan semua inline ternary di `admin.routes.ts`, (5) soft enforcement validasi `product_id` dan `plan_id` dengan warn-log fallback.
+- **Rasional**: Server lisensi tumbuh organik dari single-product ke multi-product tanpa refaktor fondasi. Pendekatan soft enforcement (warn + log, tidak blokir) dipilih untuk menghindari breaking change pada client Absenta lokal yang belum diaudit.
+
+
 2026-01: Single Product Origin (GForm Orkestrator)
 - **Keputusan**: Server lisensi pertama kali dibangun hanya untuk satu produk: `gform-orkestrator` dengan prefix key `GF-`.
 - **Rasional**: Scope awal yang terbatas memungkinkan pengembangan cepat dan deployment ke production tanpa kompleksitas multi-produk.
