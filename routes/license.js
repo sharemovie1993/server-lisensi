@@ -2152,9 +2152,9 @@ router.post('/api/license/easy-tunnel/request', async (req, res) => {
       }
     }
 
-    // 2. Cek slug tidak duplikat (global, termasuk vpn-tunnel dan easy-tunnel)
+    // 2. Cek slug tidak duplikat (hanya duplikat jika sesama produk tunnel)
     const existingSlug = await db.get(
-      "SELECT id, school_name FROM licenses WHERE requested_slug = ? AND id != ?",
+      "SELECT id, school_name FROM licenses WHERE requested_slug = ? AND id != ? AND product_id IN ('easy-tunnel', 'vpn-tunnel')",
       [slugLower, license.id]
     );
     if (existingSlug) {
@@ -2880,6 +2880,33 @@ router.get('/api/public/download-ssl', async (req, res) => {
   } catch (err) {
     console.error('[Download SSL] Error:', err.message);
     return res.status(500).json({ success: false, message: 'Server error: ' + err.message });
+  }
+});
+
+// 10. Easy Tunnel: Get licenses by requested slug
+router.get('/api/license/easy-tunnel/by-slug/:slug', async (req, res) => {
+  const { slug } = req.params;
+  try {
+    const licenses = await db.all(
+      "SELECT * FROM licenses WHERE product_id = 'easy-tunnel' AND requested_slug = ? ORDER BY created_at DESC",
+      [slug.trim().toLowerCase()]
+    );
+    return res.json({
+      success: true,
+      data: licenses.map(license => ({
+        license_key: license.license_key,
+        school_name: license.school_name,
+        expires_at: license.expires_at,
+        status: license.status,
+        is_active: license.is_active,
+        local_port: license.local_port || null,
+        app_name: license.app_name || null,
+        wireguard_ip: license.wireguard_ip || null
+      }))
+    });
+  } catch (err) {
+    console.error('[Easy Tunnel List by Slug Error]', err.message);
+    return res.status(500).json({ success: false, message: 'Gagal mengambil daftar lisensi Easy Tunnel.' });
   }
 });
 

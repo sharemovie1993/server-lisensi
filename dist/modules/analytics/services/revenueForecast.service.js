@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.revenueForecastService = void 0;
+const helpers_1 = require("../../../routes/license/helpers");
 function utcMonthStart(d) {
     return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1, 0, 0, 0, 0));
 }
@@ -10,7 +11,7 @@ exports.revenueForecastService = {
         const month = utcMonthStart(targetMonth);
         const subWhere = { status: 'active' };
         if (productId && productId !== 'all') {
-            subWhere.productId = productId === 'absenta' ? 'platform-absenta' : productId;
+            subWhere.productId = (0, helpers_1.normalizeProductId)(productId);
         }
         // Get active subscriptions
         const subs = await db.subscription.findMany({

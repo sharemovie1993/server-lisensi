@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { normalizeProductId } from '../../../routes/license/helpers';
 
 function utcMonthStart(d: Date): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1, 0, 0, 0, 0));
@@ -19,7 +20,7 @@ export const cohortService = {
     
     const subWhere: any = {};
     if (productId && productId !== 'all') {
-      subWhere.productId = productId === 'absenta' ? 'platform-absenta' : productId;
+      subWhere.productId = normalizeProductId(productId);
     }
 
     // Get all subscriptions

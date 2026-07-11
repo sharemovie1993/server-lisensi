@@ -3,7 +3,7 @@ const prisma = new PrismaClient();
 
 const products = [
   {
-    "id": "absenta",
+    "id": "cakola",
     "name": "Platform Cakola",
     "prefix": "ABS"
   },

@@ -14,7 +14,7 @@ const registerPaymentLicenseRoutes = (fastify) => {
     // 1. Get packages / plans list
     fastify.get('/api/license/packages', async (request, reply) => {
         const query = request.query;
-        const productId = query.product_id || 'absenta';
+        const productId = (0, helpers_1.normalizeProductId)(query.product_id || 'cakola');
         try {
             const plans = await helpers_1.prisma.plan.findMany({
                 where: {
@@ -360,7 +360,7 @@ const registerPaymentLicenseRoutes = (fastify) => {
             else if (titleUpper.includes('VPN')) {
                 productDesc = 'Layanan koneksi VPN aman untuk akses multi-cabang terintegrasi.';
             }
-            else if (cleanProdId === 'absenta' || titleUpper.includes('ABSENSI') || titleUpper.includes('ATTENDANCE')) {
+            else if (cleanProdId === 'cakola' || cleanProdId === 'absenta' || titleUpper.includes('ABSENSI') || titleUpper.includes('ATTENDANCE')) {
                 productDesc = `Layanan sistem absensi digital ${productName} berbasis scan wajah/kartu dan real-time notification.`;
             }
             else {
@@ -400,7 +400,7 @@ const registerPaymentLicenseRoutes = (fastify) => {
             const displayProductName = `${productName} — Modul ${displayModuleId}`;
             // Kapasitas Dinamis: sumber utama dari plan yang terikat di lisensi (license.planId → Plan.deviceLimit)
             // Fallback: invoice.plan → license.deviceLimit
-            const isAbsenta = inv.productId === 'absenta' || inv.productId === 'platform-absenta';
+            const isAbsenta = (0, helpers_1.normalizeProductId)(inv.productId) === 'cakola';
             const licPlan = inv.license.plan;
             const rawLimit = licPlan?.deviceLimit ?? inv.plan?.deviceLimit ?? inv.license.deviceLimit;
             const isUnlimited = rawLimit === 0 || rawLimit === 9999;

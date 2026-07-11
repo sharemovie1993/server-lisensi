@@ -2,6 +2,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { PrismaClient } from '@prisma/client';
 import { upgradeIntelligenceService } from '../services/upgradeIntelligence.service';
 import { verifyAdmin } from '../../../routes/admin.routes';
+import { normalizeProductId } from '../../../routes/license/helpers';
 
 const prisma = new PrismaClient();
 
@@ -25,7 +26,7 @@ export async function upgradeIntelligenceAdminRoutes(fastify: FastifyInstance) {
     handler: async (request: FastifyRequest, reply: FastifyReply) => {
       try {
         const queryProduct = request.query as { productId?: string };
-        const productId = queryProduct.productId && queryProduct.productId !== 'all' ? (queryProduct.productId === 'absenta' ? 'platform-absenta' : queryProduct.productId) : undefined;
+        const productId = queryProduct.productId && queryProduct.productId !== 'all' ? normalizeProductId(queryProduct.productId) : undefined;
 
         const lastNRaw = Number((request.query as any)?.lastNMonths ?? (request.query as any)?.months ?? 12);
         const lastN = Number.isFinite(lastNRaw) && lastNRaw > 0 ? Math.floor(lastNRaw) : 12;

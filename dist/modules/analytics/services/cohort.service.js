@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.cohortService = void 0;
+const helpers_1 = require("../../../routes/license/helpers");
 function utcMonthStart(d) {
     return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1, 0, 0, 0, 0));
 }
@@ -16,7 +17,7 @@ exports.cohortService = {
         const take = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 24;
         const subWhere = {};
         if (productId && productId !== 'all') {
-            subWhere.productId = productId === 'absenta' ? 'platform-absenta' : productId;
+            subWhere.productId = (0, helpers_1.normalizeProductId)(productId);
         }
         // Get all subscriptions
         const subscriptions = await db.subscription.findMany({

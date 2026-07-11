@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import crypto from 'crypto';
-import { prisma } from './helpers';
+import { prisma, normalizeProductId } from './helpers';
 import { httpPost } from '../../utils/http';
 import { renderInvoiceTemplate, formatIndonesianDate } from '../../utils/invoice-template';
 import { triggerCaddySync } from '../../services/caddy.service';
@@ -11,7 +11,7 @@ export const registerPaymentLicenseRoutes = (fastify: FastifyInstance) => {
   // 1. Get packages / plans list
   fastify.get('/api/license/packages', async (request: FastifyRequest, reply: FastifyReply) => {
     const query = request.query as any;
-    const productId = query.product_id || 'absenta';
+    const productId = normalizeProductId(query.product_id || 'cakola');
 
     try {
       const plans = await prisma.plan.findMany({
@@ -389,7 +389,7 @@ export const registerPaymentLicenseRoutes = (fastify: FastifyInstance) => {
         productDesc = 'Layanan tunnel jaringan aman untuk konektivitas server lokal ke cloud publik.';
       } else if (titleUpper.includes('VPN')) {
         productDesc = 'Layanan koneksi VPN aman untuk akses multi-cabang terintegrasi.';
-      } else if (cleanProdId === 'absenta' || titleUpper.includes('ABSENSI') || titleUpper.includes('ATTENDANCE')) {
+      } else if (cleanProdId === 'cakola' || cleanProdId === 'absenta' || titleUpper.includes('ABSENSI') || titleUpper.includes('ATTENDANCE')) {
         productDesc = `Layanan sistem absensi digital ${productName} berbasis scan wajah/kartu dan real-time notification.`;
       } else {
         productDesc = `Layanan ${productName} terintegrasi dan berkinerja tinggi skala SaaS Enterprise.`;
@@ -423,7 +423,7 @@ export const registerPaymentLicenseRoutes = (fastify: FastifyInstance) => {
 
       // Kapasitas Dinamis: sumber utama dari plan yang terikat di lisensi (license.planId → Plan.deviceLimit)
       // Fallback: invoice.plan → license.deviceLimit
-      const isAbsenta = inv.productId === 'absenta' || inv.productId === 'platform-absenta';
+      const isAbsenta = normalizeProductId(inv.productId) === 'cakola';
       const licPlan = (inv.license as any).plan as ({ deviceLimit: number } | null);
       const rawLimit = licPlan?.deviceLimit ?? inv.plan?.deviceLimit ?? inv.license.deviceLimit;
       const isUnlimited = rawLimit === 0 || rawLimit === 9999;

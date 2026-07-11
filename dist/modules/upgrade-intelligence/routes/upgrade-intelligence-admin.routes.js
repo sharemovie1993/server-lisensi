@@ -4,6 +4,7 @@ exports.upgradeIntelligenceAdminRoutes = upgradeIntelligenceAdminRoutes;
 const client_1 = require("@prisma/client");
 const upgradeIntelligence_service_1 = require("../services/upgradeIntelligence.service");
 const admin_routes_1 = require("../../../routes/admin.routes");
+const helpers_1 = require("../../../routes/license/helpers");
 const prisma = new client_1.PrismaClient();
 function isValidMonthKey(month) {
     return /^[0-9]{4}-[0-9]{2}$/.test(month);
@@ -25,7 +26,7 @@ async function upgradeIntelligenceAdminRoutes(fastify) {
         handler: async (request, reply) => {
             try {
                 const queryProduct = request.query;
-                const productId = queryProduct.productId && queryProduct.productId !== 'all' ? (queryProduct.productId === 'absenta' ? 'platform-absenta' : queryProduct.productId) : undefined;
+                const productId = queryProduct.productId && queryProduct.productId !== 'all' ? (0, helpers_1.normalizeProductId)(queryProduct.productId) : undefined;
                 const lastNRaw = Number(request.query?.lastNMonths ?? request.query?.months ?? 12);
                 const lastN = Number.isFinite(lastNRaw) && lastNRaw > 0 ? Math.floor(lastNRaw) : 12;
                 const data = await upgradeIntelligence_service_1.upgradeIntelligenceService.getOverview(prisma, lastN);

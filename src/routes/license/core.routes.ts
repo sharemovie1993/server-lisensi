@@ -606,11 +606,11 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
         }
       }
 
-      // 2. Generate license key untuk Absenta (ABS)
+      // 2. Generate license key untuk Platform Cakola (ABS)
       let productPrefix = 'ABS';
       try {
         const prod = await prisma.product.findUnique({
-          where: { id: 'absenta' }
+          where: { id: 'cakola' }
         });
         if (prod && prod.prefix) {
           productPrefix = prod.prefix;
@@ -627,7 +627,7 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
       const newLicense = await prisma.license.create({
         data: {
           licenseKey: newKey,
-          productId: 'absenta',
+          productId: 'cakola',
           schoolName: cleanSchoolName,
           deviceLimit: 9999,
           isUnlimited: 1,
@@ -645,7 +645,7 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
         data: {
           licenseId: newLicense.id,
           schoolName: cleanSchoolName,
-          productId: 'absenta',
+          productId: 'cakola',
           planId: planId,
           status: 'active',
           startDate: new Date().toISOString().slice(0, 10),
@@ -661,7 +661,7 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
           invoiceNumber: invoiceNumber,
           licenseId: newLicense.id,
           schoolName: cleanSchoolName,
-          productId: 'absenta',
+          productId: 'cakola',
           planTitle: 'Free Lisensi - Aktivasi Server',
           amount: 0,
           status: 'paid',
@@ -674,9 +674,9 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
 
       // 6. Kirim WhatsApp notifikasi via waGateway
       try {
-        const waMessage = `🟢 *[AKTIVASI LISENSI LOKAL ABSENTA SUCCESS]*\n\n` +
+        const waMessage = `🟢 *[AKTIVASI LISENSI LOKAL PLATFORM CAKOLA SUCCESS]*\n\n` +
           `Yth. Operator *${cleanSchoolName}*,\n` +
-          `Selamat! Proses registrasi server dan pemasangan platform Absenta untuk sekolah Anda telah berhasil diselesaikan secara sempurna.\n\n` +
+          `Selamat! Proses registrasi server dan pemasangan Platform Cakola untuk sekolah Anda telah berhasil diselesaikan secara sempurna.\n\n` +
           `Berikut adalah detail lisensi dan akses Anda:\n` +
           `🔑 Kunci Lisensi: \`${newKey}\`\n` +
           `🌐 Subdomain Akses Online: *https://${cleanSlug}.absenta.id*\n` +
@@ -688,7 +688,7 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
           `Simpan pesan ini sebagai bukti catatan lisensi Anda. Terima kasih!`;
         
         await waGateway.sendMessage(cleanWaNumber, waMessage);
-        await logLicenseActivity(newKey, 'absenta', '127.0.0.1', 'WA_LOCAL_FREE_ACTIVATION_SENT');
+        await logLicenseActivity(newKey, 'cakola', '127.0.0.1', 'WA_LOCAL_FREE_ACTIVATION_SENT');
       } catch (waErr: any) {
         console.error('[Local Free License] Gagal mengirim pesan WA:', waErr.message);
       }
@@ -893,7 +893,7 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
       console.warn(`[LICENSE/ACTIVATE] ⚠️  SOFT-WARN: product_id tidak dikirim. Fallback ke 'absenta'. license_key: ${license_key}, IP: ${request.ip}`);
       await logLicenseActivity(license_key || 'UNKNOWN', 'MISSING', request.ip, 'ACTIVATE_MISSING_PRODUCT_ID').catch(() => {});
     }
-    const prodId = normalizeProductId(product_id || 'absenta');
+    const prodId = normalizeProductId(product_id || 'cakola');
     const clientIp = request.ip;
 
     try {

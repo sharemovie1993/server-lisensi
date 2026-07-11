@@ -8,12 +8,18 @@ export const prisma = new PrismaClient();
 
 /**
  * Normalisasi alias product ID yang tidak konsisten.
- * Contoh: 'platform-absenta' → 'absenta'
+ * Menangani semua alias historis agar backward-compatible.
+ *
+ * Alias yang aktif:
+ *   'platform-absenta' → 'cakola'  (legacy ID lama sebelum refactor)
+ *   'absenta'          → 'cakola'  (ID sebelum rename Juli 2026)
+ *
  * Tambahkan alias baru di sini jika ada produk dengan dua ID.
  */
 export function normalizeProductId(productId: string): string {
   const aliases: Record<string, string> = {
-    'platform-absenta': 'absenta',
+    'platform-absenta': 'cakola',
+    'absenta': 'cakola',
   };
   return aliases[productId] ?? productId;
 }
@@ -94,7 +100,7 @@ export const sendLicenseWhatsAppNotification = async (
 ) => {
   try {
     const amountFormatted = amount === 0 ? 'Rp 0 (Gratis)' : `Rp ${amount.toLocaleString('id-ID')}`;
-    const productLabel = prodId === 'absenta' ? 'Platform Cakola' : (prodId === 'easy-tunnel' ? 'Easy Tunnel' : prodId.toUpperCase());
+    const productLabel = normalizeProductId(prodId) === 'cakola' ? 'Platform Cakola' : (normalizeProductId(prodId) === 'easy-tunnel' ? 'Easy Tunnel' : prodId.toUpperCase());
     
     let paymentStatusNotes = '';
     if (status === 'paid') {

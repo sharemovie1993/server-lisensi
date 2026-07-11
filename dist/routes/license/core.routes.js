@@ -508,11 +508,11 @@ const registerCoreLicenseRoutes = (fastify) => {
                     });
                 }
             }
-            // 2. Generate license key untuk Absenta (ABS)
+            // 2. Generate license key untuk Platform Cakola (ABS)
             let productPrefix = 'ABS';
             try {
                 const prod = await helpers_1.prisma.product.findUnique({
-                    where: { id: 'absenta' }
+                    where: { id: 'cakola' }
                 });
                 if (prod && prod.prefix) {
                     productPrefix = prod.prefix;
@@ -528,7 +528,7 @@ const registerCoreLicenseRoutes = (fastify) => {
             const newLicense = await helpers_1.prisma.license.create({
                 data: {
                     licenseKey: newKey,
-                    productId: 'absenta',
+                    productId: 'cakola',
                     schoolName: cleanSchoolName,
                     deviceLimit: 9999,
                     isUnlimited: 1,
@@ -545,7 +545,7 @@ const registerCoreLicenseRoutes = (fastify) => {
                 data: {
                     licenseId: newLicense.id,
                     schoolName: cleanSchoolName,
-                    productId: 'absenta',
+                    productId: 'cakola',
                     planId: planId,
                     status: 'active',
                     startDate: new Date().toISOString().slice(0, 10),
@@ -560,7 +560,7 @@ const registerCoreLicenseRoutes = (fastify) => {
                     invoiceNumber: invoiceNumber,
                     licenseId: newLicense.id,
                     schoolName: cleanSchoolName,
-                    productId: 'absenta',
+                    productId: 'cakola',
                     planTitle: 'Free Lisensi - Aktivasi Server',
                     amount: 0,
                     status: 'paid',
@@ -572,9 +572,9 @@ const registerCoreLicenseRoutes = (fastify) => {
             });
             // 6. Kirim WhatsApp notifikasi via waGateway
             try {
-                const waMessage = `🟢 *[AKTIVASI LISENSI LOKAL ABSENTA SUCCESS]*\n\n` +
+                const waMessage = `🟢 *[AKTIVASI LISENSI LOKAL PLATFORM CAKOLA SUCCESS]*\n\n` +
                     `Yth. Operator *${cleanSchoolName}*,\n` +
-                    `Selamat! Proses registrasi server dan pemasangan platform Absenta untuk sekolah Anda telah berhasil diselesaikan secara sempurna.\n\n` +
+                    `Selamat! Proses registrasi server dan pemasangan Platform Cakola untuk sekolah Anda telah berhasil diselesaikan secara sempurna.\n\n` +
                     `Berikut adalah detail lisensi dan akses Anda:\n` +
                     `🔑 Kunci Lisensi: \`${newKey}\`\n` +
                     `🌐 Subdomain Akses Online: *https://${cleanSlug}.absenta.id*\n` +
@@ -585,7 +585,7 @@ const registerCoreLicenseRoutes = (fastify) => {
                     `- *Langkah Selanjutnya*: Buka tautan domain sekolah Anda di atas, lalu masuk menu *Daftar Sekolah / Registrasi Sekolah* untuk membuat akun Administrator utama sekolah Anda.\n\n` +
                     `Simpan pesan ini sebagai bukti catatan lisensi Anda. Terima kasih!`;
                 await whatsapp_service_1.waGateway.sendMessage(cleanWaNumber, waMessage);
-                await (0, logger_1.logLicenseActivity)(newKey, 'absenta', '127.0.0.1', 'WA_LOCAL_FREE_ACTIVATION_SENT');
+                await (0, logger_1.logLicenseActivity)(newKey, 'cakola', '127.0.0.1', 'WA_LOCAL_FREE_ACTIVATION_SENT');
             }
             catch (waErr) {
                 console.error('[Local Free License] Gagal mengirim pesan WA:', waErr.message);
@@ -779,7 +779,7 @@ const registerCoreLicenseRoutes = (fastify) => {
             console.warn(`[LICENSE/ACTIVATE] ⚠️  SOFT-WARN: product_id tidak dikirim. Fallback ke 'absenta'. license_key: ${license_key}, IP: ${request.ip}`);
             await (0, logger_1.logLicenseActivity)(license_key || 'UNKNOWN', 'MISSING', request.ip, 'ACTIVATE_MISSING_PRODUCT_ID').catch(() => { });
         }
-        const prodId = (0, helpers_1.normalizeProductId)(product_id || 'absenta');
+        const prodId = (0, helpers_1.normalizeProductId)(product_id || 'cakola');
         const clientIp = request.ip;
         try {
             const license = await helpers_1.prisma.license.findFirst({

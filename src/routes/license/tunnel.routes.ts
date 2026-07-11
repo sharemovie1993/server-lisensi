@@ -242,11 +242,12 @@ PersistentKeepalive = 25
         }
       }
 
-      // 2. Cek slug tidak duplikat
+      // 2. Cek slug tidak duplikat (hanya duplikat jika sesama produk tunnel)
       const existingSlug = await prisma.license.findFirst({
         where: {
           requestedSlug: slugLower,
-          id: { not: license.id }
+          id: { not: license.id },
+          productId: { in: ['easy-tunnel', 'vpn-tunnel'] }
         }
       });
 
@@ -638,6 +639,36 @@ PersistentKeepalive = 25
     } catch (err: any) {
       console.error('[Download SSL Error]', err.message);
       return reply.status(500).send({ success: false, message: 'Gagal mengunduh sertifikat SSL: ' + err.message });
+    }
+  });
+
+  // 10. Easy Tunnel: Get licenses by requested slug
+  fastify.get('/api/license/easy-tunnel/by-slug/:slug', async (request: FastifyRequest, reply: FastifyReply) => {
+    const { slug } = request.params as { slug: string };
+    try {
+      const licenses = await prisma.license.findMany({
+        where: {
+          productId: 'easy-tunnel',
+          requestedSlug: slug.trim().toLowerCase()
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+      return reply.send({
+        success: true,
+        data: licenses.map(license => ({
+          license_key: license.licenseKey,
+          school_name: license.schoolName,
+          expires_at: license.expiresAt,
+          status: license.status,
+          is_active: license.isActive,
+          local_port: license.localPort || null,
+          app_name: license.appName || null,
+          wireguard_ip: license.wireguardIp || null
+        }))
+      });
+    } catch (err: any) {
+      console.error('[Easy Tunnel List by Slug Error]', err.message);
+      return reply.status(500).send({ success: false, message: 'Gagal mengambil daftar lisensi Easy Tunnel.' });
     }
   });
 

@@ -159,10 +159,7 @@ const adminRoutes = async (fastify) => {
             return reply.status(400).send({ success: false, message: 'Parameter school_name, product_id, dan expires_at wajib diisi.' });
         }
         try {
-            let targetProductId = product_id;
-            if (product_id === 'absenta') {
-                targetProductId = 'platform-absenta';
-            }
+            const targetProductId = (0, helpers_1.normalizeProductId)(product_id);
             const product = await prisma.product.findUnique({ where: { id: targetProductId } });
             if (!product) {
                 return reply.status(404).send({ success: false, message: 'Produk tidak ditemukan.' });

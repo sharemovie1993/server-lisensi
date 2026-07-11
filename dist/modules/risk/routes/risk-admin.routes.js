@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.riskAdminRoutes = riskAdminRoutes;
 const client_1 = require("@prisma/client");
 const admin_routes_1 = require("../../../routes/admin.routes");
+const helpers_1 = require("../../../routes/license/helpers");
 const prisma = new client_1.PrismaClient();
 async function riskAdminRoutes(fastify) {
     fastify.get('/api/admin/risk/overview', {
@@ -10,7 +11,7 @@ async function riskAdminRoutes(fastify) {
         handler: async (request, reply) => {
             try {
                 const queryProduct = request.query;
-                const productId = queryProduct.productId && queryProduct.productId !== 'all' ? (queryProduct.productId === 'absenta' ? 'platform-absenta' : queryProduct.productId) : undefined;
+                const productId = queryProduct.productId && queryProduct.productId !== 'all' ? (0, helpers_1.normalizeProductId)(queryProduct.productId) : undefined;
                 const licenseFilter = {
                     OR: [
                         { requestedSlug: { not: null } },

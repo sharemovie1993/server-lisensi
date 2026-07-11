@@ -170,10 +170,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
     }
 
     try {
-      let targetProductId = product_id;
-      if (product_id === 'absenta') {
-        targetProductId = 'platform-absenta';
-      }
+      const targetProductId = normalizeProductId(product_id);
 
       const product = await prisma.product.findUnique({ where: { id: targetProductId } });
       if (!product) {
