@@ -350,6 +350,28 @@ export default function TenantManager() {
                                     {t.hostname && <div className="flex justify-between"><span className="text-slate-500">Host:</span><span className="text-white font-bold flex items-center gap-1.5"><Cpu className="w-3.5 h-3.5 text-indigo-400" /> {t.hostname}</span></div>}
                                     {t.osType && <div className="flex justify-between"><span className="text-slate-500">Sistem Operasi:</span><span className="text-slate-300">{t.osType}</span></div>}
                                     {t.lastHeartbeatAt && <div className="flex justify-between"><span className="text-slate-500">Heartbeat Terakhir:</span><span className="text-indigo-300">{new Date(t.lastHeartbeatAt).toLocaleTimeString('id-ID')} ({new Date(t.lastHeartbeatAt).toLocaleDateString('id-ID')})</span></div>}
+                                    <div className="pt-2 border-t border-slate-800 flex justify-end">
+                                      <button
+                                        onClick={async () => {
+                                          if (!confirm('Apakah Anda yakin ingin melepas kunci perangkat (Reset Device Lock) untuk server ini?')) return;
+                                          try {
+                                            const res = await apiClient.post(`/api/admin/license/reset-devices/${t.id}`);
+                                            if (res.data?.success) {
+                                              alert('Kunci perangkat berhasil dilepas!');
+                                              loadData();
+                                            } else {
+                                              alert(res.data?.message || 'Gagal melepas kunci perangkat');
+                                            }
+                                          } catch (e: any) {
+                                            alert('Gagal melepas kunci perangkat: ' + (e.response?.data?.message || e.message));
+                                          }
+                                        }}
+                                        className="px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500 hover:text-slate-950 text-amber-400 font-bold font-sans text-[11px] rounded-lg transition flex items-center gap-1.5 cursor-pointer"
+                                      >
+                                        <RefreshCw className="w-3 h-3" />
+                                        <span>Reset Device Lock</span>
+                                      </button>
+                                    </div>
                                   </div>
                                 )}
                               </div>
