@@ -5,7 +5,8 @@ import {
   prisma,
   RequestBody,
   sendLicenseWhatsAppNotification,
-  getProductPrefix
+  getProductPrefix,
+  normalizeProductId
 } from './helpers';
 import { PRIVATE_KEY, PUBLIC_KEY } from '../../utils/keys';
 import { logLicenseActivity } from '../../utils/logger';
@@ -36,9 +37,23 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
       return reply.status(400).send({ success: false, message: 'school_name, product_id, dan plan_id wajib diisi.' });
     }
 
-    const prodId = product_id.trim();
+    const rawProdId = product_id.trim();
+    const prodId = normalizeProductId(rawProdId);
     const resolvedSchoolName = school_name.trim();
     const targetPhone = (phone_number || wa_number || whatsapp || (body as any).operator_phone || '').trim();
+
+    // ── [SOFT] Validasi product_id ke DB ──────────────────────────────────
+    // Soft enforcement: catat warning jika produk tidak dikenal, tapi tidak blokir
+    // Upgrade ke hard reject setelah konfirmasi semua client sudah kirim product_id valid
+    try {
+      const productExists = await prisma.product.findUnique({ where: { id: prodId } });
+      if (!productExists) {
+        console.warn(`[LICENSE/REQUEST] ⚠️  SOFT-WARN: product_id '${prodId}' tidak ditemukan di DB. Client IP: ${request.ip}. Dilanjutkan dengan fallback.`);
+        await logLicenseActivity('UNKNOWN', prodId, request.ip, 'REQUEST_UNKNOWN_PRODUCT_ID');
+      }
+    } catch (e: any) {
+      console.warn(`[LICENSE/REQUEST] Gagal validasi product_id '${prodId}':`, e.message);
+    }
 
     try {
       if (device_id) {
@@ -74,6 +89,17 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
       });
       if (!plan) {
         return reply.status(404).send({ success: false, message: 'Paket tidak ditemukan.' });
+      }
+
+      // ── [SOFT] Validasi plan_id cocok dengan product_id ───────────────────
+      // Soft enforcement: catat warning jika plan bukan milik produk ini
+      // Tidak blokir dulu — upgrade ke hard reject setelah audit client selesai
+      if (plan.productId && normalizeProductId(plan.productId) !== prodId) {
+        console.warn(
+          `[LICENSE/REQUEST] ⚠️  SOFT-WARN: plan '${plan_id}' (productId: ${plan.productId}) ` +
+          `tidak cocok dengan product_id yang diminta '${prodId}'. Client IP: ${request.ip}.`
+        );
+        await logLicenseActivity('UNKNOWN', prodId, request.ip, 'REQUEST_PLAN_PRODUCT_MISMATCH');
       }
 
       // Generate invoice number
@@ -849,7 +875,15 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
       return reply.status(400).send({ success: false, message: 'Kunci lisensi (key) dan Device ID wajib diisi.' });
     }
 
-    const prodId = product_id || 'gform-orkestrator';
+    // ── [SOFT] product_id: default fallback dengan warning log ───────────
+    // Soft enforcement: jika client tidak kirim product_id, fallback ke 'absenta'
+    // dan catat warning agar kita bisa audit client mana yang belum update
+    // Upgrade ke hard reject (return 400) setelah konfirmasi semua client aman
+    if (!product_id) {
+      console.warn(`[LICENSE/ACTIVATE] ⚠️  SOFT-WARN: product_id tidak dikirim. Fallback ke 'absenta'. license_key: ${license_key}, IP: ${request.ip}`);
+      await logLicenseActivity(license_key || 'UNKNOWN', 'MISSING', request.ip, 'ACTIVATE_MISSING_PRODUCT_ID').catch(() => {});
+    }
+    const prodId = normalizeProductId(product_id || 'absenta');
     const clientIp = request.ip;
 
     try {

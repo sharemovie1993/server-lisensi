@@ -18,9 +18,23 @@ const registerCoreLicenseRoutes = (fastify) => {
         if (!school_name || !product_id || !plan_id) {
             return reply.status(400).send({ success: false, message: 'school_name, product_id, dan plan_id wajib diisi.' });
         }
-        const prodId = product_id.trim();
+        const rawProdId = product_id.trim();
+        const prodId = (0, helpers_1.normalizeProductId)(rawProdId);
         const resolvedSchoolName = school_name.trim();
         const targetPhone = (phone_number || wa_number || whatsapp || body.operator_phone || '').trim();
+        // ── [SOFT] Validasi product_id ke DB ──────────────────────────────────
+        // Soft enforcement: catat warning jika produk tidak dikenal, tapi tidak blokir
+        // Upgrade ke hard reject setelah konfirmasi semua client sudah kirim product_id valid
+        try {
+            const productExists = await helpers_1.prisma.product.findUnique({ where: { id: prodId } });
+            if (!productExists) {
+                console.warn(`[LICENSE/REQUEST] ⚠️  SOFT-WARN: product_id '${prodId}' tidak ditemukan di DB. Client IP: ${request.ip}. Dilanjutkan dengan fallback.`);
+                await (0, logger_1.logLicenseActivity)('UNKNOWN', prodId, request.ip, 'REQUEST_UNKNOWN_PRODUCT_ID');
+            }
+        }
+        catch (e) {
+            console.warn(`[LICENSE/REQUEST] Gagal validasi product_id '${prodId}':`, e.message);
+        }
         try {
             if (device_id) {
                 const existingDeviceLicense = await helpers_1.prisma.license.findFirst({
@@ -54,6 +68,14 @@ const registerCoreLicenseRoutes = (fastify) => {
             });
             if (!plan) {
                 return reply.status(404).send({ success: false, message: 'Paket tidak ditemukan.' });
+            }
+            // ── [SOFT] Validasi plan_id cocok dengan product_id ───────────────────
+            // Soft enforcement: catat warning jika plan bukan milik produk ini
+            // Tidak blokir dulu — upgrade ke hard reject setelah audit client selesai
+            if (plan.productId && (0, helpers_1.normalizeProductId)(plan.productId) !== prodId) {
+                console.warn(`[LICENSE/REQUEST] ⚠️  SOFT-WARN: plan '${plan_id}' (productId: ${plan.productId}) ` +
+                    `tidak cocok dengan product_id yang diminta '${prodId}'. Client IP: ${request.ip}.`);
+                await (0, logger_1.logLicenseActivity)('UNKNOWN', prodId, request.ip, 'REQUEST_PLAN_PRODUCT_MISMATCH');
             }
             // Generate invoice number
             const randomPrefix = Math.floor(1000 + Math.random() * 9000);
@@ -739,7 +761,15 @@ const registerCoreLicenseRoutes = (fastify) => {
         if (!license_key || !device_id) {
             return reply.status(400).send({ success: false, message: 'Kunci lisensi (key) dan Device ID wajib diisi.' });
         }
-        const prodId = product_id || 'gform-orkestrator';
+        // ── [SOFT] product_id: default fallback dengan warning log ───────────
+        // Soft enforcement: jika client tidak kirim product_id, fallback ke 'absenta'
+        // dan catat warning agar kita bisa audit client mana yang belum update
+        // Upgrade ke hard reject (return 400) setelah konfirmasi semua client aman
+        if (!product_id) {
+            console.warn(`[LICENSE/ACTIVATE] ⚠️  SOFT-WARN: product_id tidak dikirim. Fallback ke 'absenta'. license_key: ${license_key}, IP: ${request.ip}`);
+            await (0, logger_1.logLicenseActivity)(license_key || 'UNKNOWN', 'MISSING', request.ip, 'ACTIVATE_MISSING_PRODUCT_ID').catch(() => { });
+        }
+        const prodId = (0, helpers_1.normalizeProductId)(product_id || 'absenta');
         const clientIp = request.ip;
         try {
             const license = await helpers_1.prisma.license.findFirst({
