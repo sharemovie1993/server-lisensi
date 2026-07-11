@@ -45,17 +45,17 @@ if ($key.Character -ne 'y' -and $key.Character -ne 'Y') {
 Show-Header "1 / 4 - Konfigurasi Koneksi VPS"
 
 # Default dari .env jika ada
-$VPS_IP      = "103.129.148.127"
+$VPS_IP      = "103.196.155.87"
 $VPS_USER    = "asepsuryadi"
-$VPS_PEM     = "nginxonly.pem"
+$VPS_PEM     = "ls-key.pem"
 $REMOTE_DIR  = "/var/www/licensing-server"
 $REMOTE_BRANCH = "master"
 
 # Cek apakah file .pem ada
 $pemCandidates = @(
-    (Join-Path $PSScriptRoot "nginxonly.pem"),
-    (Join-Path $PSScriptRoot "..\deployer\nginxonly.pem"),
-    "nginxonly.pem"
+    (Join-Path $PSScriptRoot "ls-key.pem"),
+    (Join-Path $PSScriptRoot "..\deployer\ls-key.pem"),
+    "ls-key.pem"
 )
 foreach ($pem in $pemCandidates) {
     if (Test-Path $pem) { $VPS_PEM = $pem; break }
