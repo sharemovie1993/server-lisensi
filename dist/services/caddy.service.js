@@ -101,9 +101,12 @@ pos.${MAIN_DOMAIN} {
                 const isDevVitePort = port >= 5173 && port <= 5179;
                 const isHttpsPort = port === 443;
                 const upstreamProtocol = (isDevVitePort || isHttpsPort) ? 'https' : 'http';
+                const primaryDomain = up.domains[0] || `${up.slug}.${MAIN_DOMAIN}`;
                 const tlsConfig = (isDevVitePort || isHttpsPort) ? ` {
+        header_up Host ${primaryDomain}
         transport http {
             tls_insecure_skip_verify
+            tls_server_name ${primaryDomain}
         }
     }` : '';
                 caddyfile += `

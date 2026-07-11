@@ -854,6 +854,55 @@ const registerCoreLicenseRoutes = (fastify) => {
             return reply.status(500).send({ success: false, message: 'Terjadi kesalahan sistem saat memproses aktivasi.' });
         }
     });
+    // 7.5 Release/Reset active device locks for a license (CLIENT APP RESET)
+    fastify.post('/api/license/release', async (request, reply) => {
+        const body = request.body;
+        const { license_key, device_id } = body;
+        if (!license_key) {
+            return reply.status(400).send({ success: false, message: 'Kunci lisensi (license_key) wajib diisi.' });
+        }
+        try {
+            const license = await helpers_1.prisma.license.findUnique({
+                where: { licenseKey: license_key.trim() }
+            });
+            if (!license) {
+                return reply.status(404).send({ success: false, message: 'Lisensi tidak ditemukan.' });
+            }
+            if (device_id) {
+                // Delete specific device registration
+                await helpers_1.prisma.activatedDevice.deleteMany({
+                    where: {
+                        licenseId: license.id,
+                        deviceId: device_id.trim()
+                    }
+                });
+            }
+            else {
+                // Reset all activated devices for this license
+                await helpers_1.prisma.activatedDevice.deleteMany({
+                    where: { licenseId: license.id }
+                });
+            }
+            // Also reset telemetry fields in the license
+            await helpers_1.prisma.license.update({
+                where: { id: license.id },
+                data: {
+                    activeHostname: null,
+                    activeOs: null,
+                    originalDeviceId: null
+                }
+            });
+            console.log(`[License Release] Reset devices/hosts lock for license: ${license_key}`);
+            return reply.send({
+                success: true,
+                message: 'Kunci perangkat (device lock) berhasil dilepas.'
+            });
+        }
+        catch (err) {
+            console.error('[License Release Error]', err.message);
+            return reply.status(500).send({ success: false, message: 'Gagal melepas kunci perangkat: ' + err.message });
+        }
+    });
     // 8. Verify license JWT (CLIENT APP BACKGROUND CHECK)
     fastify.post('/api/license/verify', async (request, reply) => {
         const { token } = request.body;

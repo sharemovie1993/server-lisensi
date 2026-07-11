@@ -500,6 +500,37 @@ const adminRoutes = async (fastify) => {
             return reply.status(500).send({ success: false, message: 'Gagal menghapus lisensi.' });
         }
     });
+    // 12.0.1 Reset device locks for a specific license key (ADMIN RESET)
+    fastify.post('/api/admin/license/reset-devices/:id', async (request, reply) => {
+        await verifyAdmin(request, reply);
+        if (reply.sent)
+            return;
+        const { id } = request.params;
+        try {
+            const license = await prisma.license.findUnique({ where: { id } });
+            if (!license) {
+                return reply.status(404).send({ success: false, message: 'Lisensi tidak ditemukan.' });
+            }
+            // Delete all active device bindings
+            await prisma.activatedDevice.deleteMany({
+                where: { licenseId: id }
+            });
+            // Clear host/OS telemetry bindings on the license
+            await prisma.license.update({
+                where: { id },
+                data: {
+                    activeHostname: null,
+                    activeOs: null,
+                    originalDeviceId: null
+                }
+            });
+            console.log(`[Admin License Reset] Reset devices/hosts lock for license: ${license.licenseKey} by admin`);
+            return reply.send({ success: true, message: 'Kunci perangkat (device lock) berhasil dilepas oleh admin.' });
+        }
+        catch (err) {
+            return reply.status(500).send({ success: false, message: 'Gagal melepas kunci perangkat: ' + err.message });
+        }
+    });
     // 12.1 Get System Telemetry (CPU, RAM, Disk)
     fastify.get('/api/admin/system/telemetry', async (request, reply) => {
         await verifyAdmin(request, reply);
