@@ -16,6 +16,7 @@ const child_process_1 = require("child_process");
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const os_1 = __importDefault(require("os"));
+const helpers_1 = require("./license/helpers");
 const prisma = new client_1.PrismaClient();
 const ADMIN_SECRET = process.env.ADMIN_SECRET || 'kumahatetehwe';
 const TOTP_SECRET = process.env.TOTP_SECRET || 'ABSENTASECRETKEYMYSECURETOKEN';
@@ -123,7 +124,7 @@ const adminRoutes = async (fastify) => {
                     createdAt: t.createdAt,
                     isActive: t.isActive,
                     status: t.status,
-                    productId: t.productId === 'platform-absenta' ? 'absenta' : t.productId,
+                    productId: (0, helpers_1.normalizeProductId)(t.productId),
                     custom_domain: t.customDomain,
                     lastHeartbeatAt: t.lastHeartbeatAt,
                     deployMode: t.deployMode,
@@ -212,7 +213,7 @@ const adminRoutes = async (fastify) => {
             const mapped = list.map(l => ({
                 id: l.id,
                 license_key: l.licenseKey,
-                product_id: l.productId === 'platform-absenta' ? 'absenta' : l.productId,
+                product_id: (0, helpers_1.normalizeProductId)(l.productId),
                 school_name: l.schoolName,
                 device_limit: l.deviceLimit,
                 is_unlimited: l.isUnlimited,
@@ -283,7 +284,7 @@ const adminRoutes = async (fastify) => {
                 invoice_number: i.invoiceNumber,
                 license_id: i.licenseId,
                 school_name: i.schoolName,
-                product_id: i.productId === 'platform-absenta' ? 'absenta' : i.productId,
+                product_id: (0, helpers_1.normalizeProductId)(i.productId),
                 plan_title: i.planTitle,
                 amount: i.amount,
                 status: i.status,
@@ -326,7 +327,7 @@ const adminRoutes = async (fastify) => {
                 const slug = parts[1] ? parts[1].trim() : (s.license?.requestedSlug || '');
                 const licenseKey = s.license?.licenseKey || '';
                 // Resolve product name dynamically to bypass platform-absenta join mismatch
-                const cleanProductId = s.productId === 'platform-absenta' ? 'absenta' : s.productId;
+                const cleanProductId = (0, helpers_1.normalizeProductId)(s.productId);
                 const prod = productMap.get(cleanProductId) || productMap.get(s.productId);
                 const productName = prod ? prod.name : 'Platform Cakola';
                 const rawPlanName = s.planId === 'saas-node' ? 'Akses Portal Utama' : (plan ? plan.name : s.planId || 'Standard');
@@ -340,8 +341,8 @@ const adminRoutes = async (fastify) => {
                     tenantId: realSchoolName,
                     slug,
                     licenseKey,
-                    product_id: s.productId === 'platform-absenta' ? 'absenta' : s.productId,
-                    productId: s.productId === 'platform-absenta' ? 'absenta' : s.productId,
+                    product_id: (0, helpers_1.normalizeProductId)(s.productId),
+                    productId: (0, helpers_1.normalizeProductId)(s.productId),
                     productName,
                     product_name: productName,
                     plan_id: s.planId,
@@ -903,7 +904,7 @@ const adminRoutes = async (fastify) => {
                 const lic = licenseMap.get(t.tenantId);
                 return {
                     ...t,
-                    productId: lic?.productId === 'platform-absenta' ? 'absenta' : lic?.productId || 'unknown',
+                    productId: (0, helpers_1.normalizeProductId)(lic?.productId ?? 'unknown'),
                     requestedSlug: lic?.requestedSlug || '',
                     licenseKey: lic?.licenseKey || '',
                     planId: lic?.planId || 'Standard',

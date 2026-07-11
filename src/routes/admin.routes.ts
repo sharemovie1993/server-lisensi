@@ -10,6 +10,7 @@ import { exec } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { normalizeProductId } from './license/helpers';
 
 const prisma = new PrismaClient();
 
@@ -131,7 +132,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
           createdAt: t.createdAt,
           isActive: t.isActive,
           status: t.status,
-          productId: t.productId === 'platform-absenta' ? 'absenta' : t.productId,
+          productId: normalizeProductId(t.productId),
           custom_domain: t.customDomain,
           lastHeartbeatAt: t.lastHeartbeatAt,
           deployMode: t.deployMode,
@@ -230,7 +231,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
       const mapped = list.map(l => ({
         id: l.id,
         license_key: l.licenseKey,
-        product_id: l.productId === 'platform-absenta' ? 'absenta' : l.productId,
+        product_id: normalizeProductId(l.productId),
         school_name: l.schoolName,
         device_limit: l.deviceLimit,
         is_unlimited: l.isUnlimited,
@@ -303,7 +304,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
         invoice_number: i.invoiceNumber,
         license_id: i.licenseId,
         school_name: i.schoolName,
-        product_id: i.productId === 'platform-absenta' ? 'absenta' : i.productId,
+        product_id: normalizeProductId(i.productId),
         plan_title: i.planTitle,
         amount: i.amount,
         status: i.status,
@@ -350,7 +351,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
         const licenseKey = s.license?.licenseKey || '';
 
         // Resolve product name dynamically to bypass platform-absenta join mismatch
-        const cleanProductId = s.productId === 'platform-absenta' ? 'absenta' : s.productId;
+        const cleanProductId = normalizeProductId(s.productId);
         const prod = productMap.get(cleanProductId) || productMap.get(s.productId);
         const productName = prod ? prod.name : 'Platform Cakola';
 
@@ -366,8 +367,8 @@ export const adminRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
           tenantId: realSchoolName,
           slug,
           licenseKey,
-          product_id: s.productId === 'platform-absenta' ? 'absenta' : s.productId,
-          productId: s.productId === 'platform-absenta' ? 'absenta' : s.productId,
+          product_id: normalizeProductId(s.productId),
+          productId: normalizeProductId(s.productId),
           productName,
           product_name: productName,
           plan_id: s.planId,
@@ -977,7 +978,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
         const lic = licenseMap.get(t.tenantId);
         return {
           ...t,
-          productId: lic?.productId === 'platform-absenta' ? 'absenta' : lic?.productId || 'unknown',
+          productId: normalizeProductId(lic?.productId ?? 'unknown'),
           requestedSlug: lic?.requestedSlug || '',
           licenseKey: lic?.licenseKey || '',
           planId: lic?.planId || 'Standard',

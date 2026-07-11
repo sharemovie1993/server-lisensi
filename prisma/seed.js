@@ -3,6 +3,16 @@ const prisma = new PrismaClient();
 
 const products = [
   {
+    "id": "absenta",
+    "name": "Platform Cakola",
+    "prefix": "ABS"
+  },
+  {
+    "id": "easy-tunnel",
+    "name": "Easy Tunnel",
+    "prefix": "ET"
+  },
+  {
     "id": "gform-orkestrator",
     "name": "GForm Orkestrator",
     "prefix": "GF"
@@ -11,28 +21,9 @@ const products = [
     "id": "project-yatim",
     "name": "Project Yatim",
     "prefix": "YT"
-  },
-  {
-    "id": "easy-tunnel",
-    "name": "Easy Tunnel",
-    "prefix": "ET"
-  },
-  {
-    "id": "vpn-tunnel",
-    "name": "VPN Tunneling Addon",
-    "prefix": "VPN"
-  },
-  {
-    "id": "platform-absenta",
-    "name": "platform-absenta",
-    "prefix": "PLA"
-  },
-  {
-    "id": "absenta",
-    "name": "Platform Cakola",
-    "prefix": "ABS"
   }
 ];
+
 
 const plans = [
   {
