@@ -3,6 +3,7 @@ import fs from 'fs';
 import pino from 'pino';
 import qrcode from 'qrcode';
 import { EventEmitter } from 'events';
+import { handleIncomingMessage } from './wa-bot.service';
 
 const AUTH_DIR = path.join(__dirname, '../../wa_auth');
 
@@ -126,6 +127,36 @@ class WhatsappService extends EventEmitter {
     });
 
     this.sock.ev.on('creds.update', saveCreds);
+
+    // ── Interactive bot: listen to incoming messages ──────────────────────
+    this.sock.ev.on('messages.upsert', async ({ messages, type }: any) => {
+      if (type !== 'notify') return;
+      for (const msg of messages) {
+        if (msg.key.fromMe) continue;          // abaikan pesan dari diri sendiri
+        if (!msg.message) continue;
+
+        const fromJid: string = msg.key.remoteJid || '';
+        const text: string =
+          msg.message?.conversation ||
+          msg.message?.extendedTextMessage?.text ||
+          '';
+
+        if (!text.trim()) continue;
+
+        console.log(`[WA-BOT] Pesan masuk dari ${fromJid}: "${text.trim()}"`);
+
+        // Delegate to bot engine
+        await handleIncomingMessage(fromJid, text, async (toJid, pesan) => {
+          try {
+            await this.sock.sendMessage(toJid, { text: pesan });
+            this.messagesSentToday++;
+          } catch (e: any) {
+            this.messagesFailedToday++;
+            console.error('[WA-BOT] Gagal kirim balasan:', e.message);
+          }
+        }).catch(err => console.error('[WA-BOT] Error handler:', err.message));
+      }
+    });
   }
 
   public async init(): Promise<void> {

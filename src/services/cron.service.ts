@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { triggerCaddySync } from './caddy.service';
 import { waGateway } from './whatsapp.service';
+import { buildWarningMessage, buildDeletionMessage, registerSession } from './wa-bot.service';
 
 const prisma = new PrismaClient();
 
@@ -124,15 +125,20 @@ export async function cleanupInactiveTrials(): Promise<void> {
 
       if (lic.operatorPhone) {
         const heartbeatAge = Math.floor((now.getTime() - new Date(lic.lastHeartbeatAt!).getTime()) / (1000 * 60 * 60 * 24));
-        const msg =
-          `⚠️ *[ABSENTA - Peringatan Lisensi Tidak Aktif]*\n\n` +
-          `Halo, Operator *${lic.schoolName}*!\n\n` +
-          `Server Absenta Anda tidak terdeteksi aktif selama *${heartbeatAge} hari*.\n` +
-          `License Key: \`${lic.licenseKey}\`\n\n` +
-          `📌 *Penting:* Jika server tidak aktif selama 14 hari, data lisensi percobaan (trial) ini akan *dihapus otomatis* oleh sistem.\n\n` +
-          `Segera nyalakan kembali server Anda atau hubungi tim teknis kami untuk mencegah penghapusan.`;
+
+        // Register interactive session so operator can reply 1/2/3
+        registerSession(
+          lic.operatorPhone,
+          lic.id,
+          lic.licenseKey,
+          lic.schoolName,
+          lic.requestedSlug ?? null
+        );
+
+        // Send interactive warning message with action menu
+        const msg = buildWarningMessage(lic.schoolName, lic.licenseKey, heartbeatAge);
         await sendWaNotif(lic.operatorPhone, msg);
-        console.log(`[CRON-WA] Peringatan terkirim ke operator ${lic.schoolName} (${lic.operatorPhone})`);
+        console.log(`[CRON-WA] Peringatan interaktif terkirim ke operator ${lic.schoolName} (${lic.operatorPhone})`);
       }
     }
 
@@ -166,14 +172,7 @@ export async function cleanupInactiveTrials(): Promise<void> {
 
       // Kirim notifikasi WA penghapusan ke operator SEBELUM menghapus
       if (lic.operatorPhone) {
-        const msg =
-          `🗑️ *[ABSENTA - Lisensi Trial Dihapus Otomatis]*\n\n` +
-          `Kepada Operator *${lic.schoolName}*,\n\n` +
-          `Data lisensi percobaan (trial) berikut telah *dihapus otomatis* oleh sistem karena tidak ada aktivitas server lebih dari 14 hari.\n\n` +
-          `License Key: \`${lic.licenseKey}\`\n` +
-          `Slug/Node: \`${lic.requestedSlug || '-'}\`\n\n` +
-          `Jika ini adalah kesalahan atau Anda ingin melanjutkan penggunaan layanan Absenta, silakan daftarkan ulang atau hubungi tim kami.\n\n` +
-          `Terima kasih. 🙏`;
+        const msg = buildDeletionMessage(lic.schoolName, lic.licenseKey, lic.requestedSlug ?? null);
         await sendWaNotif(lic.operatorPhone, msg);
         console.log(`[CRON-WA] Notifikasi penghapusan terkirim ke operator ${lic.schoolName} (${lic.operatorPhone})`);
       }

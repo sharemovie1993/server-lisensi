@@ -9,6 +9,7 @@ const fs_1 = __importDefault(require("fs"));
 const pino_1 = __importDefault(require("pino"));
 const qrcode_1 = __importDefault(require("qrcode"));
 const events_1 = require("events");
+const wa_bot_service_1 = require("./wa-bot.service");
 const AUTH_DIR = path_1.default.join(__dirname, '../../wa_auth');
 class WhatsappService extends events_1.EventEmitter {
     sock = null;
@@ -112,6 +113,35 @@ class WhatsappService extends events_1.EventEmitter {
             }
         });
         this.sock.ev.on('creds.update', saveCreds);
+        // ── Interactive bot: listen to incoming messages ──────────────────────
+        this.sock.ev.on('messages.upsert', async ({ messages, type }) => {
+            if (type !== 'notify')
+                return;
+            for (const msg of messages) {
+                if (msg.key.fromMe)
+                    continue; // abaikan pesan dari diri sendiri
+                if (!msg.message)
+                    continue;
+                const fromJid = msg.key.remoteJid || '';
+                const text = msg.message?.conversation ||
+                    msg.message?.extendedTextMessage?.text ||
+                    '';
+                if (!text.trim())
+                    continue;
+                console.log(`[WA-BOT] Pesan masuk dari ${fromJid}: "${text.trim()}"`);
+                // Delegate to bot engine
+                await (0, wa_bot_service_1.handleIncomingMessage)(fromJid, text, async (toJid, pesan) => {
+                    try {
+                        await this.sock.sendMessage(toJid, { text: pesan });
+                        this.messagesSentToday++;
+                    }
+                    catch (e) {
+                        this.messagesFailedToday++;
+                        console.error('[WA-BOT] Gagal kirim balasan:', e.message);
+                    }
+                }).catch(err => console.error('[WA-BOT] Error handler:', err.message));
+            }
+        });
     }
     async init() {
         if (this.isInitialized)
