@@ -10,7 +10,7 @@ export default function WhatsAppGateway() {
   
   // Test message form
   const [targetNumber, setTargetNumber] = useState('');
-  const [testMessage, setTestMessage] = useState('Halo, ini adalah pesan uji coba dari sistem WhatsApp Gateway Absenta HQ.');
+  const [testMessage, setTestMessage] = useState('Halo, ini adalah pesan uji coba dari sistem WhatsApp Gateway Cakola HQ.');
   const [sending, setSending] = useState(false);
 
   const loadStatus = async () => {

@@ -52,7 +52,7 @@ interface SupportTicketMessage {
 const QUICK_REPLIES = [
   {
     label: '👋 Sapa Klien / Greeting',
-    text: 'Halo Bapak/Ibu, terima kasih telah menghubungi customer support Absenta.id. Ada yang bisa kami bantu hari ini?'
+    text: 'Halo Bapak/Ibu, terima kasih telah menghubungi customer support Platform Cakola. Ada yang bisa kami bantu hari ini?'
   },
   {
     label: '🔍 Verifikasi Bug / Kendala',
