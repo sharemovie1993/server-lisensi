@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.checkExpirations = checkExpirations;
+exports.cleanupInactiveTrials = cleanupInactiveTrials;
 const client_1 = require("@prisma/client");
 const caddy_service_1 = require("./caddy.service");
 const prisma = new client_1.PrismaClient();
@@ -67,5 +68,72 @@ async function checkExpirations() {
     }
     catch (err) {
         console.error('[CRON] Error during expiration check:', err.message);
+    }
+    // Run cleanup of inactive trial/test licenses
+    await cleanupInactiveTrials().catch(err => console.error('[CRON] Error during trial cleanup:', err.message));
+}
+async function cleanupInactiveTrials() {
+    console.log('[CRON] Running automatic cleanup of inactive trial/test licenses...');
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const fourteenDaysAgo = new Date();
+    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+    try {
+        // Find licenses that:
+        // 1. Have lastHeartbeatAt older than 14 days OR (lastHeartbeatAt is null AND createdAt older than 7 days)
+        const candidates = await prisma.license.findMany({
+            where: {
+                OR: [
+                    {
+                        lastHeartbeatAt: { lt: fourteenDaysAgo }
+                    },
+                    {
+                        lastHeartbeatAt: null,
+                        createdAt: { lt: sevenDaysAgo }
+                    }
+                ]
+            },
+            include: {
+                invoices: true
+            }
+        });
+        if (candidates.length === 0) {
+            console.log('[CRON] No inactive trial licenses found for cleanup.');
+            return;
+        }
+        let deletedCount = 0;
+        for (const lic of candidates) {
+            // Safety check: skip if the license has any paid invoice
+            const hasPaidInvoice = lic.invoices.some(inv => inv.status === 'paid' || inv.status === 'PAID');
+            if (hasPaidInvoice) {
+                continue;
+            }
+            console.log(`[CRON-CLEANUP] Deleting inactive trial license: ${lic.licenseKey} for ${lic.schoolName}`);
+            // Delete subscriptions
+            await prisma.subscription.deleteMany({
+                where: { licenseId: lic.id }
+            });
+            // Delete invoices
+            await prisma.invoice.deleteMany({
+                where: { licenseId: lic.id }
+            });
+            // Delete activated devices
+            await prisma.activatedDevice.deleteMany({
+                where: { licenseId: lic.id }
+            });
+            // Delete license
+            await prisma.license.delete({
+                where: { id: lic.id }
+            });
+            deletedCount++;
+        }
+        if (deletedCount > 0) {
+            console.log(`[CRON-CLEANUP] Successfully cleaned up ${deletedCount} inactive trial licenses.`);
+            // Sync Caddy to remove routing
+            await (0, caddy_service_1.triggerCaddySync)();
+        }
+    }
+    catch (err) {
+        console.error('[CRON-CLEANUP] Error during trial cleanup:', err.message);
     }
 }
