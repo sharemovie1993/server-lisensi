@@ -338,6 +338,8 @@ const adminRoutes = async (fastify) => {
                     tenantId: realSchoolName,
                     slug,
                     licenseKey,
+                    serverName: s.license?.schoolName || 'Server Induk',
+                    server_name: s.license?.schoolName || 'Server Induk',
                     product_id: (0, helpers_1.normalizeProductId)(s.productId),
                     productId: (0, helpers_1.normalizeProductId)(s.productId),
                     productName,

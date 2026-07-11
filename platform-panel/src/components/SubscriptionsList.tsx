@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '../api/apiClient';
-import { Calendar, ShieldAlert, CheckCircle, RefreshCw, Search, ChevronRight } from 'lucide-react';
+import { Calendar, ShieldAlert, CheckCircle, RefreshCw, Search, ChevronRight, Server } from 'lucide-react';
 
 interface Subscription {
   id: string;
@@ -15,6 +15,7 @@ interface Subscription {
   productName?: string;
   slug?: string;
   licenseKey?: string;
+  serverName?: string;
 }
 
 const getCleanModuleName = (productId?: string, planId?: string, productName?: string) => {
@@ -238,11 +239,11 @@ export default function SubscriptionsList() {
                     />
                   </div>
                 </th>
-                <th className="px-6 py-4">Sekolah / Tenant ID</th>
-                <th className="px-6 py-4">Subdomain Slug</th>
-                <th className="px-6 py-4">Paket / Modul</th>
-                <th className="px-6 py-4">Masa Berlaku</th>
-                <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4">Sekolah & Node Server</th>
+                <th className="px-6 py-4">Domain Akses</th>
+                <th className="px-6 py-4">Ringkasan Paket</th>
+                <th className="px-6 py-4">Detail</th>
+                <th className="px-6 py-4">Status Sekolah</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800 text-slate-300 text-sm">
@@ -255,147 +256,46 @@ export default function SubscriptionsList() {
               ) : (
                 Object.entries(groupedSubs).map(([schoolName, rawGroup]) => {
                   const isExpanded = !!expandedSchools[schoolName];
-                  const slug = rawGroup.find(s => s.slug)?.slug || '-';
                   
-                  // Filter out CORE package (saas-node) from modular list
-                  const group = rawGroup.filter(s => s.planId !== 'saas-node');
-                  
-                  const activeCount = group.filter(s => s.status === 'ACTIVE').length;
-                  const totalCount = group.length;
+                  // Extract server node details from first item
+                  const sampleItem = rawGroup[0];
+                  const slug = rawGroup.find(s => s.slug)?.slug || sampleItem?.slug || '-';
+                  const serverName = sampleItem?.serverName || 'Server Induk';
+                  const licenseKey = sampleItem?.licenseKey || 'N/A';
+
+                  const activeCount = rawGroup.filter(s => s.status === 'ACTIVE').length;
+                  const totalCount = rawGroup.length;
                   const isAnyActive = activeCount > 0;
-                  const isSingle = totalCount === 1;
-
-                  if (totalCount === 0) {
-                    return (
-                      <tr key={schoolName} className="hover:bg-slate-850/30 transition">
-                        <td className="px-6 py-4 w-20"></td>
-                        <td className="px-6 py-4">
-                          <div className="font-bold text-white text-sm">{schoolName}</div>
-                          <div className="text-[11px] text-slate-500 mt-1">Hanya memiliki akses portal utama (Core)</div>
-                        </td>
-                        <td className="px-6 py-4">
-                          {slug !== '-' ? (
-                            <a 
-                              href={`https://${slug}.absenta.id`}
-                              target="_blank" 
-                              rel="noreferrer"
-                              className="px-2.5 py-1 bg-indigo-500/10 hover:bg-indigo-500/20 text-[10.5px] font-mono text-indigo-400 rounded-lg border border-indigo-500/20 transition cursor-pointer inline-block"
-                            >
-                              {slug}.absenta.id
-                            </a>
-                          ) : (
-                            <span className="text-slate-505 font-mono text-xs">-</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 font-semibold text-slate-450 text-xs italic">
-                          Akses Portal Utama (Core)
-                        </td>
-                        <td className="px-6 py-4 text-xs text-slate-500 font-mono">
-                          Selamanya
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-500/10 border border-slate-500/20 text-xs font-semibold text-slate-400">
-                            <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse"></span>
-                            Aktif
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  }
-
-                  if (isSingle) {
-                    const s = group[0];
-                    return (
-                      <tr key={schoolName} className="hover:bg-slate-850/30 transition">
-                        <td className="px-6 py-4 w-20">
-                          <input
-                            type="checkbox"
-                            checked={selectedSubIds.includes(s.id)}
-                            onChange={() => handleToggleSelectSub(s.id)}
-                            className="w-4 h-4 rounded border-slate-850 bg-slate-950 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                          />
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="font-bold text-white text-sm">{schoolName}</div>
-                          <div className="mt-1.5 space-y-0.5 pl-2 border-l border-slate-700/50">
-                            {group.map((sub, idx) => (
-                              <div key={idx} className="text-xs text-slate-400 flex items-center gap-1.5">
-                                <span className="text-slate-600">•</span>
-                                <span className="font-medium text-slate-350">{getCleanModuleName(sub.productId, sub.planId, sub.productName)}</span>
-                                <span className="text-[10.5px] text-slate-500 font-mono">({sub.planName || 'Standard'})</span>
-                              </div>
-                            ))}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          {slug !== '-' ? (
-                            <a 
-                              href={`https://${slug}.absenta.id`}
-                              target="_blank" 
-                              rel="noreferrer"
-                              className="px-2.5 py-1 bg-indigo-500/10 hover:bg-indigo-500/20 text-[10.5px] font-mono text-indigo-400 rounded-lg border border-indigo-500/20 transition cursor-pointer inline-block"
-                            >
-                              {slug}.absenta.id
-                            </a>
-                          ) : (
-                            <span className="text-slate-505 font-mono text-xs">-</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 font-semibold text-indigo-400">
-                          <div>{s.planName || 'Standard'}</div>
-                          <div className="text-slate-500 text-[10px] font-mono mt-0.5 uppercase tracking-wider">{s.productId}</div>
-                        </td>
-                        <td className="px-6 py-4 text-xs text-slate-300">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                            <span>{formatDateRange(s.startDate, s.endDate)}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          {s.status === 'ACTIVE' ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs font-semibold text-emerald-400">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                              Aktif
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-xs font-semibold text-red-400">
-                              <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
-                              Nonaktif
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  }
 
                   return (
                     <React.Fragment key={schoolName}>
                       <tr 
-                        className="hover:bg-slate-850/50 cursor-pointer transition"
+                        className="hover:bg-slate-850/50 cursor-pointer transition border-b border-slate-850"
                         onClick={() => toggleExpand(schoolName)}
                       >
                         <td className="px-6 py-4 flex items-center gap-2 w-20">
                           <ChevronRight className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${isExpanded ? 'rotate-90 text-indigo-400' : ''}`} />
                           <input
                             type="checkbox"
-                            checked={isGroupFullySelected(group)}
+                            checked={isGroupFullySelected(rawGroup)}
                             onChange={(e) => {
                               e.stopPropagation();
-                              handleToggleSelectGroup(group);
+                              handleToggleSelectGroup(rawGroup);
                             }}
-                            className="w-4 h-4 rounded border-slate-850 bg-slate-950 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                            className="w-4 h-4 rounded border-slate-855 bg-slate-955 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                           />
                         </td>
                         <td className="px-6 py-4">
-                          <div className="font-bold text-white text-sm">{schoolName}</div>
-                          <div className="mt-1.5 space-y-0.5 pl-2 border-l border-slate-700/50">
-                            {group.map((sub, idx) => (
-                              <div key={idx} className="text-xs text-slate-400 flex items-center gap-1.5">
-                                <span className="text-slate-600">•</span>
-                                <span className="font-medium text-slate-355">{getCleanModuleName(sub.productId, sub.planId, sub.productName)}</span>
-                                <span className="text-[10.5px] text-slate-505 font-mono">({sub.planName || 'Standard'})</span>
-                              </div>
-                            ))}
+                          <div className="flex flex-col gap-1 text-left">
+                            <span className="font-bold text-white text-sm">{schoolName}</span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-slate-800 text-[10px] text-slate-400 rounded border border-slate-750 font-mono">
+                                <Server className="w-2.5 h-2.5" /> {serverName}
+                              </span>
+                              <span className="text-[10px] text-slate-500 font-mono">
+                                Key: {licenseKey}
+                              </span>
+                            </div>
                           </div>
                         </td>
                         <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
@@ -409,14 +309,14 @@ export default function SubscriptionsList() {
                               {slug}.absenta.id
                             </a>
                           ) : (
-                            <span className="text-slate-505 font-mono text-xs">-</span>
+                            <span className="text-slate-500 font-mono text-xs">-</span>
                           )}
                         </td>
-                        <td className="px-6 py-4 font-semibold text-slate-300">
-                          {totalCount} Modul ({activeCount} Aktif)
+                        <td className="px-6 py-4 font-semibold text-slate-350">
+                          {totalCount} Paket ({activeCount} Aktif)
                         </td>
-                        <td className="px-6 py-4 text-xs text-slate-500 italic">
-                          Klik untuk detail ({totalCount} modul)
+                        <td className="px-6 py-4 text-xs text-slate-450 italic">
+                          {isExpanded ? 'Tutup Rincian' : 'Klik untuk rincian modul'}
                         </td>
                         <td className="px-6 py-4">
                           {isAnyActive ? (
@@ -436,11 +336,11 @@ export default function SubscriptionsList() {
                         <tr className="bg-slate-950/45 border-b border-slate-800">
                           <td colSpan={6} className="px-8 py-6 border-l-4 border-indigo-500">
                             <div className="space-y-4">
-                              <h4 className="text-white text-[11px] font-bold uppercase tracking-wider flex items-center gap-2 text-indigo-400">
-                                📦 Rincian Modul & Paket Langganan ({group.length})
+                              <h4 className="text-white text-[11px] font-bold uppercase tracking-wider flex items-center gap-2 text-indigo-400 text-left">
+                                📦 Rincian Paket & Langganan Sekolah ({rawGroup.length})
                               </h4>
-                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {group.map((s) => (
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-left">
+                                {rawGroup.map((s) => (
                                   <div key={s.id} className="bg-slate-900/60 border border-slate-800 p-4 rounded-xl space-y-3 relative hover:border-slate-700 transition shadow-inner">
                                     <div className="flex justify-between items-start">
                                       <div>
@@ -448,11 +348,15 @@ export default function SubscriptionsList() {
                                           {getCleanModuleName(s.productId, s.planId, s.productName)}
                                         </span>
                                         <span className="text-[10px] text-slate-500 font-mono tracking-wider uppercase">
-                                          ID: {s.productId}
+                                          Produk: {s.productId}
                                         </span>
                                       </div>
                                       
-                                      {s.status === 'ACTIVE' ? (
+                                      {s.planId === 'saas-node' ? (
+                                        <span className="px-2 py-0.5 bg-indigo-500/25 border border-indigo-500/30 text-[10px] font-bold text-indigo-300 rounded-md">
+                                          Core Server
+                                        </span>
+                                      ) : s.status === 'ACTIVE' ? (
                                         <span className="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-bold text-emerald-400 rounded-md">
                                           Aktif
                                         </span>
@@ -465,18 +369,18 @@ export default function SubscriptionsList() {
                                     
                                     <div className="border-t border-slate-850 pt-2.5 space-y-1.5 text-xs text-slate-400">
                                       <div className="flex justify-between">
-                                        <span className="text-slate-500">Paket / Edisi:</span>
+                                        <span className="text-slate-500">Edisi / Plan:</span>
                                         <span className="text-slate-200 font-semibold">{s.planName || 'Standard'}</span>
                                       </div>
                                       <div className="flex justify-between items-center">
-                                        <span className="text-slate-505">Masa Berlaku:</span>
+                                        <span className="text-slate-500">Masa Berlaku:</span>
                                         <span className="text-slate-300 font-mono text-[11px] flex items-center gap-1.5">
                                           <Calendar className="w-3.5 h-3.5 text-slate-500" />
                                           {formatDateRange(s.startDate, s.endDate)}
                                         </span>
                                       </div>
                                       <div className="flex justify-between items-center pt-1">
-                                        <span className="text-slate-505">Pilih:</span>
+                                        <span className="text-slate-500">Pilih Hapus:</span>
                                         <input
                                           type="checkbox"
                                           checked={selectedSubIds.includes(s.id)}

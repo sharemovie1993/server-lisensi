@@ -211,26 +211,16 @@ export default function TenantManager() {
                         <div className="flex items-center space-x-3">
                           <span className={`h-2.5 w-2.5 rounded-full flex-shrink-0 ${isTenantOnline(t.lastHeartbeatAt) ? 'bg-emerald-500 animate-pulse' : 'bg-slate-700'}`} title={isTenantOnline(t.lastHeartbeatAt) ? 'Online' : 'Offline'} />
                           <div className="flex items-center gap-2.5 flex-wrap">
-                            <span className="font-semibold text-white">
-                              {t.schools && t.schools.length > 1 ? '🌐 SaaS Server Node' : (t.schools && t.schools.length > 0 && typeof t.schools[0] === 'object' ? (t.schools[0] as any).name : t.schoolName)}
+                            <span className="font-semibold text-white text-xs sm:text-sm">
+                              {t.schoolName}
                             </span>
-                            {t.schools && t.schools.length > 1 ? (
-                              <button 
-                                onClick={() => toggleTenant(t.id)}
-                                className="px-2 py-0.5 bg-indigo-500/10 border border-indigo-500/20 hover:bg-indigo-500/20 text-[10px] font-bold text-indigo-400 rounded-md flex items-center gap-1 transition"
-                              >
-                                <span>{t.schools.length} Tenant</span>
-                                {expandedTenants[t.id] ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                              </button>
-                            ) : (t.dbSize || t.hostname) ? (
-                              <button 
-                                onClick={() => toggleTenant(t.id)}
-                                className="px-2 py-0.5 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-[10px] font-bold text-slate-300 rounded flex items-center gap-1 transition"
-                              >
-                                <span>Status</span>
-                                {expandedTenants[t.id] ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                              </button>
-                            ) : null}
+                            <button 
+                              onClick={() => toggleTenant(t.id)}
+                              className="px-2 py-0.5 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-[10px] font-bold text-slate-350 rounded flex items-center gap-1 transition"
+                            >
+                              <span>Detail Node</span>
+                              {expandedTenants[t.id] ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                            </button>
                           </div>
                         </div>
                       </td>
@@ -298,11 +288,11 @@ export default function TenantManager() {
                       </td>
                     </tr>
 
-                    {/* EXPANDED SYSTEM MONITOR & TENANTS DRAWER */}
+                    {/* EXPANDED SYSTEM MONITOR & TELEMETRY DRAWER */}
                     {expandedTenants[t.id] && (
                       <tr className="bg-slate-950/45 border-b border-slate-800">
                         <td colSpan={6} className="px-8 py-6 border-l-4 border-indigo-500">
-                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                          <div className="max-w-4xl">
                             
                             {/* Server Health Column */}
                             <div className="space-y-4">
@@ -310,7 +300,7 @@ export default function TenantManager() {
                                 <Activity className="w-4 h-4" /> Telemetri & Kesehatan Node Server
                               </h4>
                               
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                                 <div className="bg-slate-900/60 border border-slate-800/80 p-3.5 rounded-xl flex items-center space-x-3">
                                   <Database className="w-5 h-5 text-indigo-400 flex-shrink-0" />
                                   <div>
@@ -327,7 +317,15 @@ export default function TenantManager() {
                                   </div>
                                 </div>
 
-                                <div className="bg-slate-900/60 border border-slate-800/80 p-3.5 rounded-xl col-span-1 sm:col-span-2 space-y-1.5">
+                                <div className="bg-slate-900/60 border border-slate-800/80 p-3.5 rounded-xl flex items-center space-x-3">
+                                  <Key className="w-5 h-5 text-amber-400 flex-shrink-0" />
+                                  <div>
+                                    <span className="text-[10px] text-slate-500 block uppercase font-semibold">Total Perangkat HWID</span>
+                                    <span className="text-sm font-bold text-white font-mono">{(t as any).activeDevices ?? 0} Perangkat</span>
+                                  </div>
+                                </div>
+
+                                <div className="bg-slate-900/60 border border-slate-800/80 p-3.5 rounded-xl col-span-1 sm:col-span-3 space-y-1.5">
                                   <span className="text-[10px] text-slate-500 block uppercase font-semibold">Penggunaan Memori (RAM)</span>
                                   <div className="flex items-center gap-3">
                                     <div className="flex-1 bg-slate-800 h-2.5 rounded-full overflow-hidden">
@@ -345,8 +343,8 @@ export default function TenantManager() {
                                   </div>
                                 </div>
 
-                                {(t.hostname || t.osType) && (
-                                  <div className="bg-slate-900/60 border border-slate-800/80 p-3.5 rounded-xl col-span-1 sm:col-span-2 space-y-2 text-xs font-mono text-slate-400">
+                                {(t.hostname || t.osType || t.lastHeartbeatAt) && (
+                                  <div className="bg-slate-900/60 border border-slate-800/80 p-3.5 rounded-xl col-span-1 sm:col-span-3 space-y-2 text-xs font-mono text-slate-400">
                                     {t.hostname && <div className="flex justify-between"><span className="text-slate-500">Host:</span><span className="text-white font-bold flex items-center gap-1.5"><Cpu className="w-3.5 h-3.5 text-indigo-400" /> {t.hostname}</span></div>}
                                     {t.osType && <div className="flex justify-between"><span className="text-slate-500">Sistem Operasi:</span><span className="text-slate-300">{t.osType}</span></div>}
                                     {t.lastHeartbeatAt && <div className="flex justify-between"><span className="text-slate-500">Heartbeat Terakhir:</span><span className="text-indigo-300">{new Date(t.lastHeartbeatAt).toLocaleTimeString('id-ID')} ({new Date(t.lastHeartbeatAt).toLocaleDateString('id-ID')})</span></div>}
@@ -369,47 +367,10 @@ export default function TenantManager() {
                                         className="px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500 hover:text-slate-950 text-amber-400 font-bold font-sans text-[11px] rounded-lg transition flex items-center gap-1.5 cursor-pointer"
                                       >
                                         <RefreshCw className="w-3 h-3" />
-                                        <span>Reset Device Lock</span>
+                                        <span>Reset Device Lock / HWID Fingerprint</span>
                                       </button>
                                     </div>
                                   </div>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Tenants Column */}
-                            <div className="space-y-4">
-                              <h4 className="text-white text-[11px] font-bold uppercase tracking-wider flex items-center gap-2 text-sky-400">
-                                <Building className="w-4 h-4" /> Daftar Tenant Terdaftar ({t.schools ? t.schools.length : 0})
-                              </h4>
-                              
-                              <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-slate-800">
-                                {t.schools && t.schools.length > 0 ? (
-                                  t.schools.map((school, idx) => {
-                                    const isObj = typeof school === 'object' && school !== null;
-                                    const name = isObj ? (school as any).name : school;
-                                    const subdomain = isObj ? (school as any).subdomain : null;
-
-                                    return (
-                                      <div key={idx} className="flex justify-between items-center bg-slate-900/80 border border-slate-800 px-4 py-3 rounded-xl hover:border-indigo-500/30 transition shadow-inner">
-                                        <span className="text-slate-200 text-xs font-bold flex items-center gap-2">
-                                          <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" /> {name}
-                                        </span>
-                                        {subdomain && (
-                                          <a 
-                                            href={`https://${subdomain}.absenta.id`} 
-                                            target="_blank" 
-                                            rel="noreferrer"
-                                            className="px-2.5 py-1 bg-indigo-500/10 hover:bg-indigo-500/20 text-[10px] font-semibold font-mono text-indigo-400 rounded-lg border border-indigo-550/20 transition cursor-pointer flex items-center gap-1"
-                                          >
-                                            {subdomain}.absenta.id
-                                          </a>
-                                        )}
-                                      </div>
-                                    );
-                                  })
-                                ) : (
-                                  <div className="text-slate-500 text-xs py-4 text-center">Tidak ada child tenant terdaftar.</div>
                                 )}
                               </div>
                             </div>

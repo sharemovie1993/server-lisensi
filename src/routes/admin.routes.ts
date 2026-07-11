@@ -364,6 +364,8 @@ export const adminRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
           tenantId: realSchoolName,
           slug,
           licenseKey,
+          serverName: s.license?.schoolName || 'Server Induk',
+          server_name: s.license?.schoolName || 'Server Induk',
           product_id: normalizeProductId(s.productId),
           productId: normalizeProductId(s.productId),
           productName,
