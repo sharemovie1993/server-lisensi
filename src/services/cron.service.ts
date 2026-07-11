@@ -1,7 +1,18 @@
 import { PrismaClient } from '@prisma/client';
 import { triggerCaddySync } from './caddy.service';
+import { waGateway } from './whatsapp.service';
 
 const prisma = new PrismaClient();
+
+// Helper: try to send a WA notification, silently ignore if WA not connected
+async function sendWaNotif(phone: string | null | undefined, pesan: string): Promise<void> {
+  if (!phone) return;
+  try {
+    await waGateway.sendMessage(phone, pesan);
+  } catch (e: any) {
+    console.warn(`[CRON-WA] Gagal kirim notifikasi ke ${phone}:`, e.message);
+  }
+}
 
 export async function checkExpirations(): Promise<void> {
   console.log('[CRON] Running automatic license & subscription expiration check...');
@@ -85,74 +96,99 @@ export async function checkExpirations(): Promise<void> {
 export async function cleanupInactiveTrials(): Promise<void> {
   console.log('[CRON] Running automatic cleanup of inactive trial/test licenses...');
 
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const now = new Date();
 
-  const fourteenDaysAgo = new Date();
-  fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+  // Phase thresholds
+  const warningThreshold  = new Date(now); warningThreshold.setDate(now.getDate() - 7);   // 7 days → warning
+  const deleteThreshold   = new Date(now); deleteThreshold.setDate(now.getDate() - 14);   // 14 days → delete
+  const neverPulseDelete  = new Date(now); neverPulseDelete.setDate(now.getDate() - 7);   // never pulsed 7+ days → delete
 
   try {
-    // Find licenses that:
-    // 1. Have lastHeartbeatAt older than 14 days OR (lastHeartbeatAt is null AND createdAt older than 7 days)
-    const candidates = await prisma.license.findMany({
+    // ─────────────────────────────────────────────────────────
+    // PHASE 1: Kirim peringatan WA untuk yang sudah 7 hari tidak aktif
+    //          tapi belum mencapai 14 hari (zona peringatan)
+    // ─────────────────────────────────────────────────────────
+    const warnCandidates = await prisma.license.findMany({
       where: {
-        OR: [
-          {
-            lastHeartbeatAt: { lt: fourteenDaysAgo }
-          },
-          {
-            lastHeartbeatAt: null,
-            createdAt: { lt: sevenDaysAgo }
-          }
-        ]
+        lastHeartbeatAt: {
+          lt: warningThreshold,
+          gte: deleteThreshold,   // antara 7-14 hari
+        }
       },
-      include: {
-        invoices: true
-      }
+      include: { invoices: true }
     });
 
-    if (candidates.length === 0) {
-      console.log('[CRON] No inactive trial licenses found for cleanup.');
+    for (const lic of warnCandidates) {
+      const hasPaidInvoice = lic.invoices.some(inv => inv.status === 'paid' || inv.status === 'PAID');
+      if (hasPaidInvoice) continue;
+
+      if (lic.operatorPhone) {
+        const heartbeatAge = Math.floor((now.getTime() - new Date(lic.lastHeartbeatAt!).getTime()) / (1000 * 60 * 60 * 24));
+        const msg =
+          `⚠️ *[ABSENTA - Peringatan Lisensi Tidak Aktif]*\n\n` +
+          `Halo, Operator *${lic.schoolName}*!\n\n` +
+          `Server Absenta Anda tidak terdeteksi aktif selama *${heartbeatAge} hari*.\n` +
+          `License Key: \`${lic.licenseKey}\`\n\n` +
+          `📌 *Penting:* Jika server tidak aktif selama 14 hari, data lisensi percobaan (trial) ini akan *dihapus otomatis* oleh sistem.\n\n` +
+          `Segera nyalakan kembali server Anda atau hubungi tim teknis kami untuk mencegah penghapusan.`;
+        await sendWaNotif(lic.operatorPhone, msg);
+        console.log(`[CRON-WA] Peringatan terkirim ke operator ${lic.schoolName} (${lic.operatorPhone})`);
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // PHASE 2: Hapus lisensi yang sudah 14+ hari tidak aktif
+    //          atau yang tidak pernah heartbeat 7+ hari sejak dibuat
+    // ─────────────────────────────────────────────────────────
+    const deleteCandidates = await prisma.license.findMany({
+      where: {
+        OR: [
+          { lastHeartbeatAt: { lt: deleteThreshold } },
+          { lastHeartbeatAt: null, createdAt: { lt: neverPulseDelete } }
+        ]
+      },
+      include: { invoices: true }
+    });
+
+    if (deleteCandidates.length === 0) {
+      console.log('[CRON] No inactive trial licenses ready for deletion.');
       return;
     }
 
     let deletedCount = 0;
 
-    for (const lic of candidates) {
-      // Safety check: skip if the license has any paid invoice
+    for (const lic of deleteCandidates) {
+      // Safety: jangan hapus kalau ada invoice lunas
       const hasPaidInvoice = lic.invoices.some(inv => inv.status === 'paid' || inv.status === 'PAID');
-      if (hasPaidInvoice) {
-        continue;
-      }
+      if (hasPaidInvoice) continue;
 
       console.log(`[CRON-CLEANUP] Deleting inactive trial license: ${lic.licenseKey} for ${lic.schoolName}`);
 
-      // Delete subscriptions
-      await prisma.subscription.deleteMany({
-        where: { licenseId: lic.id }
-      });
+      // Kirim notifikasi WA penghapusan ke operator SEBELUM menghapus
+      if (lic.operatorPhone) {
+        const msg =
+          `🗑️ *[ABSENTA - Lisensi Trial Dihapus Otomatis]*\n\n` +
+          `Kepada Operator *${lic.schoolName}*,\n\n` +
+          `Data lisensi percobaan (trial) berikut telah *dihapus otomatis* oleh sistem karena tidak ada aktivitas server lebih dari 14 hari.\n\n` +
+          `License Key: \`${lic.licenseKey}\`\n` +
+          `Slug/Node: \`${lic.requestedSlug || '-'}\`\n\n` +
+          `Jika ini adalah kesalahan atau Anda ingin melanjutkan penggunaan layanan Absenta, silakan daftarkan ulang atau hubungi tim kami.\n\n` +
+          `Terima kasih. 🙏`;
+        await sendWaNotif(lic.operatorPhone, msg);
+        console.log(`[CRON-WA] Notifikasi penghapusan terkirim ke operator ${lic.schoolName} (${lic.operatorPhone})`);
+      }
 
-      // Delete invoices
-      await prisma.invoice.deleteMany({
-        where: { licenseId: lic.id }
-      });
-
-      // Delete activated devices
-      await prisma.activatedDevice.deleteMany({
-        where: { licenseId: lic.id }
-      });
-
-      // Delete license
-      await prisma.license.delete({
-        where: { id: lic.id }
-      });
+      // Hapus data secara berurutan (relasi)
+      await prisma.subscription.deleteMany({ where: { licenseId: lic.id } });
+      await prisma.invoice.deleteMany({ where: { licenseId: lic.id } });
+      await prisma.activatedDevice.deleteMany({ where: { licenseId: lic.id } });
+      await prisma.license.delete({ where: { id: lic.id } });
 
       deletedCount++;
     }
 
     if (deletedCount > 0) {
       console.log(`[CRON-CLEANUP] Successfully cleaned up ${deletedCount} inactive trial licenses.`);
-      // Sync Caddy to remove routing
       await triggerCaddySync();
     }
   } catch (err: any) {
