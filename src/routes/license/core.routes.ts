@@ -4,7 +4,8 @@ import jwt from 'jsonwebtoken';
 import {
   prisma,
   RequestBody,
-  sendLicenseWhatsAppNotification
+  sendLicenseWhatsAppNotification,
+  getProductPrefix
 } from './helpers';
 import { PRIVATE_KEY, PUBLIC_KEY } from '../../utils/keys';
 import { logLicenseActivity } from '../../utils/logger';
@@ -119,7 +120,8 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
         return `${prefix}-${rand.slice(0, 4)}-${rand.slice(4, 8)}-${rand.slice(8, 12)}`;
       };
 
-      const productPrefix = prodId === 'absenta' ? 'ABS' : (prodId === 'gform-orkestrator' ? 'GF' : 'YT');
+      // ── Ambil prefix dari DB Product secara dinamis via helper ─────────
+      const productPrefix = await getProductPrefix(prodId);
       const newKey = existingLicense ? existingLicense.licenseKey : generateKey(prodId, productPrefix);
 
       // ──────── IDEMPOTENCY CHECK FOR UNPAID INVOICES ────────

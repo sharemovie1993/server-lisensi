@@ -4,6 +4,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendLicenseWhatsAppNotification = exports.prisma = void 0;
+exports.normalizeProductId = normalizeProductId;
+exports.getProductPrefix = getProductPrefix;
 exports.formatWA = formatWA;
 exports.verifyClient = verifyClient;
 const client_1 = require("@prisma/client");
@@ -11,6 +13,34 @@ const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const whatsapp_service_1 = require("../../services/whatsapp.service");
 const keys_1 = require("../../utils/keys");
 exports.prisma = new client_1.PrismaClient();
+/**
+ * Normalisasi alias product ID yang tidak konsisten.
+ * Contoh: 'platform-absenta' → 'absenta'
+ * Tambahkan alias baru di sini jika ada produk dengan dua ID.
+ */
+function normalizeProductId(productId) {
+    const aliases = {
+        'platform-absenta': 'absenta',
+    };
+    return aliases[productId] ?? productId;
+}
+/**
+ * Ambil prefix license key dari tabel Product secara dinamis.
+ * Fallback ke 3 huruf pertama productId jika tidak ditemukan.
+ */
+async function getProductPrefix(productId) {
+    const normalizedId = normalizeProductId(productId);
+    try {
+        const product = await exports.prisma.product.findUnique({ where: { id: normalizedId } });
+        if (product?.prefix)
+            return product.prefix;
+    }
+    catch (e) {
+        console.warn(`[getProductPrefix] Gagal baca prefix '${normalizedId}':`, e.message);
+    }
+    // Fallback: 3 huruf pertama dari productId
+    return normalizedId.slice(0, 3).toUpperCase();
+}
 function formatWA(nomor) {
     if (!nomor)
         return '';

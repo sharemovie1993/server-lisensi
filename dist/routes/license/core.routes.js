@@ -93,7 +93,8 @@ const registerCoreLicenseRoutes = (fastify) => {
                 const rand = crypto_1.default.randomBytes(8).toString('hex').toUpperCase();
                 return `${prefix}-${rand.slice(0, 4)}-${rand.slice(4, 8)}-${rand.slice(8, 12)}`;
             };
-            const productPrefix = prodId === 'absenta' ? 'ABS' : (prodId === 'gform-orkestrator' ? 'GF' : 'YT');
+            // ── Ambil prefix dari DB Product secara dinamis via helper ─────────
+            const productPrefix = await (0, helpers_1.getProductPrefix)(prodId);
             const newKey = existingLicense ? existingLicense.licenseKey : generateKey(prodId, productPrefix);
             // ──────── IDEMPOTENCY CHECK FOR UNPAID INVOICES ────────
             const resolvedPaymentMethod = payment_method || 'QRIS2';

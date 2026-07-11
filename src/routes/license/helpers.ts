@@ -6,6 +6,34 @@ import { ADMIN_SECRET } from '../../utils/keys';
 
 export const prisma = new PrismaClient();
 
+/**
+ * Normalisasi alias product ID yang tidak konsisten.
+ * Contoh: 'platform-absenta' → 'absenta'
+ * Tambahkan alias baru di sini jika ada produk dengan dua ID.
+ */
+export function normalizeProductId(productId: string): string {
+  const aliases: Record<string, string> = {
+    'platform-absenta': 'absenta',
+  };
+  return aliases[productId] ?? productId;
+}
+
+/**
+ * Ambil prefix license key dari tabel Product secara dinamis.
+ * Fallback ke 3 huruf pertama productId jika tidak ditemukan.
+ */
+export async function getProductPrefix(productId: string): Promise<string> {
+  const normalizedId = normalizeProductId(productId);
+  try {
+    const product = await prisma.product.findUnique({ where: { id: normalizedId } });
+    if (product?.prefix) return product.prefix;
+  } catch (e: any) {
+    console.warn(`[getProductPrefix] Gagal baca prefix '${normalizedId}':`, e.message);
+  }
+  // Fallback: 3 huruf pertama dari productId
+  return normalizedId.slice(0, 3).toUpperCase();
+}
+
 export function formatWA(nomor: string): string {
   if (!nomor) return '';
   let clean = nomor.replace(/[^0-9]/g, '');
