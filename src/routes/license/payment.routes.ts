@@ -223,7 +223,7 @@ export const registerPaymentLicenseRoutes = (fastify: FastifyInstance) => {
       }
 
       // If it is a SaaS platform core, pull all tenant slugs from active subscriptions
-      if (coreLicense.productId === 'platform-absenta') {
+      if (normalizeProductId(coreLicense.productId) === 'cakola') {
         const platformSubs = await prisma.subscription.findMany({
           where: { licenseId: coreLicense.id },
           select: { schoolName: true }
@@ -479,7 +479,7 @@ export const registerPaymentLicenseRoutes = (fastify: FastifyInstance) => {
       if (!cleanSchoolName || cleanSchoolName === '0') {
         cleanSchoolName = inv.license?.schoolName && inv.license?.schoolName !== '0'
           ? inv.license.schoolName
-          : (inv.license?.requestedSlug ? `${inv.license.requestedSlug.toUpperCase()} (Absenta)` : 'Instansi Sekolah');
+          : (inv.license?.requestedSlug ? `${inv.license.requestedSlug.toUpperCase()} (Cakola)` : 'Instansi Sekolah');
       }
 
       const invoiceHtml = renderInvoiceTemplate({

@@ -6,6 +6,18 @@ Format: `YYYY-MM: Judul Keputusan`
 
 ---
 
+2026-07: Penyempurnaan WhatsApp Bot untuk LID JID dan Proteksi Privasi
+- **Keputusan**: (1) Membaca properti `msg.key.remoteJidAlt` pada event messages upsert Baileys untuk memetakan LID ID pengirim (`@lid`) ke nomor telepon aslinya (`@s.whatsapp.net`). (2) Menambahkan aturan silent return di mana bot akan diam sepenuhnya (tidak membalas) jika nomor pengirim tidak terdaftar sebagai operator lisensi yang sah di PostgreSQL.
+- **Rasional**: Akun WhatsApp pribadi yang digunakan sebagai gateway menerima pesan masuk dari LID yang tidak dikenal oleh memori sesi instan, menyebabkan kegagalan respon bot. Aturan silent return menjamin bot tidak mengganggu chat pribadi dari kontak biasa (non-operator).
+
+2026-07: Redesign UI Pemisahan Tanggung Jawab (Server Centric vs Tenant Centric)
+- **Keputusan**: Mendesain ulang antarmuka admin panel dengan memisahkan halaman menjadi Server Centric (Daftar Server) yang murni menampilkan status telemetri hardware, status online/offline, hardware fingerprint terdaftar (HWID), aksi reset, dan deployment mode; serta Tenant Centric (Daftar Sekolah) yang flat menampilkan list sekolah, subdomain, server asal, detail paket modul yang dibeli, masa aktif, dan status modul.
+- **Rasional**: Mencegah kerancuan data antara entitas fisik (server node) dan entitas bisnis (sekolah/tenant) di mana satu server fisik bisa melayani banyak tenant sekolah, sekaligus menyederhanakan visualisasi metrik server dari list bisnis.
+
+2026-07: Migrasi dan Normalisasi ID Produk dari 'absenta' ke 'cakola'
+- **Keputusan**: Mengubah primary key produk `'absenta'` menjadi `'cakola'` (Platform Catat dan Kelola) menggunakan raw SQL transaction dengan constraint deferred, serta memperbarui seeder dan menambahkan normalisasi safety net (`'absenta'` & `'platform-absenta'` → `'cakola'`).
+- **Rasional**: Perubahan nama produk secara resmi membutuhkan pembaruan skema data. Pemasangan normalisasi safety net menjamin client lawas (node sekolah) yang masih mengirim payload `'absenta'` tidak mengalami kegagalan handshake lisensi.
+
 2026-07: Fase 2 — Feature Control via featuresJson di JWT Token
 - **Keputusan**: Field `features` (array string dari `Plan.featuresJson`) dimasukkan ke dalam payload JWT token saat aktivasi lisensi, dan dikembalikan di response `GET /api/license/check/:key`. Filter per-produk di admin panel menggunakan state `selectedProductId` yang sudah tersedia.
 - **Rasional**: Memungkinkan aplikasi client (node sekolah) membaca daftar fitur yang diizinkan langsung dari token yang sudah ter-sign, tanpa perlu request tambahan ke server lisensi. Ini membuat enforcement fitur bisa berjalan secara offline dan aman (token tidak bisa dimanipulasi tanpa private key).

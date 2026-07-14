@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '../api/apiClient';
-import { Calendar, ShieldAlert, CheckCircle, RefreshCw, Search, ChevronRight, Server } from 'lucide-react';
+import { Calendar, ShieldAlert, CheckCircle, RefreshCw, Search, ChevronRight, Server, ExternalLink } from 'lucide-react';
 
 interface Subscription {
   id: string;
@@ -16,6 +16,7 @@ interface Subscription {
   slug?: string;
   licenseKey?: string;
   serverName?: string;
+  serverLastHeartbeatAt?: string | null;
 }
 
 const getCleanModuleName = (productId?: string, planId?: string, productName?: string) => {
@@ -229,21 +230,19 @@ export default function SubscriptionsList() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-800 bg-slate-950 text-slate-400 text-xs font-semibold uppercase tracking-wider">
-                <th className="px-6 py-4 w-20">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={filteredSubs.length > 0 && filteredSubs.every(s => selectedSubIds.includes(s.id))}
-                      onChange={handleToggleSelectAll}
-                      className="w-4 h-4 rounded border-slate-850 bg-slate-950 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                    />
-                  </div>
+                <th className="px-4 py-4 w-10 text-center"></th>
+                <th className="px-4 py-4 w-10 text-center">
+                  <input
+                    type="checkbox"
+                    checked={filteredSubs.length > 0 && filteredSubs.every(s => selectedSubIds.includes(s.id))}
+                    onChange={handleToggleSelectAll}
+                    className="w-4 h-4 rounded border-slate-850 bg-slate-950 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                  />
                 </th>
-                <th className="px-6 py-4">Sekolah & Node Server</th>
+                <th className="px-6 py-4">Sekolah</th>
                 <th className="px-6 py-4">Domain Akses</th>
                 <th className="px-6 py-4">Ringkasan Paket</th>
-                <th className="px-6 py-4">Detail</th>
-                <th className="px-6 py-4">Status Sekolah</th>
+                <th className="px-6 py-4 text-right">Server / Node</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800 text-slate-300 text-sm">
@@ -257,24 +256,37 @@ export default function SubscriptionsList() {
                 Object.entries(groupedSubs).map(([schoolName, rawGroup]) => {
                   const isExpanded = !!expandedSchools[schoolName];
                   
-                  // Extract server node details from first item
+                  // Extract server node details
                   const sampleItem = rawGroup[0];
                   const slug = rawGroup.find(s => s.slug)?.slug || sampleItem?.slug || '-';
                   const serverName = sampleItem?.serverName || 'Server Induk';
-                  const licenseKey = sampleItem?.licenseKey || 'N/A';
-
+                  
+                  // Dapatkan heartbeat terbaru dari seluruh modul di grup sekolah ini
+                  const getGroupHeartbeat = () => {
+                    const validHeartbeats = rawGroup
+                      .map(s => s.serverLastHeartbeatAt)
+                      .filter(Boolean) as string[];
+                    if (validHeartbeats.length === 0) return null;
+                    const times = validHeartbeats.map(h => new Date(h).getTime());
+                    return new Date(Math.max(...times)).toISOString();
+                  };
+                  const latestHeartbeat = getGroupHeartbeat();
+                  const isServerOnline = latestHeartbeat 
+                    ? (Date.now() - new Date(latestHeartbeat).getTime() < 5 * 60 * 1000) 
+                    : false;
+ 
                   const activeCount = rawGroup.filter(s => s.status === 'ACTIVE').length;
-                  const totalCount = rawGroup.length;
-                  const isAnyActive = activeCount > 0;
-
+ 
                   return (
                     <React.Fragment key={schoolName}>
                       <tr 
                         className="hover:bg-slate-850/50 cursor-pointer transition border-b border-slate-850"
                         onClick={() => toggleExpand(schoolName)}
                       >
-                        <td className="px-6 py-4 flex items-center gap-2 w-20">
-                          <ChevronRight className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${isExpanded ? 'rotate-90 text-indigo-400' : ''}`} />
+                        <td className="px-4 py-4 text-center w-10">
+                          <ChevronRight className={`w-4 h-4 mx-auto text-slate-500 transition-transform duration-200 ${isExpanded ? 'rotate-90 text-indigo-400' : ''}`} />
+                        </td>
+                        <td className="px-4 py-4 text-center w-10" onClick={(e) => e.stopPropagation()}>
                           <input
                             type="checkbox"
                             checked={isGroupFullySelected(rawGroup)}
@@ -286,17 +298,7 @@ export default function SubscriptionsList() {
                           />
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex flex-col gap-1 text-left">
-                            <span className="font-bold text-white text-sm">{schoolName}</span>
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-slate-800 text-[10px] text-slate-400 rounded border border-slate-750 font-mono">
-                                <Server className="w-2.5 h-2.5" /> {serverName}
-                              </span>
-                              <span className="text-[10px] text-slate-500 font-mono">
-                                Key: {licenseKey}
-                              </span>
-                            </div>
-                          </div>
+                          <span className="font-bold text-white text-sm text-left block">{schoolName}</span>
                         </td>
                         <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                           {slug !== '-' ? (
@@ -304,32 +306,54 @@ export default function SubscriptionsList() {
                               href={`https://${slug}.absenta.id`}
                               target="_blank" 
                               rel="noreferrer"
-                              className="px-2.5 py-1 bg-indigo-500/10 hover:bg-indigo-500/20 text-[10.5px] font-mono text-indigo-400 rounded-lg border border-indigo-500/20 transition cursor-pointer inline-block"
+                              className="px-2.5 py-1 bg-indigo-500/10 hover:bg-indigo-500/20 text-[10.5px] font-mono text-indigo-400 rounded-lg border border-indigo-500/20 transition cursor-pointer flex items-center gap-1 w-fit group"
+                              title="Buka portal sekolah online"
                             >
-                              {slug}.absenta.id
+                              <span>{slug}.absenta.id</span>
+                              <ExternalLink className="w-2.5 h-2.5 text-indigo-500/70 group-hover:text-indigo-400 transition" />
                             </a>
                           ) : (
                             <span className="text-slate-500 font-mono text-xs">-</span>
                           )}
                         </td>
-                        <td className="px-6 py-4 font-semibold text-slate-350">
-                          {totalCount} Paket ({activeCount} Aktif)
-                        </td>
-                        <td className="px-6 py-4 text-xs text-slate-450 italic">
-                          {isExpanded ? 'Tutup Rincian' : 'Klik untuk rincian modul'}
-                        </td>
                         <td className="px-6 py-4">
-                          {isAnyActive ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs font-semibold text-emerald-400">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                              Aktif
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-xs font-semibold text-red-400">
-                              <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
-                              Nonaktif
-                            </span>
-                          )}
+                          <div className="flex flex-col gap-1 text-left">
+                            {rawGroup.map(s => {
+                              const isAct = s.status === 'ACTIVE';
+                              const moduleName = getCleanModuleName(s.productId, s.planId, s.productName);
+                              const planLabel = s.planName || 'Standard';
+                              return (
+                                <span key={s.id} className="text-xs font-semibold flex items-center gap-1.5 flex-wrap">
+                                  <span className={`w-1.5 h-1.5 rounded-full ${isAct ? 'bg-emerald-500 animate-pulse' : 'bg-slate-600'}`} />
+                                  <span className="text-slate-200">
+                                    {moduleName} <span className="text-slate-500 font-normal">- {planLabel}</span>
+                                  </span>
+                                  <span className={`text-[9px] font-mono font-bold px-1 py-0.5 rounded leading-none ${isAct ? 'text-emerald-400 bg-emerald-950/20 border border-emerald-900/10' : 'text-slate-500 bg-slate-950/30'}`}>
+                                    ({isAct ? 'Aktif' : 'Nonaktif'})
+                                  </span>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="inline-flex justify-end items-center">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSearchQuery(serverName);
+                              }}
+                              className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] rounded border font-mono transition hover:scale-105 active:scale-95 cursor-pointer ${
+                                isServerOnline 
+                                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 font-bold' 
+                                  : 'bg-slate-800 border-slate-750 text-slate-400'
+                              }`}
+                              title={isServerOnline ? `Server: ${serverName} (ONLINE) | Klik untuk memfilter` : `Server: ${serverName} (OFFLINE) | Klik untuk memfilter`}
+                            >
+                              <Server className="w-3 h-3 flex-shrink-0" />
+                              <span>{serverName}</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                       {isExpanded && (

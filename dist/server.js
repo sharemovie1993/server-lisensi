@@ -54,7 +54,7 @@ async function startServer() {
     // Start cron checks and Caddy configuration sync
     await (0, caddy_service_1.triggerCaddySync)().catch(err => console.error('[CADDY SYNC ERROR]', err));
     await (0, cron_service_1.checkExpirations)();
-    setInterval(cron_service_1.checkExpirations, 30 * 1000); // 30s quick testing loop
+    setInterval(cron_service_1.checkExpirations, 24 * 60 * 60 * 1000); // 24 hours daily cron loop
     // Initialize Firewall rules
     if (process.platform === 'linux') {
         initVpnFirewall();

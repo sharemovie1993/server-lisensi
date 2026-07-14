@@ -128,6 +128,32 @@ class WhatsappService extends EventEmitter {
 
     this.sock.ev.on('creds.update', saveCreds);
 
+    this.sock.ev.on('contacts.upsert', (contacts: any) => {
+      try {
+        const { registerLidMapping } = require('./wa-bot.service');
+        for (const contact of contacts) {
+          if (contact.id && contact.lid) {
+            registerLidMapping(contact.lid, contact.id);
+          }
+        }
+      } catch (err: any) {
+        console.error('[WA] Error in contacts.upsert listener:', err.message);
+      }
+    });
+
+    this.sock.ev.on('contacts.update', (contacts: any) => {
+      try {
+        const { registerLidMapping } = require('./wa-bot.service');
+        for (const contact of contacts) {
+          if (contact.id && contact.lid) {
+            registerLidMapping(contact.lid, contact.id);
+          }
+        }
+      } catch (err: any) {
+        console.error('[WA] Error in contacts.update listener:', err.message);
+      }
+    });
+
     // ── Interactive bot: listen to incoming messages ──────────────────────
     this.sock.ev.on('messages.upsert', async ({ messages, type }: any) => {
       if (type !== 'notify') return;
@@ -136,6 +162,7 @@ class WhatsappService extends EventEmitter {
         if (!msg.message) continue;
 
         const fromJid: string = msg.key.remoteJid || '';
+        const altJid: string = msg.key.remoteJidAlt || fromJid;
         const text: string =
           msg.message?.conversation ||
           msg.message?.extendedTextMessage?.text ||
@@ -143,12 +170,13 @@ class WhatsappService extends EventEmitter {
 
         if (!text.trim()) continue;
 
-        console.log(`[WA-BOT] Pesan masuk dari ${fromJid}: "${text.trim()}"`);
+        console.log(`[WA-BOT] Pesan masuk dari ${fromJid} (Alt: ${altJid}): "${text.trim()}"`);
+        console.log(`[WA-BOT] Debug MSG:`, JSON.stringify({ key: msg.key, participant: msg.participant, pushName: msg.pushName }));
 
-        // Delegate to bot engine
-        await handleIncomingMessage(fromJid, text, async (toJid, pesan) => {
+        // Delegate to bot engine - use altJid for session resolution, but reply to fromJid
+        await handleIncomingMessage(altJid, text, async (_toJid, pesan) => {
           try {
-            await this.sock.sendMessage(toJid, { text: pesan });
+            await this.sock.sendMessage(fromJid, { text: pesan });
             this.messagesSentToday++;
           } catch (e: any) {
             this.messagesFailedToday++;
@@ -184,9 +212,18 @@ class WhatsappService extends EventEmitter {
 
     const jid = cleaned + '@s.whatsapp.net';
     try {
-      await this.sock.sendMessage(jid, { text: pesan });
+      const sentMsg = await this.sock.sendMessage(jid, { text: pesan });
       this.messagesSentToday++;
       console.log(`[WA] Pesan terkirim ke ${nomor} (JID: ${jid})`);
+
+      // Resolve dynamic LID mapping if returned from server
+      if (sentMsg && sentMsg.key && sentMsg.key.remoteJid) {
+        const actualJid = sentMsg.key.remoteJid;
+        if (actualJid.endsWith('@lid')) {
+          const { registerLidMapping } = require('./wa-bot.service');
+          registerLidMapping(actualJid, nomor);
+        }
+      }
       return true;
     } catch (err: any) {
       this.messagesFailedToday++;

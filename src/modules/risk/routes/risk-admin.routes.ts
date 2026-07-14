@@ -40,7 +40,7 @@ export async function riskAdminRoutes(fastify: FastifyInstance) {
         // Compile the list of all matching tenant slugs
         const matchingSlugs: string[] = [];
         for (const lic of matchingLicenses) {
-          if (lic.productId === 'platform-absenta') {
+          if (normalizeProductId(lic.productId) === 'cakola') {
             const licenseSubs = subscriptions.filter(s => s.licenseId === lic.id);
             for (const sub of licenseSubs) {
               const slug = sub.schoolName.includes('|') ? sub.schoolName.split('|')[1].trim().toLowerCase() : '';
@@ -74,7 +74,7 @@ export async function riskAdminRoutes(fastify: FastifyInstance) {
         }> = [];
 
         for (const license of matchingLicenses) {
-          if (license.productId === 'platform-absenta') {
+          if (normalizeProductId(license.productId) === 'cakola') {
             const licenseSubs = subscriptions.filter(s => s.licenseId === license.id);
             if (licenseSubs.length > 0) {
               const seenNames = new Set<string>();

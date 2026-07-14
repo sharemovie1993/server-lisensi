@@ -33,6 +33,9 @@ interface PendingSession {
 // Key: cleaned phone number (e.g. "6281234567890")
 const pendingSessions = new Map<string, PendingSession>();
 
+// Mapping untuk WhatsApp LID (List Identifier) ke nomor HP
+const lidToPhoneMap = new Map<string, string>();
+
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 jam
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
@@ -50,6 +53,16 @@ function formatPhone(nomor: string): string {
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
+
+/**
+ * Daftarkan mapping LID ke nomor telepon asli.
+ */
+export function registerLidMapping(lidJidOrId: string, phone: string): void {
+  const cleanLid = lidJidOrId.replace(/@.*$/, '').replace(/[^0-9]/g, '');
+  const cleanPh = cleanPhone(phone);
+  lidToPhoneMap.set(cleanLid, cleanPh);
+  console.log(`[WA-BOT] Mapped LID: ${cleanLid} -> Phone: ${cleanPh}`);
+}
 
 /**
  * Daftarkan sesi interaktif untuk satu lisensi.
@@ -84,21 +97,36 @@ export async function handleIncomingMessage(
   text: string,
   sendReply: (to: string, msg: string) => Promise<void>
 ): Promise<void> {
-  const phone = formatPhone(fromJid);
+  const cmd = text.trim();
+  let phone = formatPhone(fromJid);
+
+  // Jika ini LID JID, coba resolve ke nomor telepon asli dari map
+  if (fromJid.endsWith('@lid')) {
+    const mappedPhone = lidToPhoneMap.get(phone);
+    if (mappedPhone) {
+      console.log(`[WA-BOT] Resolved LID: ${phone} -> Phone: ${mappedPhone}`);
+      phone = mappedPhone;
+    }
+  }
+
   const session = pendingSessions.get(phone);
 
-  if (!session) return; // bukan sesi bot yang aktif
+  if (!session) {
+    // Jika tidak ada sesi interaktif aktif, periksa apakah ini kueri info lisensi organik
+    await handleOrganicQuery(fromJid, phone, cmd, sendReply);
+    return;
+  }
 
   // Cek apakah sesi sudah kadaluwarsa
   if (Date.now() > session.expiresAt) {
     pendingSessions.delete(phone);
     await sendReply(fromJid,
-      `⏰ *Sesi habis waktu.*\n\nSilakan tunggu notifikasi berikutnya dari sistem Absenta.`
+      `⏰ *Sesi habis waktu.*\n\nSilakan tunggu notifikasi berikutnya dari sistem Cakola.`
     );
     return;
   }
 
-  const cmd = text.trim();
+
 
   if (cmd === '1') {
     // ── Operator konfirmasi: server masih dipakai ─────────────────────────
@@ -134,7 +162,7 @@ export async function handleIncomingMessage(
       `📋 *Terima kasih atas konfirmasinya.*\n\n` +
       `Server *${session.schoolName}* telah ditandai sebagai *tidak aktif*.\n` +
       `Data lisensi ini akan dibersihkan otomatis oleh sistem dalam waktu dekat.\n\n` +
-      `Jika Anda ingin menggunakan Absenta kembali di masa mendatang, silakan hubungi tim kami. 😊`
+      `Jika Anda ingin menggunakan Cakola kembali di masa mendatang, silakan hubungi tim kami. 😊`
     );
 
   } else if (cmd === '3') {
@@ -158,7 +186,7 @@ export async function handleIncomingMessage(
         `✅ *Berhasil dihapus!*\n\n` +
         `Data lisensi *${session.schoolName}* (\`${session.licenseKey}\`) telah dihapus dari sistem.\n\n` +
         `Subdomain \`${session.requestedSlug || '-'}\` juga telah dilepas.\n\n` +
-        `Terima kasih telah menggunakan Absenta! 🙏`
+        `Terima kasih telah menggunakan Cakola! 🙏`
       );
     } catch (err: any) {
       console.error('[WA-BOT] Gagal hapus lisensi via bot:', err.message);
@@ -183,9 +211,9 @@ export function buildWarningMessage(
   heartbeatAgeDays: number
 ): string {
   return (
-    `⚠️ *[ABSENTA — Peringatan Server Tidak Aktif]*\n\n` +
+    `⚠️ *[CAKOLA — Peringatan Server Tidak Aktif]*\n\n` +
     `Halo, Operator *${schoolName}*! 👋\n\n` +
-    `Server Absenta Anda tidak terdeteksi aktif selama *${heartbeatAgeDays} hari*.\n` +
+    `Server Cakola Anda tidak terdeteksi aktif selama *${heartbeatAgeDays} hari*.\n` +
     `License Key: \`${licenseKey}\`\n\n` +
     `📌 Jika server tidak aktif selama *14 hari*, data lisensi ini akan *dihapus otomatis*.\n\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
@@ -208,12 +236,12 @@ export function buildDeletionMessage(
   requestedSlug: string | null
 ): string {
   return (
-    `🗑️ *[ABSENTA — Lisensi Trial Dihapus Otomatis]*\n\n` +
+    `🗑️ *[CAKOLA — Lisensi Trial Dihapus Otomatis]*\n\n` +
     `Kepada Operator *${schoolName}*,\n\n` +
     `Data lisensi percobaan berikut telah *dihapus otomatis* oleh sistem karena tidak ada aktivitas server lebih dari 14 hari.\n\n` +
     `License Key: \`${licenseKey}\`\n` +
     `Slug/Node: \`${requestedSlug || '-'}\`\n\n` +
-    `Jika ini kesalahan atau Anda ingin melanjutkan layanan Absenta, silakan hubungi tim kami.\n\n` +
+    `Jika ini kesalahan atau Anda ingin melanjutkan layanan Cakola, silakan hubungi tim kami.\n\n` +
     `Terima kasih. 🙏`
   );
 }
@@ -229,4 +257,87 @@ function buildMenuMessage(schoolName: string, licenseKey: string): string {
     `3️⃣  *3* — Hapus sekarang\n\n` +
     `_Sesi aktif selama 24 jam sejak pesan pertama._`
   );
+}
+
+/**
+ * Tangani kueri interaktif organik dari operator (misal cek status lisensi).
+ */
+async function handleOrganicQuery(
+  fromJid: string,
+  phone: string,
+  cmd: string,
+  sendReply: (to: string, msg: string) => Promise<void>
+): Promise<void> {
+  const query = cmd.toLowerCase().trim();
+  const triggerKeywords = ['cek', 'lisensi', 'info', 'status', 'menu', 'help'];
+  
+  // Cek apakah pesan masuk mengandung kata kunci pemicu
+  const isTriggered = triggerKeywords.some(kw => query.includes(kw));
+  if (!isTriggered) return;
+
+  console.log(`[WA-BOT] Memproses kueri organik dari ${phone}: "${cmd}"`);
+
+  try {
+    const formattedPhone = cleanPhone(phone);
+    const altPhone = formattedPhone.startsWith('62') 
+      ? '0' + formattedPhone.slice(2) 
+      : '62' + formattedPhone.slice(1);
+
+    const licenses = await prisma.license.findMany({
+      where: {
+        OR: [
+          { operatorPhone: phone },
+          { operatorPhone: formattedPhone },
+          { operatorPhone: altPhone }
+        ]
+      },
+      include: {
+        activatedDevices: true
+      }
+    });
+
+    // PRIVACY PROTECTOR: Jika nomor pengirim tidak terdaftar sebagai operator lisensi,
+    // langsung keluar secara diam-diam (silent return) tanpa membalas apa pun.
+    // Ini menjamin percakapan WA pribadi Anda dengan teman/keluarga tidak akan pernah terganggu bot.
+    if (licenses.length === 0) {
+      return;
+    }
+
+    console.log(`[WA-BOT] Memproses kueri organik dari ${phone}: "${cmd}"`);
+
+    let msg = `🤖 *[ASISTEN CAKOLA — Daftar Lisensi Anda]*\n\n` +
+              `Halo! Berikut adalah lisensi yang terdaftar atas nomor Anda:\n\n`;
+
+    licenses.forEach((lic, idx) => {
+      const statusIcon = lic.status === 'active' || lic.isActive === 1 ? '🟢' : '🔴';
+      const expiresDisplay = lic.expiresAt ? lic.expiresAt : '-';
+      const hostDisplay = lic.activeHostname ? `\`${lic.activeHostname}\`` : 'Belum terpasang';
+      const ipDisplay = lic.wireguardIp ? ` (IP: ${lic.wireguardIp})` : '';
+      const domainDisplay = lic.customDomain ? `\n   • Domain: \`${lic.customDomain}\`` : '';
+      const devicesCount = lic.activatedDevices ? lic.activatedDevices.length : 0;
+      
+      let deployDisplay = 'Belum terdeteksi';
+      if (lic.deployMode) {
+        deployDisplay = lic.deployMode.toUpperCase();
+      }
+
+      msg += `${idx + 1}. *${lic.schoolName}*\n` +
+             `   • Key: \`${lic.licenseKey}\`\n` +
+             `   • Produk: *${lic.productId.toUpperCase()}*\n` +
+             `   • Status: ${statusIcon} ${lic.status.toUpperCase()}\n` +
+             `   • Masa Aktif: ${expiresDisplay}\n` +
+             `   • Mode Deploy: ${deployDisplay}\n` +
+             `   • Server Node: ${hostDisplay}${ipDisplay}${domainDisplay}\n` +
+             `   • Perangkat Terikat: ${devicesCount} / ${lic.deviceLimit} perangkat\n\n`;
+    });
+
+    msg += `Gunakan menu interaktif jika menerima peringatan otomatis untuk mengelola pembersihan trial Anda. Terima kasih! 🙏`;
+
+    await sendReply(fromJid, msg);
+  } catch (err: any) {
+    console.error('[WA-BOT] Gagal memproses kueri organik:', err.message);
+    await sendReply(fromJid,
+      `❌ *Gagal mengambil data lisensi.*\n\nTerjadi kesalahan internal: ${err.message}`
+    );
+  }
 }

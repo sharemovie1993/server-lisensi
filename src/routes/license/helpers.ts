@@ -144,3 +144,52 @@ Terima kasih telah menggunakan layanan kami!`;
     console.error('[WA Notification Error]', err.message);
   }
 };
+
+export const sendPrivateerTopUpNotification = async (
+  phone: string,
+  studentName: string,
+  className: string,
+  planName: string,
+  invoiceNum: string,
+  amount: number,
+  paymentMethod: string,
+  status: 'paid' | 'unpaid',
+  payCode?: string | null,
+  qrUrl?: string | null
+) => {
+  try {
+    const amountFormatted = `Rp ${amount.toLocaleString('id-ID')}`;
+    
+    let paymentStatusNotes = '';
+    if (status === 'paid') {
+      paymentStatusNotes = '*Status*: ✅ *PEMBAYARAN BERHASIL* (Saldo Sesi Bertambah)';
+    } else {
+      paymentStatusNotes = `*Status*: ⚠️ *MENUNGGU PEMBAYARAN*\n`;
+      if (payCode) paymentStatusNotes += `*Kode Bayar / VA*: *${payCode}*\n`;
+      if (qrUrl) paymentStatusNotes += `*QR Code Link*: ${qrUrl}\n`;
+      paymentStatusNotes += `Silakan lakukan pembayaran melalui metode ${paymentMethod} agar sesi belajar dapat segera diklaim.`;
+    }
+
+    const message = `*💎 [Privateer] TOP-UP SESI BELAJAR*
+
+Halo *${studentName}*! Pengajuan top-up sesi belajar Anda telah berhasil diproses.
+
+* Detail Top-up:
+- *Nama Siswa*: ${studentName}
+- *Kelas*: ${className}
+- *Paket*: ${planName}
+
+----------------------------------
+*Rincian Tagihan:*
+- *Nomor Invoice*: *${invoiceNum}*
+- *Total Biaya*: *${amountFormatted}*
+- *Metode Pembayaran*: *${paymentMethod}*
+${paymentStatusNotes}
+
+Terima kasih telah belajar bersama Privateer!`;
+
+    await waGateway.sendMessage(phone, message);
+  } catch (err: any) {
+    console.error('[WA Privateer Notification Error]', err.message);
+  }
+};

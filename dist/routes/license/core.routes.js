@@ -1160,7 +1160,7 @@ const registerCoreLicenseRoutes = (fastify) => {
         try {
             const cleanSchoolName = school_name.trim();
             const cleanSubdomain = subdomain.trim().toLowerCase();
-            const pesan = `*Registrasi Absenta Berhasil!* 🚀\n\nHalo, sekolah Anda *${cleanSchoolName}* telah berhasil terdaftar pada sistem Absenta.\n\nBerikut adalah detail akun Administrator Anda:\n- *Subdomain:* ${cleanSubdomain}.absenta.id\n- *Email:* ${admin_email}\n- *Password:* ${admin_password}\n\nMohon simpan informasi ini baik-baik dan jangan dibagikan kepada pihak lain.`;
+            const pesan = `*Registrasi Cakola Berhasil!* 🚀\n\nHalo, sekolah Anda *${cleanSchoolName}* telah berhasil terdaftar pada sistem Cakola.\n\nBerikut adalah detail akun Administrator Anda:\n- *Subdomain:* ${cleanSubdomain}.absenta.id\n- *Email:* ${admin_email}\n- *Password:* ${admin_password}\n\nMohon simpan informasi ini baik-baik dan jangan dibagikan kepada pihak lain.`;
             let sent = false;
             try {
                 sent = await whatsapp_service_1.waGateway.sendMessage(admin_phone.trim(), pesan);
