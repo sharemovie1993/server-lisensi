@@ -100,11 +100,14 @@ export const sendLicenseWhatsAppNotification = async (
 ) => {
   try {
     const amountFormatted = amount === 0 ? 'Rp 0 (Gratis)' : `Rp ${amount.toLocaleString('id-ID')}`;
-    const productLabel = normalizeProductId(prodId) === 'cakola' ? 'Platform Cakola' : (normalizeProductId(prodId) === 'easy-tunnel' ? 'Easy Tunnel' : prodId.toUpperCase());
+    const normalizedId = normalizeProductId(prodId);
+    const isPrivateer = normalizedId === 'privateer';
+    
+    const productLabel = normalizedId === 'cakola' ? 'Platform Cakola' : (normalizedId === 'easy-tunnel' ? 'Easy Tunnel' : (isPrivateer ? 'Privateer' : prodId.toUpperCase()));
     
     let paymentStatusNotes = '';
     if (status === 'paid') {
-      paymentStatusNotes = '*Status*: ✅ *LUNAS* (Lisensi Aktif)';
+      paymentStatusNotes = `*Status*: ✅ *${isPrivateer ? 'PEMBAYARAN BERHASIL' : 'LUNAS'}* (${isPrivateer ? 'Saldo Sesi Bertambah' : 'Lisensi Aktif'})`;
     } else {
       paymentStatusNotes = `*Status*: ⚠️ *MENUNGGU PEMBAYARAN*\n`;
       if (paymentMethod.toLowerCase() === 'manual') {
@@ -120,7 +123,31 @@ export const sendLicenseWhatsAppNotification = async (
       }
     }
 
-    const message = `*🔑 [Platform Cakola] PENGAJUAN LISENSI BARU*
+    let message = '';
+    if (isPrivateer) {
+      // Branding Privateer (Gaya Guru TK & Tanpa Kata Lisensi)
+      const parts = schoolName.split('|').map(p => p.trim());
+      const studentName = parts[0] || schoolName;
+      
+      message = `*💎 [Privateer] TOP-UP SESI BELAJAR*
+
+Halo Kakak *${studentName}* yang hebat! 👋
+Wah, asyik sekali! Ada pengajuan top-up sesi belajar baru nih. Yuk, segera selesaikan pembayarannya agar kita bisa belajar bareng lagi! 🤗
+
+*✨ Detail Belajar:*
+- *Nama Siswa*: ${studentName}
+- *Paket*: ${planName}
+
+*💳 Rincian Tagihan:*
+- *Nomor Invoice*: *${invoiceNum}*
+- *Total Biaya*: *${amountFormatted}*
+- *Metode*: ${paymentMethod}
+${paymentStatusNotes}
+
+Terima kasih ya sudah rajin belajar di Privateer. Semangat terus! ✨🚀`;
+    } else {
+      // Branding Standard Cakola
+      message = `*🔑 [Platform Cakola] PENGAJUAN LISENSI BARU*
 
 Halo! Pengajuan lisensi server Anda telah berhasil diproses. Berikut adalah rincian lisensi Anda:
 
@@ -138,6 +165,7 @@ Halo! Pengajuan lisensi server Anda telah berhasil diproses. Berikut adalah rinc
 ${paymentStatusNotes}
 
 Terima kasih telah menggunakan layanan kami!`;
+    }
 
     await waGateway.sendMessage(phone, message);
   } catch (err: any) {
@@ -170,23 +198,23 @@ export const sendPrivateerTopUpNotification = async (
       paymentStatusNotes += `Silakan lakukan pembayaran melalui metode ${paymentMethod} agar sesi belajar dapat segera diklaim.`;
     }
 
-    const message = `*💎 [Privateer] TOP-UP SESI BELAJAR*
+    const message = `*💎 [Privateer] TOP-UP SESI BELAJAR BERHASIL*
 
-Halo *${studentName}*! Pengajuan top-up sesi belajar Anda telah berhasil diproses.
+Halo Kakak *${studentName}* yang hebat! 👋
+Wah, asyik sekali! Top-up sesi belajar kamu sudah berhasil diproses nih. Kakak Guru sudah tidak sabar untuk belajar bareng kamu lagi! 🤗
 
-* Detail Top-up:
+*✨ Detail Belajar Kamu:*
 - *Nama Siswa*: ${studentName}
 - *Kelas*: ${className}
 - *Paket*: ${planName}
 
-----------------------------------
-*Rincian Tagihan:*
-- *Nomor Invoice*: *${invoiceNum}*
+*💳 Rincian Pembayaran:*
+- *No. Invoice*: *${invoiceNum}*
 - *Total Biaya*: *${amountFormatted}*
-- *Metode Pembayaran*: *${paymentMethod}*
+- *Metode*: ${paymentMethod}
 ${paymentStatusNotes}
 
-Terima kasih telah belajar bersama Privateer!`;
+Terima kasih ya sudah rajin belajar di Privateer. Kalau ada yang bingung atau butuh bantuan, jangan sungkan chat Kakak Admin ya! Semangat terus belajarnya! ✨🚀`;
 
     await waGateway.sendMessage(phone, message);
   } catch (err: any) {

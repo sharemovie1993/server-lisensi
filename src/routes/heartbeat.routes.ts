@@ -93,26 +93,29 @@ export const heartbeatRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
                 data: { schoolName: `${plainName}|${t.subdomain}` }
               });
 
-              // Cascade update requestedSlug of licenses under this slug (easy-tunnel / VPN)
-              if (currentSubdomain) {
-                const oldSlug = currentSubdomain.toLowerCase();
-                const newSlug = t.subdomain.trim().toLowerCase();
-                if (oldSlug !== newSlug) {
-                  await prisma.license.updateMany({
-                    where: { requestedSlug: oldSlug },
-                    data: { requestedSlug: newSlug }
-                  });
-                  console.log(`[Heartbeat-SlugSync] Cascaded requestedSlug update from "${oldSlug}" to "${newSlug}"`);
-                  
-                  // Trigger Caddy reload to regenerate routing
-                  try {
-                    const { triggerCaddySync } = require('../services/caddy.service');
-                    await triggerCaddySync();
-                  } catch (caddyErr: any) {
-                    console.error('[Heartbeat-SlugSync] Failed to sync Caddy:', caddyErr.message);
+                  // Cascade update requestedSlug of licenses under this slug (easy-tunnel / VPN)
+                  if (currentSubdomain) {
+                    const oldSlug = currentSubdomain.toLowerCase();
+                    const newSlug = t.subdomain.trim().toLowerCase();
+                    if (oldSlug !== newSlug) {
+                      const updateResult = await prisma.license.updateMany({
+                        where: { requestedSlug: oldSlug, productId: { in: ['easy-tunnel', 'vpn'] } },
+                        data: { requestedSlug: newSlug }
+                      });
+                      
+                      if (updateResult.count > 0) {
+                        console.log(`[Heartbeat-SlugSync] License:${license.id} Triggered cascade update: "${oldSlug}" -> "${newSlug}" (${updateResult.count} licenses)`);
+                        
+                        // Trigger Caddy reload to regenerate routing
+                        try {
+                          const { triggerCaddySync } = require('../services/caddy.service');
+                          await triggerCaddySync();
+                        } catch (caddyErr: any) {
+                          console.error('[Heartbeat-SlugSync] Failed to sync Caddy:', caddyErr.message);
+                        }
+                      }
+                    }
                   }
-                }
-              }
             }
             continue;
           }

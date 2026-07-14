@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendLicenseWhatsAppNotification = exports.prisma = void 0;
+exports.sendPrivateerTopUpNotification = exports.sendLicenseWhatsAppNotification = exports.prisma = void 0;
 exports.normalizeProductId = normalizeProductId;
 exports.getProductPrefix = getProductPrefix;
 exports.formatWA = formatWA;
@@ -77,10 +77,12 @@ async function verifyClient(request, reply) {
 const sendLicenseWhatsAppNotification = async (phone, schoolName, slug, prodId, planName, key, invoiceNum, amount, paymentMethod, status, payCode, qrUrl) => {
     try {
         const amountFormatted = amount === 0 ? 'Rp 0 (Gratis)' : `Rp ${amount.toLocaleString('id-ID')}`;
-        const productLabel = normalizeProductId(prodId) === 'cakola' ? 'Platform Cakola' : (normalizeProductId(prodId) === 'easy-tunnel' ? 'Easy Tunnel' : prodId.toUpperCase());
+        const normalizedId = normalizeProductId(prodId);
+        const isPrivateer = normalizedId === 'privateer';
+        const productLabel = normalizedId === 'cakola' ? 'Platform Cakola' : (normalizedId === 'easy-tunnel' ? 'Easy Tunnel' : (isPrivateer ? 'Privateer' : prodId.toUpperCase()));
         let paymentStatusNotes = '';
         if (status === 'paid') {
-            paymentStatusNotes = '*Status*: ✅ *LUNAS* (Lisensi Aktif)';
+            paymentStatusNotes = `*Status*: ✅ *${isPrivateer ? 'PEMBAYARAN BERHASIL' : 'LUNAS'}* (${isPrivateer ? 'Saldo Sesi Bertambah' : 'Lisensi Aktif'})`;
         }
         else {
             paymentStatusNotes = `*Status*: ⚠️ *MENUNGGU PEMBAYARAN*\n`;
@@ -97,7 +99,31 @@ const sendLicenseWhatsAppNotification = async (phone, schoolName, slug, prodId, 
                 paymentStatusNotes += `Silakan lakukan pembayaran melalui metode ${paymentMethod} sesuai petunjuk di panel.`;
             }
         }
-        const message = `*🔑 [Platform Cakola] PENGAJUAN LISENSI BARU*
+        let message = '';
+        if (isPrivateer) {
+            // Branding Privateer (Gaya Guru TK & Tanpa Kata Lisensi)
+            const parts = schoolName.split('|').map(p => p.trim());
+            const studentName = parts[0] || schoolName;
+            message = `*💎 [Privateer] TOP-UP SESI BELAJAR*
+
+Halo Kakak *${studentName}* yang hebat! 👋
+Wah, asyik sekali! Ada pengajuan top-up sesi belajar baru nih. Yuk, segera selesaikan pembayarannya agar kita bisa belajar bareng lagi! 🤗
+
+*✨ Detail Belajar:*
+- *Nama Siswa*: ${studentName}
+- *Paket*: ${planName}
+
+*💳 Rincian Tagihan:*
+- *Nomor Invoice*: *${invoiceNum}*
+- *Total Biaya*: *${amountFormatted}*
+- *Metode*: ${paymentMethod}
+${paymentStatusNotes}
+
+Terima kasih ya sudah rajin belajar di Privateer. Semangat terus! ✨🚀`;
+        }
+        else {
+            // Branding Standard Cakola
+            message = `*🔑 [Platform Cakola] PENGAJUAN LISENSI BARU*
 
 Halo! Pengajuan lisensi server Anda telah berhasil diproses. Berikut adalah rincian lisensi Anda:
 
@@ -115,6 +141,7 @@ Halo! Pengajuan lisensi server Anda telah berhasil diproses. Berikut adalah rinc
 ${paymentStatusNotes}
 
 Terima kasih telah menggunakan layanan kami!`;
+        }
         await whatsapp_service_1.waGateway.sendMessage(phone, message);
     }
     catch (err) {
@@ -122,3 +149,42 @@ Terima kasih telah menggunakan layanan kami!`;
     }
 };
 exports.sendLicenseWhatsAppNotification = sendLicenseWhatsAppNotification;
+const sendPrivateerTopUpNotification = async (phone, studentName, className, planName, invoiceNum, amount, paymentMethod, status, payCode, qrUrl) => {
+    try {
+        const amountFormatted = `Rp ${amount.toLocaleString('id-ID')}`;
+        let paymentStatusNotes = '';
+        if (status === 'paid') {
+            paymentStatusNotes = '*Status*: ✅ *PEMBAYARAN BERHASIL* (Saldo Sesi Bertambah)';
+        }
+        else {
+            paymentStatusNotes = `*Status*: ⚠️ *MENUNGGU PEMBAYARAN*\n`;
+            if (payCode)
+                paymentStatusNotes += `*Kode Bayar / VA*: *${payCode}*\n`;
+            if (qrUrl)
+                paymentStatusNotes += `*QR Code Link*: ${qrUrl}\n`;
+            paymentStatusNotes += `Silakan lakukan pembayaran melalui metode ${paymentMethod} agar sesi belajar dapat segera diklaim.`;
+        }
+        const message = `*💎 [Privateer] TOP-UP SESI BELAJAR BERHASIL*
+
+Halo Kakak *${studentName}* yang hebat! 👋
+Wah, asyik sekali! Top-up sesi belajar kamu sudah berhasil diproses nih. Kakak Guru sudah tidak sabar untuk belajar bareng kamu lagi! 🤗
+
+*✨ Detail Belajar Kamu:*
+- *Nama Siswa*: ${studentName}
+- *Kelas*: ${className}
+- *Paket*: ${planName}
+
+*💳 Rincian Pembayaran:*
+- *No. Invoice*: *${invoiceNum}*
+- *Total Biaya*: *${amountFormatted}*
+- *Metode*: ${paymentMethod}
+${paymentStatusNotes}
+
+Terima kasih ya sudah rajin belajar di Privateer. Kalau ada yang bingung atau butuh bantuan, jangan sungkan chat Kakak Admin ya! Semangat terus belajarnya! ✨🚀`;
+        await whatsapp_service_1.waGateway.sendMessage(phone, message);
+    }
+    catch (err) {
+        console.error('[WA Privateer Notification Error]', err.message);
+    }
+};
+exports.sendPrivateerTopUpNotification = sendPrivateerTopUpNotification;

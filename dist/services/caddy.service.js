@@ -17,7 +17,32 @@ const PORT_EXCEPTIONS = {
     'cibinong': { backend: 5006, frontend: 5176 },
     '2pwk': { backend: 5005, frontend: 5174 }
 };
+let isSyncing = false;
+let pendingSync = false;
+const SYNC_COOLDOWN = 30000; // 30 seconds debounce
+let lastSyncTime = 0;
 async function triggerCaddySync() {
+    const now = Date.now();
+    if (isSyncing) {
+        pendingSync = true;
+        console.log('[Caddy-Sync] Sync already in progress, queuing next sync...');
+        return;
+    }
+    const timeSinceLastSync = now - lastSyncTime;
+    if (timeSinceLastSync < SYNC_COOLDOWN) {
+        if (!pendingSync) {
+            pendingSync = true;
+            const delay = SYNC_COOLDOWN - timeSinceLastSync;
+            console.log(`[Caddy-Sync] Cooldown active, scheduling sync in ${delay}ms...`);
+            setTimeout(() => {
+                pendingSync = false;
+                triggerCaddySync();
+            }, delay);
+        }
+        return;
+    }
+    isSyncing = true;
+    lastSyncTime = now;
     console.log('[Caddy-Sync] Starting Caddy configuration sync from PostgreSQL...');
     try {
         // 1. Fetch active licenses with WireGuard IPs from PostgreSQL
@@ -158,14 +183,21 @@ ${domainListStr} {
                     else {
                         console.log('[Caddy-Sync] Caddy service successfully updated.');
                     }
+                    isSyncing = false;
+                    if (pendingSync) {
+                        pendingSync = false;
+                        triggerCaddySync();
+                    }
                 });
             });
         }
         else {
             console.log('[Caddy-Sync] Local environment detected. Skipping Caddy service reload.');
+            isSyncing = false;
         }
     }
     catch (err) {
         console.error('[Caddy-Sync] Critical error during sync:', err.message);
+        isSyncing = false;
     }
 }
