@@ -685,7 +685,7 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
         'unpaid',
         tx.pay_code,
         tx.qr_url
-      ).catch(e => console.error('[WA Privateer Notify Error]', e.message));
+      ).catch((e: any) => console.error('[WA Privateer Notify Error]', e.message));
 
       return reply.send({
         success: true,
