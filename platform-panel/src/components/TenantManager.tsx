@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '../api/apiClient';
-import { BadgeCheck, ShieldAlert, Key, Plus, Trash2, Check, RefreshCw, Search, ChevronDown, ChevronUp, Database, Users, Activity, Cpu, Building, Eye, ExternalLink } from 'lucide-react';
+import { BadgeCheck, ShieldAlert, Key, Plus, Trash2, Check, RefreshCw, Search, ChevronDown, ChevronUp, Database, Users, Activity, Cpu, Building, Eye, ExternalLink, Send } from 'lucide-react';
 
 interface Tenant {
   id: string;
@@ -414,6 +414,27 @@ export default function TenantManager() {
                             title="Reset Device Lock / HWID"
                           >
                             <RefreshCw className="w-4 h-4" />
+                          </button>
+                        )}
+                        {t.licenseKey && (
+                          <button
+                            onClick={async () => {
+                              if (!confirm(`Kirim ulang data lisensi ke nomor WhatsApp operator untuk server ${t.schoolName}?`)) return;
+                              try {
+                                const res = await apiClient.post(`/api/admin/license/resend-wa/${t.id}`);
+                                if (res.data?.success) {
+                                  alert('Data lisensi berhasil dikirim ulang via WhatsApp!');
+                                } else {
+                                  alert(res.data?.message || 'Gagal mengirim ulang data lisensi');
+                                }
+                              } catch (e: any) {
+                                alert('Gagal mengirim ulang data lisensi: ' + (e.response?.data?.message || e.message));
+                              }
+                            }}
+                            className="p-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg hover:bg-emerald-600 hover:text-white transition"
+                            title="Kirim Ulang Lisensi via WA"
+                          >
+                            <Send className="w-4 h-4" />
                           </button>
                         )}
                         <button

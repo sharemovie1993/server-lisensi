@@ -17,6 +17,7 @@ const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const os_1 = __importDefault(require("os"));
 const helpers_1 = require("./license/helpers");
+const logger_1 = require("../utils/logger");
 const prisma = new client_1.PrismaClient();
 const ADMIN_SECRET = process.env.ADMIN_SECRET || 'kumahatetehwe';
 const TOTP_SECRET = process.env.TOTP_SECRET || 'ABSENTASECRETKEYMYSECURETOKEN';
@@ -540,6 +541,46 @@ const adminRoutes = async (fastify) => {
         }
         catch (err) {
             return reply.status(500).send({ success: false, message: 'Gagal melepas kunci perangkat: ' + err.message });
+        }
+    });
+    // 12.0.2 Resend license details via WhatsApp (ADMIN API)
+    fastify.post('/api/admin/license/resend-wa/:id', async (request, reply) => {
+        await verifyAdmin(request, reply);
+        if (reply.sent)
+            return;
+        const { id } = request.params;
+        try {
+            const license = await prisma.license.findUnique({ where: { id } });
+            if (!license) {
+                return reply.status(404).send({ success: false, message: 'Lisensi tidak ditemukan.' });
+            }
+            if (!license.operatorPhone) {
+                return reply.status(400).send({ success: false, message: 'Nomor WhatsApp operator tidak terdaftar di lisensi ini.' });
+            }
+            const cleanWaNumber = license.operatorPhone.trim();
+            const cleanSchoolName = license.schoolName.trim();
+            const cleanSlug = license.requestedSlug ? license.requestedSlug.trim().toLowerCase() : '';
+            const newKey = license.licenseKey;
+            const waMessage = `🟢 *[AKTIVASI LISENSI LOKAL PLATFORM CAKOLA SUCCESS]*\n\n` +
+                `Yth. Operator *${cleanSchoolName}*,\n` +
+                `Selamat! Proses registrasi server dan pemasangan Platform Cakola untuk sekolah Anda telah berhasil diselesaikan secara sempurna.\n\n` +
+                `Berikut adalah detail lisensi dan akses Anda:\n` +
+                `🔑 Kunci Lisensi: \`${newKey}\`\n` +
+                `🌐 Subdomain Akses Online: *https://${cleanSlug}.absenta.id*\n` +
+                `📅 Status Lisensi: *AKTIF*\n\n` +
+                `*Catatan Penting*:\n` +
+                `- *Akses Online (Easy-Tunnel)*: Sudah aktif secara otomatis. Aplikasi dapat langsung diakses dari internet luar melalui tautan domain di atas.\n` +
+                `- *Akses Lokal (Intranet)*: Dapat diakses menggunakan IP lokal server atau pengaturan Split DNS di jaringan internal sekolah.\n` +
+                `- *Langkah Selanjutnya*: Buka tautan domain sekolah Anda di atas, lalu masuk menu *Daftar Sekolah / Registrasi Sekolah* untuk membuat akun Administrator utama sekolah Anda.\n\n` +
+                `Simpan pesan ini sebagai bukti catatan lisensi Anda. Terima kasih!`;
+            await whatsapp_service_1.waGateway.sendMessage(cleanWaNumber, waMessage);
+            // Log activity
+            await (0, logger_1.logLicenseActivity)(newKey, license.productId, request.ip, 'WA_RESEND_LICENSE_SUCCESS');
+            return reply.send({ success: true, message: 'Data lisensi berhasil dikirim ulang ke nomor WhatsApp operator!' });
+        }
+        catch (err) {
+            console.error('[Admin License Resend WA Error]', err.message);
+            return reply.status(500).send({ success: false, message: 'Gagal mengirim ulang WhatsApp: ' + err.message });
         }
     });
     // 12.1 Get System Telemetry (CPU, RAM, Disk)
