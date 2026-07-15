@@ -454,7 +454,9 @@ const adminRoutes = async (fastify) => {
                     .catch(err => console.log('[Manual Approval Callback Push Offline/NAT]', err.message));
             }
             // Trigger dynamic routing sync
-            await (0, caddy_service_1.triggerCaddySync)();
+            if (invoice.productId !== 'privateer' && lic.productId !== 'privateer') {
+                await (0, caddy_service_1.triggerCaddySync)();
+            }
             return reply.send({ success: true, message: 'Invoice berhasil dikonfirmasi lunas secara manual!' });
         }
         catch (err) {
@@ -481,7 +483,9 @@ const adminRoutes = async (fastify) => {
                 where: { licenseId: id },
                 data: { status: 'active' }
             });
-            await (0, caddy_service_1.triggerCaddySync)();
+            if (license.productId !== 'privateer') {
+                await (0, caddy_service_1.triggerCaddySync)();
+            }
             return reply.send({
                 success: true,
                 message: `Lisensi untuk ${license.schoolName} berhasil disetujui!`
@@ -504,7 +508,9 @@ const adminRoutes = async (fastify) => {
                 await prisma.subscription.deleteMany({ where: { licenseId: id } });
                 await prisma.invoice.deleteMany({ where: { licenseId: id } });
                 await prisma.license.delete({ where: { id } });
-                await (0, caddy_service_1.triggerCaddySync)();
+                if (license.productId !== 'privateer') {
+                    await (0, caddy_service_1.triggerCaddySync)();
+                }
             }
             return reply.send({ success: true, message: 'Lisensi berhasil dibersihkan dari server secara permanen.' });
         }

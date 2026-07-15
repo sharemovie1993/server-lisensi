@@ -177,7 +177,9 @@ const registerPaymentLicenseRoutes = (fastify) => {
                         .catch(err => console.log('[Tripay Callback Push Offline/NAT]', err.message));
                 }
                 // Trigger dynamic routing sync
-                await (0, caddy_service_1.triggerCaddySync)();
+                if (invoice.productId !== 'privateer' && lic.productId !== 'privateer') {
+                    await (0, caddy_service_1.triggerCaddySync)();
+                }
             }
             catch (err) {
                 console.error('[Tripay Callback Database Error]', err.message);

@@ -487,7 +487,9 @@ export const adminRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
       }
 
       // Trigger dynamic routing sync
-      await triggerCaddySync();
+      if (invoice.productId !== 'privateer' && lic.productId !== 'privateer') {
+        await triggerCaddySync();
+      }
 
       return reply.send({ success: true, message: 'Invoice berhasil dikonfirmasi lunas secara manual!' });
     } catch (err: any) {
@@ -519,7 +521,9 @@ export const adminRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
         data: { status: 'active' }
       });
 
-      await triggerCaddySync();
+      if (license.productId !== 'privateer') {
+        await triggerCaddySync();
+      }
 
       return reply.send({
         success: true,
@@ -545,7 +549,9 @@ export const adminRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
         await prisma.invoice.deleteMany({ where: { licenseId: id } });
         await prisma.license.delete({ where: { id } });
 
-        await triggerCaddySync();
+        if (license.productId !== 'privateer') {
+          await triggerCaddySync();
+        }
       }
 
       return reply.send({ success: true, message: 'Lisensi berhasil dibersihkan dari server secara permanen.' });

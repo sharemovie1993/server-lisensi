@@ -193,7 +193,9 @@ export const registerPaymentLicenseRoutes = (fastify: FastifyInstance) => {
         }
 
         // Trigger dynamic routing sync
-        await triggerCaddySync();
+        if (invoice.productId !== 'privateer' && lic.productId !== 'privateer') {
+          await triggerCaddySync();
+        }
 
       } catch (err: any) {
         console.error('[Tripay Callback Database Error]', err.message);
