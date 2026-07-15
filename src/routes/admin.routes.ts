@@ -625,7 +625,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
         `- *Langkah Selanjutnya*: Buka tautan domain sekolah Anda di atas, lalu masuk menu *Daftar Sekolah / Registrasi Sekolah* untuk membuat akun Administrator utama sekolah Anda.\n\n` +
         `Simpan pesan ini sebagai bukti catatan lisensi Anda. Terima kasih!`;
 
-      await waGateway.sendMessage(cleanWaNumber, waMessage);
+      await waGateway.sendMessage(cleanWaNumber, waMessage, 'MANUAL_RESEND');
       
       // Log activity
       await logLicenseActivity(newKey, license.productId, request.ip, 'WA_RESEND_LICENSE_SUCCESS');
@@ -634,6 +634,46 @@ export const adminRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
     } catch (err: any) {
       console.error('[Admin License Resend WA Error]', err.message);
       return reply.status(500).send({ success: false, message: 'Gagal mengirim ulang WhatsApp: ' + err.message });
+    }
+  });
+
+  // 12.0.3 Get WhatsApp Outbox/Log list (ADMIN API)
+  fastify.get('/api/admin/whatsapp/logs', async (request: FastifyRequest, reply: FastifyReply) => {
+    await verifyAdmin(request, reply);
+    if (reply.sent) return;
+
+    try {
+      const logs = await prisma.whatsAppLog.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 500
+      });
+      return reply.send({ success: true, data: logs });
+    } catch (err: any) {
+      console.error('[Admin WhatsApp Logs Error]', err.message);
+      return reply.status(500).send({ success: false, message: 'Gagal mengambil log WhatsApp: ' + err.message });
+    }
+  });
+
+  // 12.0.4 Resend specific WhatsApp log entry (ADMIN API)
+  fastify.post('/api/admin/whatsapp/resend/:id', async (request: FastifyRequest, reply: FastifyReply) => {
+    await verifyAdmin(request, reply);
+    if (reply.sent) return;
+
+    const { id } = request.params as { id: string };
+
+    try {
+      const log = await prisma.whatsAppLog.findUnique({ where: { id } });
+      if (!log) {
+        return reply.status(404).send({ success: false, message: 'Log WhatsApp tidak ditemukan.' });
+      }
+
+      // Try sending again
+      await waGateway.sendMessage(log.recipient, log.message, 'MANUAL_RESEND_OUTBOX');
+
+      return reply.send({ success: true, message: 'Pesan WhatsApp berhasil dikirim ulang!' });
+    } catch (err: any) {
+      console.error('[Admin WhatsApp Resend Error]', err.message);
+      return reply.status(500).send({ success: false, message: 'Gagal mengirim ulang pesan WA: ' + err.message });
     }
   });
 

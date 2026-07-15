@@ -13,6 +13,11 @@ export default function WhatsAppGateway() {
   const [testMessage, setTestMessage] = useState('Halo, ini adalah pesan uji coba dari sistem WhatsApp Gateway Cakola HQ.');
   const [sending, setSending] = useState(false);
 
+  // WhatsApp logs state
+  const [logs, setLogs] = useState<any[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [resendingLogId, setResendingLogId] = useState<string | null>(null);
+
   const loadStatus = async () => {
     setLoading(true);
     try {
@@ -46,9 +51,43 @@ export default function WhatsAppGateway() {
     }
   };
 
+  const loadLogs = async () => {
+    setLogsLoading(true);
+    try {
+      const res = await apiClient.get('/api/admin/whatsapp/logs');
+      if (res.data?.success) {
+        setLogs(res.data.data || []);
+      }
+    } catch (e) {
+      console.error('Failed to load WA outbox logs', e);
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  const handleResendLog = async (id: string) => {
+    if (!confirm('Kirim ulang pesan WhatsApp ini ke pelanggan?')) return;
+    setResendingLogId(id);
+    try {
+      const res = await apiClient.post(`/api/admin/whatsapp/resend/${id}`);
+      if (res.data?.success) {
+        alert('Pesan berhasil dikirim ulang!');
+        loadLogs();
+      }
+    } catch (e: any) {
+      alert('Gagal mengirim ulang pesan: ' + (e.response?.data?.message || e.message));
+    } finally {
+      setResendingLogId(null);
+    }
+  };
+
   useEffect(() => {
     loadStatus();
-    const interval = setInterval(loadStatus, 15000);
+    loadLogs();
+    const interval = setInterval(() => {
+      loadStatus();
+      loadLogs();
+    }, 15000);
     return () => clearInterval(interval);
   }, []);
 
@@ -197,6 +236,99 @@ export default function WhatsAppGateway() {
               Kirim Uji Coba
             </button>
           </form>
+        </div>
+      </div>
+
+      {/* Outbox Monitoring Section */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4 text-left lg:col-span-2 mt-6">
+        <div className="flex justify-between items-center pb-4 border-b border-slate-800">
+          <div>
+            <h3 className="text-white text-lg font-bold">WhatsApp Outbox Logs</h3>
+            <p className="text-slate-500 text-xs">Pantau status pengiriman pesan, log aktivitas, dan lakukan kirim ulang pesan yang gagal</p>
+          </div>
+          <button
+            onClick={loadLogs}
+            className="p-2.5 bg-slate-800 border border-slate-700 hover:bg-slate-750 text-slate-300 rounded-xl transition"
+          >
+            <RefreshCw className={`w-5 h-5 ${logsLoading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-slate-800 bg-slate-950 text-slate-400 text-xs font-semibold uppercase tracking-wider">
+                <th className="px-6 py-4 w-40">Tanggal & Waktu</th>
+                <th className="px-6 py-4 w-32">Penerima</th>
+                <th className="px-6 py-4">Isi Pesan</th>
+                <th className="px-6 py-4 w-28">Trigger</th>
+                <th className="px-6 py-4 w-28 text-center">Status</th>
+                <th className="px-6 py-4 w-24 text-right">Aksi</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800 text-slate-350 text-xs">
+              {logs.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-10 text-center text-slate-500">
+                    {logsLoading ? 'Memuat data log...' : 'Belum ada data log pengiriman WhatsApp.'}
+                  </td>
+                </tr>
+              ) : (
+                logs.map((log) => (
+                  <tr key={log.id} className="hover:bg-slate-850/40 transition">
+                    <td className="px-6 py-4 font-mono text-[11px] text-slate-400 whitespace-nowrap">
+                      {new Date(log.createdAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}
+                    </td>
+                    <td className="px-6 py-4 font-semibold text-white whitespace-nowrap">
+                      {log.recipient}
+                    </td>
+                    <td className="px-6 py-4 max-w-xs sm:max-w-md break-words select-all" title={log.message}>
+                      <div className="bg-slate-950/40 border border-slate-850/50 p-2 rounded-lg font-mono text-[11px] leading-relaxed max-h-24 overflow-y-auto whitespace-pre-wrap">
+                        {log.message}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px] font-mono text-indigo-300">
+                        {log.triggerType || 'SYSTEM'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-center whitespace-nowrap">
+                      {log.status === 'SENT' ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-bold text-emerald-400 uppercase tracking-wide">
+                          Terkirim
+                        </span>
+                      ) : (
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-[10px] font-bold text-rose-450 uppercase tracking-wide" title={log.errorMessage || 'Unknown Error'}>
+                            Gagal
+                          </span>
+                          {log.errorMessage && (
+                            <span className="text-[9px] text-rose-450 font-mono block max-w-[120px] truncate" title={log.errorMessage}>
+                              {log.errorMessage}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-right whitespace-nowrap">
+                      <button
+                        onClick={() => handleResendLog(log.id)}
+                        disabled={resendingLogId === log.id}
+                        className={`p-1.5 rounded-lg border transition ${
+                          log.status === 'SENT'
+                            ? 'bg-slate-800 border-slate-700 hover:bg-slate-750 text-slate-400'
+                            : 'bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-600 text-emerald-450 hover:text-white'
+                        }`}
+                        title="Kirim ulang pesan ini"
+                      >
+                        <Send className={`w-3.5 h-3.5 ${resendingLogId === log.id ? 'animate-pulse' : ''}`} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

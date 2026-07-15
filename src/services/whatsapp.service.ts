@@ -1,4 +1,7 @@
 import path from 'path';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 import fs from 'fs';
 import pino from 'pino';
 import qrcode from 'qrcode';
@@ -197,9 +200,23 @@ class WhatsappService extends EventEmitter {
     }
   }
 
-  public async sendMessage(nomor: string, pesan: string): Promise<boolean> {
+  public async sendMessage(nomor: string, pesan: string, triggerType = 'SYSTEM'): Promise<boolean> {
     if (this.connectionStatus !== 'connected' || !this.sock) {
-      throw new Error('WhatsApp Gateway belum terhubung.');
+      const errMsg = 'WhatsApp Gateway belum terhubung.';
+      try {
+        await prisma.whatsAppLog.create({
+          data: {
+            recipient: nomor,
+            message: pesan,
+            status: 'FAILED',
+            errorMessage: errMsg,
+            triggerType
+          }
+        });
+      } catch (e: any) {
+        console.error('[WA LOG DB ERROR]', e.message);
+      }
+      throw new Error(errMsg);
     }
 
     // Clean all non-numeric characters and format to international format (62)
@@ -216,6 +233,20 @@ class WhatsappService extends EventEmitter {
       this.messagesSentToday++;
       console.log(`[WA] Pesan terkirim ke ${nomor} (JID: ${jid})`);
 
+      // Log success to DB
+      try {
+        await prisma.whatsAppLog.create({
+          data: {
+            recipient: nomor,
+            message: pesan,
+            status: 'SENT',
+            triggerType
+          }
+        });
+      } catch (e: any) {
+        console.error('[WA LOG DB ERROR]', e.message);
+      }
+
       // Resolve dynamic LID mapping if returned from server
       if (sentMsg && sentMsg.key && sentMsg.key.remoteJid) {
         const actualJid = sentMsg.key.remoteJid;
@@ -228,6 +259,21 @@ class WhatsappService extends EventEmitter {
     } catch (err: any) {
       this.messagesFailedToday++;
       console.error(`[WA] Gagal kirim pesan ke ${nomor} (JID: ${jid}):`, err.message);
+
+      // Log failure to DB
+      try {
+        await prisma.whatsAppLog.create({
+          data: {
+            recipient: nomor,
+            message: pesan,
+            status: 'FAILED',
+            errorMessage: err.message,
+            triggerType
+          }
+        });
+      } catch (e: any) {
+        console.error('[WA LOG DB ERROR]', e.message);
+      }
       throw err;
     }
   }

@@ -584,7 +584,7 @@ const registerCoreLicenseRoutes = (fastify) => {
                     `- *Akses Lokal (Intranet)*: Dapat diakses menggunakan IP lokal server atau pengaturan Split DNS di jaringan internal sekolah.\n` +
                     `- *Langkah Selanjutnya*: Buka tautan domain sekolah Anda di atas, lalu masuk menu *Daftar Sekolah / Registrasi Sekolah* untuk membuat akun Administrator utama sekolah Anda.\n\n` +
                     `Simpan pesan ini sebagai bukti catatan lisensi Anda. Terima kasih!`;
-                await whatsapp_service_1.waGateway.sendMessage(cleanWaNumber, waMessage);
+                await whatsapp_service_1.waGateway.sendMessage(cleanWaNumber, waMessage, 'REGISTRATION_AWAL');
                 await (0, logger_1.logLicenseActivity)(newKey, 'cakola', '127.0.0.1', 'WA_LOCAL_FREE_ACTIVATION_SENT');
             }
             catch (waErr) {

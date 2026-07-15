@@ -5,6 +5,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.waGateway = void 0;
 const path_1 = __importDefault(require("path"));
+const client_1 = require("@prisma/client");
+const prisma = new client_1.PrismaClient();
 const fs_1 = __importDefault(require("fs"));
 const pino_1 = __importDefault(require("pino"));
 const qrcode_1 = __importDefault(require("qrcode"));
@@ -182,9 +184,24 @@ class WhatsappService extends events_1.EventEmitter {
             console.error('[WA] Gagal inisialisasi:', err.message);
         }
     }
-    async sendMessage(nomor, pesan) {
+    async sendMessage(nomor, pesan, triggerType = 'SYSTEM') {
         if (this.connectionStatus !== 'connected' || !this.sock) {
-            throw new Error('WhatsApp Gateway belum terhubung.');
+            const errMsg = 'WhatsApp Gateway belum terhubung.';
+            try {
+                await prisma.whatsAppLog.create({
+                    data: {
+                        recipient: nomor,
+                        message: pesan,
+                        status: 'FAILED',
+                        errorMessage: errMsg,
+                        triggerType
+                    }
+                });
+            }
+            catch (e) {
+                console.error('[WA LOG DB ERROR]', e.message);
+            }
+            throw new Error(errMsg);
         }
         // Clean all non-numeric characters and format to international format (62)
         let cleaned = nomor.replace(/[^0-9]/g, '');
@@ -199,6 +216,20 @@ class WhatsappService extends events_1.EventEmitter {
             const sentMsg = await this.sock.sendMessage(jid, { text: pesan });
             this.messagesSentToday++;
             console.log(`[WA] Pesan terkirim ke ${nomor} (JID: ${jid})`);
+            // Log success to DB
+            try {
+                await prisma.whatsAppLog.create({
+                    data: {
+                        recipient: nomor,
+                        message: pesan,
+                        status: 'SENT',
+                        triggerType
+                    }
+                });
+            }
+            catch (e) {
+                console.error('[WA LOG DB ERROR]', e.message);
+            }
             // Resolve dynamic LID mapping if returned from server
             if (sentMsg && sentMsg.key && sentMsg.key.remoteJid) {
                 const actualJid = sentMsg.key.remoteJid;
@@ -212,6 +243,21 @@ class WhatsappService extends events_1.EventEmitter {
         catch (err) {
             this.messagesFailedToday++;
             console.error(`[WA] Gagal kirim pesan ke ${nomor} (JID: ${jid}):`, err.message);
+            // Log failure to DB
+            try {
+                await prisma.whatsAppLog.create({
+                    data: {
+                        recipient: nomor,
+                        message: pesan,
+                        status: 'FAILED',
+                        errorMessage: err.message,
+                        triggerType
+                    }
+                });
+            }
+            catch (e) {
+                console.error('[WA LOG DB ERROR]', e.message);
+            }
             throw err;
         }
     }
