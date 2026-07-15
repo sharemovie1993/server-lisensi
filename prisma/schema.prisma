@@ -231,6 +231,7 @@ model WhatsAppLog {
   status       String   // SENT, FAILED
   errorMessage String?  @map("error_message")
   triggerType  String   @map("trigger_type") // REGISTRATION_AWAL, MANUAL_RESEND, etc.
+  productId    String?  @map("product_id")
   createdAt    DateTime @default(now()) @map("created_at")
 
   @@map("whatsapp_logs")

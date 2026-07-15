@@ -60,6 +60,7 @@ async function run() {
               message: waMessage,
               status: 'SENT',
               triggerType: 'REGISTRATION_AWAL',
+              productId: lic.productId,
               createdAt: activationLog.createdAt
             }
           });
@@ -73,6 +74,7 @@ async function run() {
               status: 'FAILED',
               errorMessage: 'WhatsApp Gateway belum terhubung.',
               triggerType: 'REGISTRATION_AWAL',
+              productId: lic.productId,
               createdAt: lic.createdAt
             }
           });
@@ -99,6 +101,7 @@ async function run() {
               message: waMessage,
               status: 'SENT',
               triggerType: 'MANUAL_RESEND',
+              productId: lic.productId,
               createdAt: resend.createdAt
             }
           });

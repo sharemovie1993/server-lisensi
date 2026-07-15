@@ -631,7 +631,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
         `- *Langkah Selanjutnya*: Buka tautan domain sekolah Anda di atas, lalu masuk menu *Daftar Sekolah / Registrasi Sekolah* untuk membuat akun Administrator utama sekolah Anda.\n\n` +
         `Simpan pesan ini sebagai bukti catatan lisensi Anda. Terima kasih!`;
 
-      await waGateway.sendMessage(cleanWaNumber, waMessage, 'MANUAL_RESEND');
+      await waGateway.sendMessage(cleanWaNumber, waMessage, 'MANUAL_RESEND', license.productId);
       
       // Log activity
       await logLicenseActivity(newKey, license.productId, request.ip, 'WA_RESEND_LICENSE_SUCCESS');

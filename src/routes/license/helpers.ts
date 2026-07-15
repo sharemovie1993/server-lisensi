@@ -167,7 +167,7 @@ ${paymentStatusNotes}
 Terima kasih telah menggunakan layanan kami!`;
     }
 
-    await waGateway.sendMessage(phone, message);
+    await waGateway.sendMessage(phone, message, 'BILLING_NOTIFICATION', normalizedId);
   } catch (err: any) {
     console.error('[WA Notification Error]', err.message);
   }
@@ -216,7 +216,7 @@ ${paymentStatusNotes}
 
 Terima kasih ya sudah rajin belajar di Privateer. Kalau ada yang bingung atau butuh bantuan, jangan sungkan chat Kakak Admin ya! Semangat terus belajarnya! ✨🚀`;
 
-    await waGateway.sendMessage(phone, message);
+    await waGateway.sendMessage(phone, message, 'TOPUP_NOTIFICATION', 'privateer');
   } catch (err: any) {
     console.error('[WA Privateer Notification Error]', err.message);
   }

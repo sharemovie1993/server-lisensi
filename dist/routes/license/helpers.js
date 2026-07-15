@@ -142,7 +142,7 @@ ${paymentStatusNotes}
 
 Terima kasih telah menggunakan layanan kami!`;
         }
-        await whatsapp_service_1.waGateway.sendMessage(phone, message);
+        await whatsapp_service_1.waGateway.sendMessage(phone, message, 'BILLING_NOTIFICATION', normalizedId);
     }
     catch (err) {
         console.error('[WA Notification Error]', err.message);
@@ -181,7 +181,7 @@ Wah, asyik sekali! Top-up sesi belajar kamu sudah berhasil diproses nih. Kakak G
 ${paymentStatusNotes}
 
 Terima kasih ya sudah rajin belajar di Privateer. Kalau ada yang bingung atau butuh bantuan, jangan sungkan chat Kakak Admin ya! Semangat terus belajarnya! ✨🚀`;
-        await whatsapp_service_1.waGateway.sendMessage(phone, message);
+        await whatsapp_service_1.waGateway.sendMessage(phone, message, 'TOPUP_NOTIFICATION', 'privateer');
     }
     catch (err) {
         console.error('[WA Privateer Notification Error]', err.message);

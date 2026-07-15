@@ -200,7 +200,7 @@ class WhatsappService extends EventEmitter {
     }
   }
 
-  public async sendMessage(nomor: string, pesan: string, triggerType = 'SYSTEM'): Promise<boolean> {
+  public async sendMessage(nomor: string, pesan: string, triggerType = 'SYSTEM', productId?: string): Promise<boolean> {
     if (this.connectionStatus !== 'connected' || !this.sock) {
       const errMsg = 'WhatsApp Gateway belum terhubung.';
       try {
@@ -210,7 +210,8 @@ class WhatsappService extends EventEmitter {
             message: pesan,
             status: 'FAILED',
             errorMessage: errMsg,
-            triggerType
+            triggerType,
+            productId
           }
         });
       } catch (e: any) {
@@ -240,7 +241,8 @@ class WhatsappService extends EventEmitter {
             recipient: nomor,
             message: pesan,
             status: 'SENT',
-            triggerType
+            triggerType,
+            productId
           }
         });
       } catch (e: any) {
@@ -268,7 +270,8 @@ class WhatsappService extends EventEmitter {
             message: pesan,
             status: 'FAILED',
             errorMessage: err.message,
-            triggerType
+            triggerType,
+            productId
           }
         });
       } catch (e: any) {

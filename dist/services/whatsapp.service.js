@@ -184,7 +184,7 @@ class WhatsappService extends events_1.EventEmitter {
             console.error('[WA] Gagal inisialisasi:', err.message);
         }
     }
-    async sendMessage(nomor, pesan, triggerType = 'SYSTEM') {
+    async sendMessage(nomor, pesan, triggerType = 'SYSTEM', productId) {
         if (this.connectionStatus !== 'connected' || !this.sock) {
             const errMsg = 'WhatsApp Gateway belum terhubung.';
             try {
@@ -194,7 +194,8 @@ class WhatsappService extends events_1.EventEmitter {
                         message: pesan,
                         status: 'FAILED',
                         errorMessage: errMsg,
-                        triggerType
+                        triggerType,
+                        productId
                     }
                 });
             }
@@ -223,7 +224,8 @@ class WhatsappService extends events_1.EventEmitter {
                         recipient: nomor,
                         message: pesan,
                         status: 'SENT',
-                        triggerType
+                        triggerType,
+                        productId
                     }
                 });
             }
@@ -251,7 +253,8 @@ class WhatsappService extends events_1.EventEmitter {
                         message: pesan,
                         status: 'FAILED',
                         errorMessage: err.message,
-                        triggerType
+                        triggerType,
+                        productId
                     }
                 });
             }

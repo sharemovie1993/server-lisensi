@@ -8,11 +8,11 @@ const whatsapp_service_1 = require("./whatsapp.service");
 const wa_bot_service_1 = require("./wa-bot.service");
 const prisma = new client_1.PrismaClient();
 // Helper: try to send a WA notification, silently ignore if WA not connected
-async function sendWaNotif(phone, pesan) {
+async function sendWaNotif(phone, pesan, triggerType = 'SYSTEM', productId) {
     if (!phone)
         return;
     try {
-        await whatsapp_service_1.waGateway.sendMessage(phone, pesan);
+        await whatsapp_service_1.waGateway.sendMessage(phone, pesan, triggerType, productId);
     }
     catch (e) {
         console.warn(`[CRON-WA] Gagal kirim notifikasi ke ${phone}:`, e.message);
@@ -115,7 +115,7 @@ async function cleanupInactiveTrials() {
                 (0, wa_bot_service_1.registerSession)(lic.operatorPhone, lic.id, lic.licenseKey, lic.schoolName, lic.requestedSlug ?? null);
                 // Send interactive warning message with action menu
                 const msg = (0, wa_bot_service_1.buildWarningMessage)(lic.schoolName, lic.licenseKey, heartbeatAge);
-                await sendWaNotif(lic.operatorPhone, msg);
+                await sendWaNotif(lic.operatorPhone, msg, 'CRON_WARNING', lic.productId);
                 console.log(`[CRON-WA] Peringatan interaktif terkirim ke operator ${lic.schoolName} (${lic.operatorPhone})`);
             }
         }
@@ -146,7 +146,7 @@ async function cleanupInactiveTrials() {
             // Kirim notifikasi WA penghapusan ke operator SEBELUM menghapus
             if (lic.operatorPhone) {
                 const msg = (0, wa_bot_service_1.buildDeletionMessage)(lic.schoolName, lic.licenseKey, lic.requestedSlug ?? null);
-                await sendWaNotif(lic.operatorPhone, msg);
+                await sendWaNotif(lic.operatorPhone, msg, 'CRON_DELETION', lic.productId);
                 console.log(`[CRON-WA] Notifikasi penghapusan terkirim ke operator ${lic.schoolName} (${lic.operatorPhone})`);
             }
             // Hapus data secara berurutan (relasi)

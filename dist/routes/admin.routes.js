@@ -579,7 +579,7 @@ const adminRoutes = async (fastify) => {
                 `- *Akses Lokal (Intranet)*: Dapat diakses menggunakan IP lokal server atau pengaturan Split DNS di jaringan internal sekolah.\n` +
                 `- *Langkah Selanjutnya*: Buka tautan domain sekolah Anda di atas, lalu masuk menu *Daftar Sekolah / Registrasi Sekolah* untuk membuat akun Administrator utama sekolah Anda.\n\n` +
                 `Simpan pesan ini sebagai bukti catatan lisensi Anda. Terima kasih!`;
-            await whatsapp_service_1.waGateway.sendMessage(cleanWaNumber, waMessage, 'MANUAL_RESEND');
+            await whatsapp_service_1.waGateway.sendMessage(cleanWaNumber, waMessage, 'MANUAL_RESEND', license.productId);
             // Log activity
             await (0, logger_1.logLicenseActivity)(newKey, license.productId, request.ip, 'WA_RESEND_LICENSE_SUCCESS');
             return reply.send({ success: true, message: 'Data lisensi berhasil dikirim ulang ke nomor WhatsApp operator!' });

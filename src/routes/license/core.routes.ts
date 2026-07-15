@@ -687,7 +687,7 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
           `- *Langkah Selanjutnya*: Buka tautan domain sekolah Anda di atas, lalu masuk menu *Daftar Sekolah / Registrasi Sekolah* untuk membuat akun Administrator utama sekolah Anda.\n\n` +
           `Simpan pesan ini sebagai bukti catatan lisensi Anda. Terima kasih!`;
         
-        await waGateway.sendMessage(cleanWaNumber, waMessage, 'REGISTRATION_AWAL');
+        await waGateway.sendMessage(cleanWaNumber, waMessage, 'REGISTRATION_AWAL', 'cakola');
         await logLicenseActivity(newKey, 'cakola', '127.0.0.1', 'WA_LOCAL_FREE_ACTIVATION_SENT');
       } catch (waErr: any) {
         console.error('[Local Free License] Gagal mengirim pesan WA:', waErr.message);

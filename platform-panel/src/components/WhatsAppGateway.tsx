@@ -17,6 +17,13 @@ export default function WhatsAppGateway() {
   const [logs, setLogs] = useState<any[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
   const [resendingLogId, setResendingLogId] = useState<string | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState('ALL');
+
+  const filteredLogs = logs.filter(log => {
+    if (selectedProduct === 'ALL') return true;
+    if (selectedProduct === 'SYSTEM') return !log.productId || log.productId === 'SYSTEM';
+    return log.productId?.toLowerCase() === selectedProduct.toLowerCase();
+  });
 
   const loadStatus = async () => {
     setLoading(true);
@@ -241,17 +248,30 @@ export default function WhatsAppGateway() {
 
       {/* Outbox Monitoring Section */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4 text-left lg:col-span-2 mt-6">
-        <div className="flex justify-between items-center pb-4 border-b border-slate-800">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-4 border-b border-slate-800 gap-4">
           <div>
             <h3 className="text-white text-lg font-bold">WhatsApp Outbox Logs</h3>
             <p className="text-slate-500 text-xs">Pantau status pengiriman pesan, log aktivitas, dan lakukan kirim ulang pesan yang gagal</p>
           </div>
-          <button
-            onClick={loadLogs}
-            className="p-2.5 bg-slate-800 border border-slate-700 hover:bg-slate-750 text-slate-300 rounded-xl transition"
-          >
-            <RefreshCw className={`w-5 h-5 ${logsLoading ? 'animate-spin' : ''}`} />
-          </button>
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <select
+              value={selectedProduct}
+              onChange={(e) => setSelectedProduct(e.target.value)}
+              className="bg-slate-800 border border-slate-700 text-slate-350 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:border-indigo-500 transition w-full sm:w-auto"
+            >
+              <option value="ALL">Semua Produk</option>
+              <option value="cakola">Cakola</option>
+              <option value="easy-tunnel">Easy Tunnel</option>
+              <option value="privateer">Privateer</option>
+              <option value="SYSTEM">System/Lainnya</option>
+            </select>
+            <button
+              onClick={loadLogs}
+              className="p-2.5 bg-slate-800 border border-slate-700 hover:bg-slate-750 text-slate-300 rounded-xl transition"
+            >
+              <RefreshCw className={`w-5 h-5 ${logsLoading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -260,6 +280,7 @@ export default function WhatsAppGateway() {
               <tr className="border-b border-slate-800 bg-slate-950 text-slate-400 text-xs font-semibold uppercase tracking-wider">
                 <th className="px-6 py-4 w-40">Tanggal & Waktu</th>
                 <th className="px-6 py-4 w-32">Penerima</th>
+                <th className="px-6 py-4 w-28">Produk</th>
                 <th className="px-6 py-4">Isi Pesan</th>
                 <th className="px-6 py-4 w-28">Trigger</th>
                 <th className="px-6 py-4 w-28 text-center">Status</th>
@@ -267,20 +288,33 @@ export default function WhatsAppGateway() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800 text-slate-350 text-xs">
-              {logs.length === 0 ? (
+              {filteredLogs.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-slate-500">
+                  <td colSpan={7} className="px-6 py-10 text-center text-slate-500">
                     {logsLoading ? 'Memuat data log...' : 'Belum ada data log pengiriman WhatsApp.'}
                   </td>
                 </tr>
               ) : (
-                logs.map((log) => (
+                filteredLogs.map((log) => (
                   <tr key={log.id} className="hover:bg-slate-850/40 transition">
                     <td className="px-6 py-4 font-mono text-[11px] text-slate-400 whitespace-nowrap">
                       {new Date(log.createdAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}
                     </td>
                     <td className="px-6 py-4 font-semibold text-white whitespace-nowrap">
                       {log.recipient}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-mono border uppercase tracking-wider ${
+                        log.productId === 'cakola' 
+                          ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-450' 
+                          : log.productId === 'easy-tunnel' 
+                          ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-450' 
+                          : log.productId === 'privateer' 
+                          ? 'bg-purple-500/10 border-purple-500/20 text-purple-450' 
+                          : 'bg-slate-850 border-slate-750 text-slate-450'
+                      }`}>
+                        {log.productId || '-'}
+                      </span>
                     </td>
                     <td className="px-6 py-4 max-w-xs sm:max-w-md break-words select-all" title={log.message}>
                       <div className="bg-slate-950/40 border border-slate-850/50 p-2 rounded-lg font-mono text-[11px] leading-relaxed max-h-24 overflow-y-auto whitespace-pre-wrap">

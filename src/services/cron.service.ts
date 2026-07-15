@@ -6,10 +6,10 @@ import { buildWarningMessage, buildDeletionMessage, registerSession } from './wa
 const prisma = new PrismaClient();
 
 // Helper: try to send a WA notification, silently ignore if WA not connected
-async function sendWaNotif(phone: string | null | undefined, pesan: string): Promise<void> {
+async function sendWaNotif(phone: string | null | undefined, pesan: string, triggerType = 'SYSTEM', productId?: string): Promise<void> {
   if (!phone) return;
   try {
-    await waGateway.sendMessage(phone, pesan);
+    await waGateway.sendMessage(phone, pesan, triggerType, productId);
   } catch (e: any) {
     console.warn(`[CRON-WA] Gagal kirim notifikasi ke ${phone}:`, e.message);
   }
@@ -130,7 +130,7 @@ export async function cleanupInactiveTrials(): Promise<void> {
 
         // Send interactive warning message with action menu
         const msg = buildWarningMessage(lic.schoolName, lic.licenseKey, heartbeatAge);
-        await sendWaNotif(lic.operatorPhone, msg);
+        await sendWaNotif(lic.operatorPhone, msg, 'CRON_WARNING', lic.productId);
         console.log(`[CRON-WA] Peringatan interaktif terkirim ke operator ${lic.schoolName} (${lic.operatorPhone})`);
       }
     }
@@ -166,7 +166,7 @@ export async function cleanupInactiveTrials(): Promise<void> {
       // Kirim notifikasi WA penghapusan ke operator SEBELUM menghapus
       if (lic.operatorPhone) {
         const msg = buildDeletionMessage(lic.schoolName, lic.licenseKey, lic.requestedSlug ?? null);
-        await sendWaNotif(lic.operatorPhone, msg);
+        await sendWaNotif(lic.operatorPhone, msg, 'CRON_DELETION', lic.productId);
         console.log(`[CRON-WA] Notifikasi penghapusan terkirim ke operator ${lic.schoolName} (${lic.operatorPhone})`);
       }
 
