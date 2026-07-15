@@ -4,6 +4,9 @@ const prisma = new PrismaClient();
 async function run() {
   console.log('[Migration] Reconstructing historical WhatsApp logs...');
   try {
+    // Clear old logs to clean rebuild them with productIds
+    await prisma.whatsAppLog.deleteMany({});
+    console.log('[Migration] Cleared existing whatsapp_logs table.');
     // 1. Fetch all licenses that have operator phone numbers
     const licenses = await prisma.license.findMany({
       where: {
