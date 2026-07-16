@@ -683,7 +683,25 @@ export default function TenantManager() {
                 {(selectedDetailTenant.hostname || selectedDetailTenant.osType || selectedDetailTenant.lastHeartbeatAt) && (
                   <div className="bg-slate-950/50 border border-slate-850 p-3.5 rounded-xl col-span-1 sm:col-span-3 space-y-2 text-xs font-mono text-slate-400">
                     {selectedDetailTenant.hostname && <div className="flex justify-between"><span className="text-slate-500">Host:</span><span className="text-white font-bold flex items-center gap-1.5"><Cpu className="w-3.5 h-3.5 text-indigo-400" /> {selectedDetailTenant.hostname}</span></div>}
-                    {selectedDetailTenant.osType && <div className="flex justify-between"><span className="text-slate-500">Sistem Operasi:</span><span className="text-slate-300">{selectedDetailTenant.osType}</span></div>}
+                    {selectedDetailTenant.osType && (() => {
+                      const osStr = selectedDetailTenant.osType;
+                      if (osStr.includes('|')) {
+                        const parts = osStr.split('|').map(p => p.trim());
+                        const osName = parts[0];
+                        const cpu = parts.find(p => p.startsWith('CPU:'))?.replace('CPU:', '').trim();
+                        const ram = parts.find(p => p.startsWith('RAM:'))?.replace('RAM:', '').trim();
+                        const storage = parts.find(p => p.startsWith('Storage:'))?.replace('Storage:', '').trim();
+                        return (
+                          <>
+                            <div className="flex justify-between"><span className="text-slate-500">Sistem Operasi:</span><span className="text-slate-300">{osName}</span></div>
+                            {cpu && <div className="flex justify-between"><span className="text-slate-500">CPU (Processor):</span><span className="text-slate-300 text-right truncate max-w-[200px] sm:max-w-none" title={cpu}>{cpu}</span></div>}
+                            {ram && <div className="flex justify-between"><span className="text-slate-500">Kapasitas RAM:</span><span className="text-slate-300">{ram}</span></div>}
+                            {storage && <div className="flex justify-between"><span className="text-slate-500">Kapasitas Disk:</span><span className="text-slate-300">{storage}</span></div>}
+                          </>
+                        );
+                      }
+                      return <div className="flex justify-between"><span className="text-slate-500">Sistem Operasi:</span><span className="text-slate-300">{osStr}</span></div>;
+                    })()}
                     {selectedDetailTenant.lastHeartbeatAt && <div className="flex justify-between"><span className="text-slate-500">Heartbeat Terakhir:</span><span className="text-indigo-300">{new Date(selectedDetailTenant.lastHeartbeatAt).toLocaleTimeString('id-ID')} ({new Date(selectedDetailTenant.lastHeartbeatAt).toLocaleDateString('id-ID')})</span></div>}
                     
                     {/* HWID Fingerprints List */}
