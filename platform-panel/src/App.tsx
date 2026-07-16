@@ -152,6 +152,14 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!isLoggedIn) return;
+    const interval = setInterval(() => {
+      loadOverviewStats();
+    }, 10000); // Polling telemetry & stats every 10 seconds
+    return () => clearInterval(interval);
+  }, [isLoggedIn]);
+
+  useEffect(() => {
     localStorage.setItem('hq-theme', theme);
   }, [theme]);
 
