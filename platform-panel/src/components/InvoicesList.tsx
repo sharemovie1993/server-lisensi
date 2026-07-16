@@ -221,15 +221,28 @@ export default function InvoicesList() {
                 <h3 className="text-white text-lg font-bold">{selectedInvoice.invoice_number}</h3>
               </div>
               
-              {selectedInvoice.status === 'paid' || selectedInvoice.status === 'PAID' ? (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs font-bold text-emerald-400">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Lunas
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-xs font-bold text-amber-400">
-                  <ShieldAlert className="w-4 h-4 text-amber-500" /> Pending
-                </span>
-              )}
+              {(() => {
+                const statusLower = selectedInvoice.status.toLowerCase();
+                if (statusLower === 'paid' || statusLower === 'lunas') {
+                  return (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs font-bold text-emerald-400">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Lunas
+                    </span>
+                  );
+                } else if (statusLower === 'expired' || statusLower === 'cancelled') {
+                  return (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-xs font-bold text-rose-400 opacity-70">
+                      <ShieldAlert className="w-4 h-4 text-rose-550" /> Kedaluwarsa
+                    </span>
+                  );
+                } else {
+                  return (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-xs font-bold text-amber-400">
+                      <ShieldAlert className="w-4 h-4 text-amber-500" /> Pending
+                    </span>
+                  );
+                }
+              })()}
             </div>
 
             <div className="bg-slate-955 p-4 rounded-xl border border-slate-850 space-y-3 bg-slate-950">
@@ -265,20 +278,72 @@ export default function InvoicesList() {
 
             {/* Instruction or Proof Section */}
             {selectedInvoice.status !== 'paid' && selectedInvoice.status !== 'PAID' ? (
-              <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-2 text-xs">
+              <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-3 text-xs">
                 <span className="text-white font-bold block flex items-center gap-1.5 text-indigo-400">
-                  <Info className="w-4 h-4" /> Petunjuk Pembayaran Manual
+                  <Info className="w-4 h-4" /> Petunjuk Pembayaran
                 </span>
-                <p className="text-slate-400 leading-relaxed font-sans">
-                  Silakan lakukan transfer manual sebesar <strong className="text-white font-mono">{formatCurrency(selectedInvoice.amount)}</strong> ke Rekening Bank pengelola lisensi utama (misal: Bank Mandiri / BCA). Kirimkan bukti pembayaran kepada operator atau klik tombol persetujuan manual untuk melunasi lisensi ini.
-                </p>
-                {selectedInvoice.payment_instructions && (
-                  <div className="bg-slate-950 p-3 rounded-lg border border-slate-850 font-mono text-[11px] text-slate-300 max-h-[120px] overflow-y-auto">
-                    {typeof selectedInvoice.payment_instructions === 'string' 
-                      ? selectedInvoice.payment_instructions 
-                      : JSON.stringify(selectedInvoice.payment_instructions, null, 2)}
-                  </div>
-                )}
+                
+                {(() => {
+                  let payInfo: any = null;
+                  if (selectedInvoice.payment_instructions) {
+                    try {
+                      payInfo = typeof selectedInvoice.payment_instructions === 'string'
+                        ? JSON.parse(selectedInvoice.payment_instructions)
+                        : selectedInvoice.payment_instructions;
+                    } catch (e) {
+                      console.warn('Failed to parse payment instructions JSON', e);
+                    }
+                  }
+
+                  const isManual = selectedInvoice.payment_method?.toLowerCase() === 'manual';
+                  
+                  if (isManual) {
+                    return (
+                      <p className="text-slate-400 leading-relaxed font-sans">
+                        Silakan lakukan transfer manual sebesar <strong className="text-white font-mono">{formatCurrency(selectedInvoice.amount)}</strong> ke Rekening Bank pengelola lisensi utama (misal: Bank Mandiri / BCA). Kirimkan bukti pembayaran kepada operator atau klik tombol persetujuan manual untuk melunasi lisensi ini.
+                      </p>
+                    );
+                  }
+
+                  if (payInfo) {
+                    return (
+                      <div className="space-y-3 text-left">
+                        {payInfo.qr_url ? (
+                          <div className="text-center py-2 bg-slate-950 rounded-lg border border-slate-850">
+                            <span className="text-[10px] text-slate-500 block mb-1">SCAN QR CODE</span>
+                            <img src={payInfo.qr_url} alt="QR Code" className="max-w-[150px] mx-auto rounded border border-white p-1 bg-white" />
+                          </div>
+                        ) : payInfo.pay_code ? (
+                          <div className="p-2.5 bg-slate-950 rounded-lg border border-slate-850 text-center font-mono">
+                            <span className="text-[9.5px] text-slate-500 block font-sans">KODE BAYAR / VIRTUAL ACCOUNT</span>
+                            <span className="text-emerald-400 text-lg font-bold select-all tracking-wide mt-0.5 block">{payInfo.pay_code}</span>
+                          </div>
+                        ) : null}
+
+                        {payInfo.instructions && payInfo.instructions.length > 0 && (
+                          <div className="max-h-[150px] overflow-y-auto border border-slate-850 p-2.5 rounded-lg bg-slate-950 font-sans text-slate-450 leading-relaxed space-y-2">
+                            {payInfo.instructions.map((inst: any, idx: number) => (
+                              <div key={idx}>
+                                <strong className="text-indigo-400 block mb-0.5">{idx + 1}. {inst.title}</strong>
+                                <ol className="list-decimal pl-4 text-slate-400 space-y-0.5">
+                                  {inst.steps.map((step: string, sIdx: number) => (
+                                    <li key={sIdx} dangerouslySetInnerHTML={{ __html: step }}></li>
+                                  ))}
+                                </ol>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <p className="text-slate-400 leading-relaxed font-sans">
+                      Lakukan pembayaran sesuai instruksi metode {selectedInvoice.payment_method || 'Gateway'}. Klik tombol di bawah untuk melunasi secara manual.
+                    </p>
+                  );
+                })()}
               </div>
             ) : (
               selectedInvoice.payment_proof && (
@@ -307,17 +372,24 @@ export default function InvoicesList() {
                 <Printer className="w-3.5 h-3.5" />
                 <span>Cetak / PDF</span>
               </a>
-              {selectedInvoice.status !== 'paid' && selectedInvoice.status !== 'PAID' && (
-                <button
-                  onClick={() => {
-                    handleApprovePayment(selectedInvoice.id);
-                    setSelectedInvoice(null);
-                  }}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-600/20 transition"
-                >
-                  Setujui & Lunasi Sekarang
-                </button>
-              )}
+              {selectedInvoice.status !== 'paid' && selectedInvoice.status !== 'PAID' && (() => {
+                const isExpired = selectedInvoice.status.toLowerCase() === 'expired' || selectedInvoice.status.toLowerCase() === 'cancelled';
+                return (
+                  <button
+                    onClick={() => {
+                      handleApprovePayment(selectedInvoice.id);
+                      setSelectedInvoice(null);
+                    }}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold shadow-lg transition ${
+                      isExpired 
+                        ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-600/20' 
+                        : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
+                    }`}
+                  >
+                    {isExpired ? 'Setujui & Aktifkan Ulang (Paksa)' : 'Setujui & Lunasi Sekarang'}
+                  </button>
+                );
+              })()}
               <button
                 type="button"
                 onClick={() => setSelectedInvoice(null)}

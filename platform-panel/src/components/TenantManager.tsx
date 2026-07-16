@@ -338,17 +338,31 @@ export default function TenantManager() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col items-start gap-1.5">
-                          {t.status?.toUpperCase() === 'ACTIVE' ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-bold text-emerald-400 uppercase tracking-wide">
-                              <BadgeCheck className="w-3.5 h-3.5" />
-                              Aktif
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] font-bold text-amber-400 uppercase tracking-wide">
-                              <ShieldAlert className="w-3.5 h-3.5" />
-                              Pending
-                            </span>
-                          )}
+                          {(() => {
+                            const statusUpper = t.status?.toUpperCase() || '';
+                            if (statusUpper === 'ACTIVE') {
+                              return (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-bold text-emerald-400 uppercase tracking-wide">
+                                  <BadgeCheck className="w-3.5 h-3.5" />
+                                  Aktif
+                                </span>
+                              );
+                            } else if (statusUpper === 'EXPIRED' || statusUpper === 'INACTIVE') {
+                              return (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-[10px] font-bold text-rose-400 uppercase tracking-wide opacity-70">
+                                  <ShieldAlert className="w-3.5 h-3.5" />
+                                  Kedaluwarsa
+                                </span>
+                              );
+                            } else {
+                              return (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] font-bold text-amber-400 uppercase tracking-wide">
+                                  <ShieldAlert className="w-3.5 h-3.5" />
+                                  Pending
+                                </span>
+                              );
+                            }
+                          })()}
                           {t.wireguardIp ? (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-950/40 border border-indigo-900/30 text-[9px] font-semibold text-indigo-350">
                               🟢 Tunnel Active ({t.wireguardIp})
