@@ -17,6 +17,7 @@ import InvoicesList from './components/InvoicesList';
 import ProductsManager from './components/ProductsManager';
 import AuditLogs from './components/AuditLogs';
 import CaddyGateway from './components/CaddyGateway';
+import PrivateerTransactions from './components/PrivateerTransactions';
 
 // Icons
 import {
@@ -37,7 +38,8 @@ import {
   Server,
   Network,
   Sun,
-  Moon
+  Moon,
+  CreditCard
 } from 'lucide-react';
 
 const queryClient = new QueryClient();
@@ -249,8 +251,9 @@ export default function App() {
   // SIDEBAR ITEMS
   const sidebarItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'tenants', label: 'Daftar Server', icon: Server },
-    { id: 'subscriptions', label: 'Daftar Sekolah', icon: Users },
+    { id: 'tenants', label: 'Daftar Server & Tunnel', icon: Server },
+    { id: 'subscriptions', label: 'Langganan Sekolah', icon: Users },
+    { id: 'privateer', label: 'Transaksi Privateer', icon: CreditCard },
     { id: 'invoices', label: 'Invoice', icon: DollarSign },
     { id: 'products', label: 'Produk & Plan', icon: Layers },
     { id: 'risk', label: 'Churn Risk', icon: AlertTriangle },
@@ -340,6 +343,7 @@ export default function App() {
             )}
             {activeTab === 'tenants' && <TenantManager />}
             {activeTab === 'subscriptions' && <SubscriptionsList />}
+            {activeTab === 'privateer' && <PrivateerTransactions />}
             {activeTab === 'invoices' && <InvoicesList />}
             {activeTab === 'products' && <ProductsManager />}
             {activeTab === 'risk' && <RiskIntelligence />}

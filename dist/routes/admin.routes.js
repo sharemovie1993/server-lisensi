@@ -478,6 +478,68 @@ const adminRoutes = async (fastify) => {
             return reply.status(500).send({ success: false, message: 'Gagal mengambil riwayat top-up Privateer: ' + err.message });
         }
     });
+    // 9.6 Process Manual Top-up for Privateer (Cash payment)
+    fastify.post('/api/admin/privateer/manual-topup', async (request, reply) => {
+        await verifyAdmin(request, reply);
+        if (reply.sent)
+            return;
+        const { phone, studentName, sessions, price } = request.body;
+        if (!phone || !studentName || !sessions) {
+            return reply.status(400).send({ success: false, message: 'Parameter phone, studentName, dan sessions wajib diisi.' });
+        }
+        try {
+            const cleanPhone = (0, helpers_1.formatWA)(phone);
+            const invoiceNumber = `INV-PVT-MAN-${Math.floor(1000 + Math.random() * 9000)}-${new Date().getFullYear()}`;
+            // 1. Upsert UserCredit berdasarkan nomor WA
+            const userCredit = await prisma.userCredit.upsert({
+                where: { phone: cleanPhone },
+                update: {
+                    balance: { increment: sessions },
+                    studentName: studentName
+                },
+                create: {
+                    phone: cleanPhone,
+                    balance: sessions,
+                    studentName: studentName
+                }
+            });
+            // 2. Catat transaksi top-up manual
+            await prisma.topUpTransaction.create({
+                data: {
+                    userCreditId: userCredit.id,
+                    amount: sessions,
+                    pricePaid: price || 0,
+                    invoiceNumber: invoiceNumber,
+                    status: 'PAID',
+                    paidAt: new Date()
+                }
+            });
+            // 3. Kirim notifikasi WA Lunas ke Siswa
+            const message = `*💎 [Privateer] TOP-UP MANUAL BERHASIL (CASH)*
+
+Halo *${studentName}*, kuota belajar Anda telah ditambahkan oleh Admin.
+
+*📋 Rincian Top-up:*
+- *No. Transaksi*: ${invoiceNumber}
+- *Tambahan Sesi*: *+${sessions} Sesi Belajar*
+- *Status*: ✅ *DITERIMA & LUNAS*
+
+*💳 Saldo Sesi Belajar Anda Sekarang:*
+- *Total Saldo*: *${userCredit.balance} Sesi Belajar*
+
+Terima kasih. Selamat belajar di Privateer! ✨🚀`;
+            const { waGateway } = require('../../services/whatsapp.service');
+            await waGateway.sendMessage(cleanPhone, message, 'TOPUP_MANUAL', 'privateer');
+            return reply.send({
+                success: true,
+                message: 'Top-up manual berhasil diproses dan saldo telah ditambahkan.',
+                data: userCredit
+            });
+        }
+        catch (err) {
+            return reply.status(500).send({ success: false, message: 'Gagal memproses top-up manual: ' + err.message });
+        }
+    });
     // 10. Manually mark invoice as paid
     fastify.post('/api/admin/invoices/pay/:id', async (request, reply) => {
         await verifyAdmin(request, reply);
