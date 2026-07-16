@@ -219,56 +219,64 @@ pos.${MAIN_DOMAIN} {
 
     upstreams.forEach(up => {
       const ports = PORT_EXCEPTIONS[up.slug.toLowerCase()] || { backend: 5002, frontend: 5174 };
-      const domainListStr = up.domains.join(', ');
 
-      let tenantTlsBlock = '';
-
-      if (up.product_id === 'easy-tunnel') {
-        // Jika port lokal adalah 443, asumsikan target menggunakan HTTPS (Caddy Lokal)
-        // Kita perlu menggunakan transport https dengan skip verify atau server_name
-        // karena sertifikat di lokal biasanya diterbitkan untuk domain aslinya, bukan IP WireGuard.
-        const isHttps = up.local_port === 443;
-        const scheme = isHttps ? 'https' : 'http';
+      // Proses per domain secara terpisah agar kita bisa memberikan tls directive wildcard atau on-demand secara spesifik
+      up.domains.forEach(domain => {
+        const domainClean = domain.trim().toLowerCase();
         
-        if (isHttps) {
-          caddyfile += `
-# Tenant: ${up.slug} (Easy Tunnel - End-to-End HTTPS)
-${domainListStr} {
+        // Deteksi apakah domain berakhiran .MAIN_DOMAIN (domain internal absenta.id)
+        const isInternalSubdomain = domainClean.endsWith(`.${MAIN_DOMAIN.toLowerCase()}`);
+        
+        let tenantTlsBlock = '';
+        if (isInternalSubdomain && !DISABLE_HTTPS) {
+          // Arahkan ke file sertifikat wildcard yang sudah ada di VPS
+          tenantTlsBlock = `\n    tls /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.${MAIN_DOMAIN}/wildcard_.${MAIN_DOMAIN}.crt /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.${MAIN_DOMAIN}/wildcard_.${MAIN_DOMAIN}.key`;
+        }
+
+        if (up.product_id === 'easy-tunnel') {
+          // Jika port lokal adalah 443, asumsikan target menggunakan HTTPS (Caddy Lokal)
+          const isHttps = up.local_port === 443;
+          
+          if (isHttps) {
+            caddyfile += `
+# Tenant: ${up.slug} (Easy Tunnel - End-to-End HTTPS - ${domainClean})
+${domainClean} {${tenantTlsBlock}
     reverse_proxy /socket.io/* https://${up.wireguard_ip}:${up.local_port} {
         header_up Host {host}
         transport http {
-            tls_server_name ${up.domains[0]}
+            tls_server_name ${domainClean}
         }
     }
     reverse_proxy https://${up.wireguard_ip}:${up.local_port} {
         header_up Host {host}
         transport http {
-            tls_server_name ${up.domains[0]}
+            tls_server_name ${domainClean}
         }
-    }${tenantTlsBlock}
+    }
 }
 `;
+          } else {
+            caddyfile += `
+# Tenant: ${up.slug} (Easy Tunnel - ${domainClean})
+${domainClean} {${tenantTlsBlock}
+    reverse_proxy /socket.io/* http://${up.wireguard_ip}:${up.local_port || 5002}
+    reverse_proxy http://${up.wireguard_ip}:${up.local_port || 5002}
+}
+`;
+          }
         } else {
           caddyfile += `
-# Tenant: ${up.slug} (Easy Tunnel)
-${domainListStr} {
-    reverse_proxy /socket.io/* http://${up.wireguard_ip}:${up.local_port || 5002}
-    reverse_proxy http://${up.wireguard_ip}:${up.local_port || 5002}${tenantTlsBlock}
-}
-`;
-        }
-      } else {
-        caddyfile += `
-# Tenant: ${up.slug}
-${domainListStr} {
+# Tenant: ${up.slug} (${domainClean})
+${domainClean} {${tenantTlsBlock}
     # Route backend API
     reverse_proxy /api/* http://${up.wireguard_ip}:${ports.backend}
     
     # Route frontend Vite / Web client
-    reverse_proxy * http://${up.wireguard_ip}:${ports.frontend}${tenantTlsBlock}
+    reverse_proxy * http://${up.wireguard_ip}:${ports.frontend}
 }
 `;
-      }
+        }
+      });
     });
 
     // Write to Caddyfile
