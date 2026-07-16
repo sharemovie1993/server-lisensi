@@ -45,6 +45,28 @@ export default function SubscriptionsList() {
   const [expandedSchools, setExpandedSchools] = useState<Record<string, boolean>>({});
   const [selectedSubIds, setSelectedSubIds] = useState<string[]>([]);
 
+  // Migrate server states
+  const [showMigrateModal, setShowMigrateModal] = useState(false);
+  const [selectedMigrateSchool, setSelectedMigrateSchool] = useState('');
+  const [currentLicenseId, setCurrentLicenseId] = useState('');
+  const [targetLicenseId, setTargetLicenseId] = useState('');
+  const [nodes, setNodes] = useState<any[]>([]);
+
+  const fetchNodes = async () => {
+    try {
+      const res = await apiClient.get('/api/admin/nodes');
+      if (res.data?.success) {
+        // Hanya tampilkan server yang valid untuk Cakola (SaaS / On-Premise)
+        const filteredNodes = (res.data.data || []).filter((n: any) => 
+          n.productId === 'cakola' || n.productId === 'platform-absenta'
+        );
+        setNodes(filteredNodes);
+      }
+    } catch (e) {
+      console.error('Failed to fetch server nodes', e);
+    }
+  };
+
   const loadData = async () => {
     setLoading(true);
     try {
@@ -54,6 +76,7 @@ export default function SubscriptionsList() {
       ]);
       setSubs(subsRes.data?.data || []);
       setProducts(productsRes.data?.data || []);
+      await fetchNodes();
     } catch (e) {
       console.error('Failed to load subscriptions', e);
     } finally {
@@ -137,6 +160,33 @@ export default function SubscriptionsList() {
       setSelectedSubIds(prev => prev.filter(id => !allFilteredIds.includes(id)));
     } else {
       setSelectedSubIds(prev => Array.from(new Set([...prev, ...allFilteredIds])));
+    }
+  };
+
+  const handleMigrateServer = async () => {
+    if (!targetLicenseId) {
+      alert('Pilih server tujuan terlebih dahulu.');
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const res = await apiClient.post('/api/admin/subscriptions/migrate', {
+        schoolName: selectedMigrateSchool,
+        targetLicenseId
+      });
+      if (res.data?.success) {
+        alert(`Sukses memindahkan server instansi ${selectedMigrateSchool}!`);
+        setShowMigrateModal(false);
+        setTargetLicenseId('');
+        loadData();
+      } else {
+        alert(res.data?.message || 'Gagal memindahkan server.');
+      }
+    } catch (err: any) {
+      alert('Gagal memindahkan server: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -369,9 +419,22 @@ export default function SubscriptionsList() {
                         <tr className="bg-slate-950/45 border-b border-slate-800">
                           <td colSpan={6} className="px-8 py-6 border-l-4 border-indigo-500">
                             <div className="space-y-4">
-                              <h4 className="text-white text-[11px] font-bold uppercase tracking-wider flex items-center gap-2 text-indigo-400 text-left">
-                                📦 Rincian Paket & Langganan Sekolah ({rawGroup.length})
-                              </h4>
+                              <div className="flex justify-between items-center mb-4">
+                                <h4 className="text-white text-[11px] font-bold uppercase tracking-wider flex items-center gap-2 text-indigo-400 text-left">
+                                  📦 Rincian Paket & Langganan Sekolah ({rawGroup.length})
+                                </h4>
+                                <button
+                                  onClick={() => {
+                                    setSelectedMigrateSchool(schoolName);
+                                    setCurrentLicenseId(sampleItem?.licenseId || '');
+                                    setShowMigrateModal(true);
+                                  }}
+                                  className="px-3 py-1.5 bg-indigo-650/20 border border-indigo-500/30 hover:bg-indigo-600 text-indigo-400 hover:text-white transition rounded-xl text-[10.5px] font-bold flex items-center gap-1.5 cursor-pointer shadow-md"
+                                >
+                                  <RefreshCw className="w-3.5 h-3.5" />
+                                  Pindahkan Server (Migrasi)
+                                </button>
+                              </div>
                               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-left">
                                 {rawGroup.map((s) => (
                                   <div key={s.id} className="bg-slate-900/60 border border-slate-800 p-4 rounded-xl space-y-3 relative hover:border-slate-700 transition shadow-inner">
@@ -437,6 +500,71 @@ export default function SubscriptionsList() {
           </table>
         </div>
       </div>
+
+      {/* MODAL MIGRASI SERVER (SAAS -> ONPREMISE) */}
+      {showMigrateModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl relative text-left">
+            <h3 className="text-white text-xl font-bold mb-1 flex items-center gap-2">
+              <RefreshCw className="w-6 h-6 text-indigo-400" />
+              Migrasi / Pindahkan Server
+            </h3>
+            <p className="text-slate-400 text-xs mb-6">
+              Pindahkan seluruh modul langganan sekolah *{selectedMigrateSchool}* ke lisensi server fisik tujuan.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-slate-400 text-xs font-semibold mb-1.5">Server Saat Ini (ID)</label>
+                <input
+                  type="text"
+                  disabled
+                  value={currentLicenseId || 'VPS SaaS Induk'}
+                  className="w-full px-4 py-2.5 bg-slate-950/50 border border-slate-850 rounded-xl text-slate-500 text-sm focus:outline-none cursor-not-allowed"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 text-xs font-semibold mb-1.5">Pilih Server Tujuan</label>
+                <select
+                  value={targetLicenseId}
+                  onChange={(e) => setTargetLicenseId(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-850 rounded-xl text-indigo-400 font-bold text-sm focus:border-indigo-500 focus:outline-none cursor-pointer"
+                >
+                  <option value="">-- Pilih Server Node Tujuan --</option>
+                  {nodes.map((node) => (
+                    <option key={node.id} value={node.id}>
+                      🖥️ {node.schoolName} ({node.deployMode?.toUpperCase()} | {node.requestedSlug || 'N/A'})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-slate-500 mt-1.5 leading-relaxed">
+                  * Catatan: Setelah dipindahkan, traffic domain sekolah akan otomatis dialihkan ke IP node server baru saat heartbeat berikutnya.
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMigrateModal(false);
+                    setTargetLicenseId('');
+                  }}
+                  className="flex-1 py-3 bg-slate-800 hover:bg-slate-750 text-slate-300 rounded-xl font-bold text-sm transition"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={handleMigrateServer}
+                  className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-600/25 transition"
+                >
+                  Proses Migrasi
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
