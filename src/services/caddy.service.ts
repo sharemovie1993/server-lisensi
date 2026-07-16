@@ -133,32 +133,43 @@ pos.${MAIN_DOMAIN} {
 
     upstreams.forEach(up => {
       const ports = PORT_EXCEPTIONS[up.slug.toLowerCase()] || { backend: 5002, frontend: 5174 };
-      const domainListStr = up.domains.join(', ');
 
-      if (up.product_id === 'easy-tunnel') {
-        const port = up.local_port || 5002;
-        const isDevVitePort = port >= 5173 && port <= 5179;
-        const isHttpsPort = port === 443;
-        const upstreamProtocol = (isDevVitePort || isHttpsPort) ? 'https' : 'http';
-        const primaryDomain = up.domains[0] || `${up.slug}.${MAIN_DOMAIN}`;
-        const tlsConfig = (isDevVitePort || isHttpsPort) ? ` {
-        header_up Host ${primaryDomain}
+      // Proses per domain secara terpisah agar kita bisa memberikan tls directive wildcard atau on-demand secara spesifik
+      up.domains.forEach(domain => {
+        const domainClean = domain.trim().toLowerCase();
+        
+        // Deteksi apakah domain berakhiran .MAIN_DOMAIN (domain internal absenta.id)
+        const isInternalSubdomain = domainClean.endsWith(`.${MAIN_DOMAIN.toLowerCase()}`);
+        
+        let wildcardTlsBlock = '';
+        if (isInternalSubdomain) {
+          // Arahkan ke file sertifikat wildcard yang sudah ada di VPS
+          wildcardTlsBlock = `\n    tls ${caddySslBase}/wildcard_.${MAIN_DOMAIN}/wildcard_.${MAIN_DOMAIN}.crt ${caddySslBase}/wildcard_.${MAIN_DOMAIN}/wildcard_.${MAIN_DOMAIN}.key`;
+        }
+
+        if (up.product_id === 'easy-tunnel') {
+          const port = up.local_port || 5002;
+          const isDevVitePort = port >= 5173 && port <= 5179;
+          const isHttpsPort = port === 443;
+          const upstreamProtocol = (isDevVitePort || isHttpsPort) ? 'https' : 'http';
+          const tlsConfig = (isDevVitePort || isHttpsPort) ? ` {
+        header_up Host ${domainClean}
         transport http {
             tls_insecure_skip_verify
-            tls_server_name ${primaryDomain}
+            tls_server_name ${domainClean}
         }
     }` : '';
 
-        caddyfile += `
-# Tenant: ${up.slug} (Easy Tunnel)
-${domainListStr} {
+          caddyfile += `
+# Tenant: ${up.slug} (Easy Tunnel - ${domainClean})
+${domainClean} {${wildcardTlsBlock}
     reverse_proxy * ${upstreamProtocol}://${up.wireguard_ip}:${port}${tlsConfig}
 }
 `;
-      } else {
-        caddyfile += `
-# Tenant: ${up.slug}
-${domainListStr} {
+        } else {
+          caddyfile += `
+# Tenant: ${up.slug} (${domainClean})
+${domainClean} {${wildcardTlsBlock}
     # Route backend API
     reverse_proxy /api/* http://${up.wireguard_ip}:${ports.backend}
     
@@ -166,7 +177,8 @@ ${domainListStr} {
     reverse_proxy * http://${up.wireguard_ip}:${ports.frontend}
 }
 `;
-      }
+        }
+      });
     });
 
     // Add fallback for inactive subdomains to show blocked.html
