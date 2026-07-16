@@ -15,6 +15,16 @@ const caddy_service_1 = require("./services/caddy.service");
 dotenv_1.default.config({ path: path_1.default.join(__dirname, '../.env') });
 const PORT = parseInt(process.env.PORT || '5001', 10);
 const HOST = '0.0.0.0';
+// ── Global Error Handlers (cegah proses mati diam-diam) ─────────────────────
+process.on('uncaughtException', (err) => {
+    console.error('[FATAL] uncaughtException — server akan shutdown:', err);
+    process.exit(1);
+});
+process.on('unhandledRejection', (reason) => {
+    console.error('[FATAL] unhandledRejection:', reason);
+    // Jangan exit — log saja agar tidak crash karena promise WA/DB minor
+});
+// ─────────────────────────────────────────────────────────────────────────────
 // VPN Firewall Client Isolation Setup
 function initVpnFirewall() {
     const checkCmd = 'sudo iptables -C FORWARD -i wg0 -o wg0 -m iprange --src-range 10.0.0.10-10.0.0.254 -j REJECT --reject-with icmp-port-unreachable';
@@ -40,6 +50,26 @@ function initVpnFirewall() {
 }
 async function startServer() {
     const app = (0, app_1.buildApp)();
+    // ── Graceful Shutdown Handler ────────────────────────────────────────────
+    let isShuttingDown = false;
+    const gracefulShutdown = async (signal) => {
+        if (isShuttingDown)
+            return;
+        isShuttingDown = true;
+        console.log(`\n[SERVER] Menerima sinyal ${signal} — memulai graceful shutdown...`);
+        try {
+            await app.close();
+            console.log('[SERVER] HTTP server ditutup dengan bersih.');
+        }
+        catch (e) {
+            console.warn('[SERVER] Error saat menutup HTTP server:', e.message);
+        }
+        console.log('[SERVER] Shutdown selesai. Bye!');
+        process.exit(0);
+    };
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+    // ─────────────────────────────────────────────────────────────────────────
     // Initialize VNC WebSocket-to-TCP Proxy
     (0, vnc_proxy_service_1.setupVncProxy)(app);
     // Initialize WhatsApp Gateway
@@ -64,6 +94,12 @@ async function startServer() {
         console.log(`[LICENSE SERVER] SaaS Engine running securely on http://${HOST}:${PORT}`);
     }
     catch (err) {
+        // ── Port conflict → exit(1) agar PM2 tidak loop restart tanpa batas ──
+        if (err.code === 'EADDRINUSE') {
+            console.error(`[FATAL] Port ${PORT} sudah dipakai proses lain! Jalankan: sudo fuser -k ${PORT}/tcp`);
+            console.error('[FATAL] Server tidak dapat start — menghentikan proses tanpa restart otomatis.');
+            process.exit(1);
+        }
         app.log.error(err);
         process.exit(1);
     }

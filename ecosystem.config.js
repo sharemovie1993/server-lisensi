@@ -7,7 +7,19 @@ module.exports = {
       exec_mode: 'fork',
       autorestart: true,
       watch: false,
-      max_memory_restart: '300M',
+
+      // ── Hardening: Cegah crash-restart loop ──────────────────────────────
+      // Jika proses hidup < 5 detik, dianggap crash (bukan sehat)
+      min_uptime: '5s',
+      // Tunggu 4 detik sebelum restart — beri waktu OS lepaskan port
+      restart_delay: 4000,
+      // Maksimum 10 restart dalam window exp_backoff — setelah itu stop
+      max_restarts: 10,
+      // Beri waktu 8 detik untuk proses lama menutup port sebelum force-kill
+      kill_timeout: 8000,
+      // ─────────────────────────────────────────────────────────────────────
+
+      max_memory_restart: '400M',
       env: {
         NODE_ENV: 'production',
         PORT: 5001
