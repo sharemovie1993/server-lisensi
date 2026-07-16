@@ -10,6 +10,8 @@ import { waGateway } from './services/whatsapp.service';
 import { checkExpirations } from './services/cron.service';
 import { setupVncProxy } from './services/vnc-proxy.service';
 import { triggerCaddySync } from './services/caddy.service';
+import cron from 'node-cron';
+
 
 // Load .env variables
 dotenv.config({ path: path.join(__dirname, '../.env') });
@@ -95,7 +97,13 @@ async function startServer() {
   // Start cron checks and Caddy configuration sync
   await triggerCaddySync().catch(err => console.error('[CADDY SYNC ERROR]', err));
   await checkExpirations();
-  setInterval(checkExpirations, 24 * 60 * 60 * 1000); // 24 hours daily cron loop
+
+  // Setup daily cron job using node-cron (run at 01:00 AM every day)
+  cron.schedule('0 1 * * *', async () => {
+    console.log('[CRON-TRIGGER] Running scheduled daily checkExpirations at 01:00 AM...');
+    await checkExpirations();
+  });
+
 
   // Initialize Firewall rules
   if (process.platform === 'linux') {

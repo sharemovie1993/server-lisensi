@@ -264,4 +264,17 @@ model TopUpTransaction {
   @@map("topup_transactions")
 }
 
+model CronJobLog {
+  id         String    @id @default(uuid())
+  jobName    String    @map("job_name")
+  startedAt  DateTime  @default(now()) @map("started_at")
+  finishedAt DateTime? @map("finished_at")
+  status     String    @default("RUNNING") // RUNNING, SUCCESS, FAILED
+  message    String?   @db.Text
+  meta       Json?     // Menyimpan statistik (misal: {"expiredLicenses": 3, "deletedInvoices": 5})
+
+  @@map("cron_job_logs")
+}
+
+
 

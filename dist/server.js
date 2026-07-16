@@ -14,6 +14,7 @@ const whatsapp_service_1 = require("./services/whatsapp.service");
 const cron_service_1 = require("./services/cron.service");
 const vnc_proxy_service_1 = require("./services/vnc-proxy.service");
 const caddy_service_1 = require("./services/caddy.service");
+const node_cron_1 = __importDefault(require("node-cron"));
 // Load .env variables
 dotenv_1.default.config({ path: path_1.default.join(__dirname, '../.env') });
 const PORT = parseInt(process.env.PORT || '5001', 10);
@@ -87,7 +88,11 @@ async function startServer() {
     // Start cron checks and Caddy configuration sync
     await (0, caddy_service_1.triggerCaddySync)().catch(err => console.error('[CADDY SYNC ERROR]', err));
     await (0, cron_service_1.checkExpirations)();
-    setInterval(cron_service_1.checkExpirations, 24 * 60 * 60 * 1000); // 24 hours daily cron loop
+    // Setup daily cron job using node-cron (run at 01:00 AM every day)
+    node_cron_1.default.schedule('0 1 * * *', async () => {
+        console.log('[CRON-TRIGGER] Running scheduled daily checkExpirations at 01:00 AM...');
+        await (0, cron_service_1.checkExpirations)();
+    });
     // Initialize Firewall rules
     if (process.platform === 'linux') {
         initVpnFirewall();

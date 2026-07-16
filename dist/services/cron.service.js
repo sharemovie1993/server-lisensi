@@ -21,6 +21,13 @@ async function sendWaNotif(phone, pesan, triggerType = 'SYSTEM', productId) {
 }
 async function checkExpirations() {
     console.log('[CRON] Running automatic license & subscription expiration check...');
+    // 1. Buat record awal CronJobLog dengan status RUNNING
+    const logRecord = await prisma.cronJobLog.create({
+        data: {
+            jobName: 'DAILY_LICENSE_SUBSCRIPTION_JOB',
+            status: 'RUNNING'
+        }
+    });
     const nowLocal = new Date();
     const year = nowLocal.getFullYear();
     const month = String(nowLocal.getMonth() + 1).padStart(2, '0');
@@ -29,6 +36,12 @@ async function checkExpirations() {
     const minutes = String(nowLocal.getMinutes()).padStart(2, '0');
     const seconds = String(nowLocal.getSeconds()).padStart(2, '0');
     const currentTimestamp = `${year}-${month}-${date} ${hours}:${minutes}:${seconds}`;
+    let expiredRevoked = 0;
+    let warningsSent = 0;
+    let deletedLicensesFromTrials = 0;
+    let markedExpiredInvoices = 0;
+    let deletedInvoicesCount = 0;
+    let deletedLicensesFromInvoices = 0;
     try {
         // 1. Find newly expired active licenses
         const expiredLicenses = await prisma.license.findMany({
@@ -70,23 +83,60 @@ async function checkExpirations() {
                         action: 'CRON_EXPIRED'
                     }
                 });
+                expiredRevoked++;
             }
             // Trigger Caddy sync to remove routing for expired licenses
             console.log(`[CRON] Triggering Caddy sync to remove routing for ${expiredLicenses.length} expired licenses...`);
             await (0, caddy_service_1.triggerCaddySync)();
         }
+        // Run cleanup of inactive trial/test licenses
+        const trialsResult = await cleanupInactiveTrials();
+        warningsSent = trialsResult.warningsSent;
+        deletedLicensesFromTrials = trialsResult.deletedLicenses;
+        // Run cleanup of expired unpaid invoices
+        const invoicesResult = await cleanupExpiredInvoices();
+        markedExpiredInvoices = invoicesResult.markedExpired;
+        deletedInvoicesCount = invoicesResult.deletedInvoices;
+        deletedLicensesFromInvoices = invoicesResult.deletedLicenses;
+        // Hitung durasi job
+        const finishedAt = new Date();
+        const durationMs = finishedAt.getTime() - logRecord.startedAt.getTime();
+        // 2. Tandai sukses dan update metrik di CronJobLog
+        await prisma.cronJobLog.update({
+            where: { id: logRecord.id },
+            data: {
+                finishedAt,
+                status: 'SUCCESS',
+                meta: {
+                    durationMs,
+                    expiredRevoked,
+                    warningsSent,
+                    deletedLicensesFromTrials,
+                    markedExpiredInvoices,
+                    deletedInvoicesCount,
+                    deletedLicensesFromInvoices
+                }
+            }
+        });
     }
     catch (err) {
         console.error('[CRON] Error during expiration check:', err.message);
+        // 3. Catat status FAILED jika terjadi error crash
+        await prisma.cronJobLog.update({
+            where: { id: logRecord.id },
+            data: {
+                finishedAt: new Date(),
+                status: 'FAILED',
+                message: err.message
+            }
+        });
     }
-    // Run cleanup of inactive trial/test licenses
-    await cleanupInactiveTrials().catch(err => console.error('[CRON] Error during trial cleanup:', err.message));
-    // Run cleanup of expired unpaid invoices
-    await cleanupExpiredInvoices().catch(err => console.error('[CRON] Error during expired invoices cleanup:', err.message));
 }
 async function cleanupInactiveTrials() {
     console.log('[CRON] Running automatic cleanup of inactive trial/test licenses...');
     const now = new Date();
+    let warningsSent = 0;
+    let deletedCount = 0;
     // Phase thresholds
     const warningThreshold = new Date(now);
     warningThreshold.setDate(now.getDate() - 7); // 7 days → warning
@@ -120,6 +170,7 @@ async function cleanupInactiveTrials() {
                 const msg = (0, wa_bot_service_1.buildWarningMessage)(lic.schoolName, lic.licenseKey, heartbeatAge);
                 await sendWaNotif(lic.operatorPhone, msg, 'CRON_WARNING', lic.productId);
                 console.log(`[CRON-WA] Peringatan interaktif terkirim ke operator ${lic.schoolName} (${lic.operatorPhone})`);
+                warningsSent++;
             }
         }
         // ─────────────────────────────────────────────────────────
@@ -137,9 +188,8 @@ async function cleanupInactiveTrials() {
         });
         if (deleteCandidates.length === 0) {
             console.log('[CRON] No inactive trial licenses ready for deletion.');
-            return;
+            return { warningsSent, deletedLicenses: 0 };
         }
-        let deletedCount = 0;
         for (const lic of deleteCandidates) {
             // Safety: jangan hapus kalau ada invoice lunas
             const hasPaidInvoice = lic.invoices.some(inv => inv.status === 'paid' || inv.status === 'PAID');
@@ -166,7 +216,9 @@ async function cleanupInactiveTrials() {
     }
     catch (err) {
         console.error('[CRON-CLEANUP] Error during trial cleanup:', err.message);
+        throw err; // throw agar checkExpirations tahu ada kegagalan
     }
+    return { warningsSent, deletedLicenses: deletedCount };
 }
 /**
  * Membersihkan / membatalkan invoice pending (unpaid) yang telah kedaluwarsa.
@@ -175,6 +227,9 @@ async function cleanupInactiveTrials() {
 async function cleanupExpiredInvoices() {
     console.log('[CRON] Running automatic cleanup of expired unpaid invoices...');
     const nowSec = Math.floor(Date.now() / 1000);
+    let markedExpired = 0;
+    let deletedInvoices = 0;
+    let deletedLicenses = 0;
     try {
         // 1. Cari invoice 'unpaid' yang waktu expired-nya sudah lewat
         const expiredInvoices = await prisma.invoice.findMany({
@@ -182,7 +237,6 @@ async function cleanupExpiredInvoices() {
                 status: 'unpaid'
             }
         });
-        let updatedCount = 0;
         for (const inv of expiredInvoices) {
             const expTimestamp = parseInt(inv.expiredTime, 10);
             if (isNaN(expTimestamp) || nowSec < expTimestamp)
@@ -198,10 +252,7 @@ async function cleanupExpiredInvoices() {
                 where: { id: inv.licenseId, status: 'unpaid' },
                 data: { status: 'expired', isActive: 0 }
             });
-            updatedCount++;
-        }
-        if (updatedCount > 0) {
-            console.log(`[CRON-INVOICE] Successfully marked ${updatedCount} expired invoices as 'expired'.`);
+            markedExpired++;
         }
         // 2. Hapus invoice & license yang berstatus 'expired' dan berumur lebih dari 7 hari sejak dibuat
         const sevenDaysAgo = new Date();
@@ -213,8 +264,6 @@ async function cleanupExpiredInvoices() {
             },
             include: { license: true }
         });
-        let deletedInvoicesCount = 0;
-        let deletedLicensesCount = 0;
         for (const inv of deleteCandidates) {
             const hasPaid = inv.license && (inv.license.status === 'active' || inv.license.isActive === 1);
             if (hasPaid) {
@@ -222,7 +271,7 @@ async function cleanupExpiredInvoices() {
                 // cukup hapus invoice yang expired ini saja agar database bersih. Jangan sentuh lisensi aktifnya!
                 console.log(`[CRON-INVOICE] Deleting expired invoice only (license active): ${inv.invoiceNumber}`);
                 await prisma.invoice.delete({ where: { id: inv.id } });
-                deletedInvoicesCount++;
+                deletedInvoices++;
             }
             else {
                 // Jika lisensinya memang tidak aktif (unpaid/trial terbengkalai), hapus keduanya
@@ -231,16 +280,18 @@ async function cleanupExpiredInvoices() {
                 await prisma.activatedDevice.deleteMany({ where: { licenseId: inv.licenseId } });
                 await prisma.invoice.delete({ where: { id: inv.id } });
                 await prisma.license.deleteMany({ where: { id: inv.licenseId } });
-                deletedLicensesCount++;
-                deletedInvoicesCount++;
+                deletedLicenses++;
+                deletedInvoices++;
             }
         }
-        if (deletedInvoicesCount > 0) {
-            console.log(`[CRON-INVOICE] Purged ${deletedInvoicesCount} old expired invoices and ${deletedLicensesCount} licenses from database.`);
+        if (deletedInvoices > 0) {
+            console.log(`[CRON-INVOICE] Purged ${deletedInvoices} old expired invoices and ${deletedLicenses} licenses from database.`);
             await (0, caddy_service_1.triggerCaddySync)();
         }
     }
     catch (err) {
         console.error('[CRON-INVOICE] Error during expired invoices cleanup:', err.message);
+        throw err; // throw agar checkExpirations tahu ada kegagalan
     }
+    return { markedExpired, deletedInvoices, deletedLicenses };
 }

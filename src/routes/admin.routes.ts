@@ -12,6 +12,8 @@ import path from 'path';
 import os from 'os';
 import { normalizeProductId, formatWA } from './license/helpers';
 import { logLicenseActivity } from '../utils/logger';
+import { checkExpirations } from '../services/cron.service';
+
 
 const prisma = new PrismaClient();
 
@@ -1646,4 +1648,65 @@ Terima kasih. Selamat belajar di Privateer! ✨🚀`;
     }
   });
 
+  // 35. GET /api/admin/cron/logs (Get cron execution history & summary statistics)
+  fastify.get('/api/admin/cron/logs', async (request: FastifyRequest, reply: FastifyReply) => {
+    await verifyAdmin(request, reply);
+    if (reply.sent) return;
+
+    try {
+      // Ambil 50 log running terbaru
+      const logs = await prisma.cronJobLog.findMany({
+        orderBy: { startedAt: 'desc' },
+        take: 50
+      });
+
+      // Hitung statistik summary running counter
+      const totalRuns = await prisma.cronJobLog.count();
+      const successRuns = await prisma.cronJobLog.count({ where: { status: 'SUCCESS' } });
+      const failedRuns = await prisma.cronJobLog.count({ where: { status: 'FAILED' } });
+      const runningJobs = await prisma.cronJobLog.count({ where: { status: 'RUNNING' } });
+      
+      const lastSuccessLog = await prisma.cronJobLog.findFirst({
+        where: { status: 'SUCCESS' },
+        orderBy: { finishedAt: 'desc' }
+      });
+
+      return reply.send({
+        success: true,
+        summary: {
+          totalRuns,
+          successRuns,
+          failedRuns,
+          runningJobs,
+          lastRunTime: logs[0] ? logs[0].startedAt : null,
+          lastSuccessTime: lastSuccessLog ? lastSuccessLog.finishedAt : null
+        },
+        data: logs
+      });
+    } catch (err: any) {
+      return reply.status(500).send({ success: false, message: 'Gagal mengambil log cron: ' + err.message });
+    }
+  });
+
+  // 36. POST /api/admin/cron/trigger (Manual bypass to trigger execution)
+  fastify.post('/api/admin/cron/trigger', async (request: FastifyRequest, reply: FastifyReply) => {
+    await verifyAdmin(request, reply);
+    if (reply.sent) return;
+
+    try {
+      // Jalankan secara asynchronous (non-blocking) di background agar response API instan
+      checkExpirations().catch(err => {
+        console.error('[MANUAL-CRON-TRIGGER] Background checkExpirations failed:', err.message);
+      });
+
+      return reply.send({
+        success: true,
+        message: 'Aktivitas pengecekan lisensi (cron job) berhasil dipicu di background!'
+      });
+    } catch (err: any) {
+      return reply.status(500).send({ success: false, message: 'Gagal memicu cron job: ' + err.message });
+    }
+  });
+
 };
+

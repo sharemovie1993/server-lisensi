@@ -18,6 +18,7 @@ import ProductsManager from './components/ProductsManager';
 import AuditLogs from './components/AuditLogs';
 import CaddyGateway from './components/CaddyGateway';
 import PrivateerTransactions from './components/PrivateerTransactions';
+import CronJobMonitor from './components/CronJobMonitor';
 
 // Icons
 import {
@@ -39,7 +40,8 @@ import {
   Network,
   Sun,
   Moon,
-  CreditCard
+  CreditCard,
+  Clock
 } from 'lucide-react';
 
 const queryClient = new QueryClient();
@@ -263,6 +265,7 @@ export default function App() {
     { id: 'whatsapp', label: 'WhatsApp Gateway', icon: Smartphone },
     { id: 'logs', label: 'Log Audit Trail', icon: FileText },
     { id: 'caddy', label: 'Caddy Gateway', icon: Network },
+    { id: 'cron-logs', label: 'Monitoring Cron', icon: Clock },
     { id: 'settings', label: 'Konfigurasi Sistem', icon: Settings },
   ];
 
@@ -353,6 +356,7 @@ export default function App() {
             {activeTab === 'whatsapp' && <WhatsAppGateway />}
             {activeTab === 'logs' && <AuditLogs />}
             {activeTab === 'caddy' && <CaddyGateway />}
+            {activeTab === 'cron-logs' && <CronJobMonitor />}
             {activeTab === 'settings' && <SystemSettings />}
           </main>
         </div>
