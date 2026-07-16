@@ -66,6 +66,7 @@ model License {
   originalDeviceId         String?           @map("original_device_id")
   lastHeartbeatAt          DateTime?         @map("last_heartbeat_at")
   deployMode               String?           @map("deploy_mode")
+  nodeType                 String            @default("SERVER_SAAS") @map("node_type") // SERVER_SAAS, SERVER_ONPREMISE, TUNNEL
   activeUsers              Int?              @map("active_users")
   dbSize                   Float?            @map("db_size")
   memoryUsage              Float?            @map("memory_usage")
@@ -235,6 +236,32 @@ model WhatsAppLog {
   createdAt    DateTime @default(now()) @map("created_at")
 
   @@map("whatsapp_logs")
+}
+
+model UserCredit {
+  id           String             @id @default(uuid())
+  phone        String             @unique
+  balance      Int                @default(0) // Sisa sesi belajar
+  studentName  String?            @map("student_name")
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+  transactions TopUpTransaction[]
+
+  @@map("user_credits")
+}
+
+model TopUpTransaction {
+  id            String     @id @default(uuid())
+  userCreditId  String     @map("user_credit_id")
+  amount        Int        // Jumlah sesi yang ditambah (misal +25)
+  pricePaid     Int        @map("price_paid") // Harga rupiah yang dibayar
+  invoiceNumber String     @unique @map("invoice_number")
+  status        String     // PENDING, PAID, EXPIRED
+  createdAt     DateTime   @default(now()) @map("created_at")
+  paidAt        DateTime?  @map("paid_at")
+  userCredit    UserCredit @relation(fields: [userCreditId], references: [id], onDelete: Cascade)
+
+  @@map("topup_transactions")
 }
 
 
