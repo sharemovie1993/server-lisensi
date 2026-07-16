@@ -296,7 +296,18 @@ export default function TenantManager() {
       {/* ANALYTICS CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Server */}
-        <div className="bg-slate-900/50 backdrop-blur-md border border-slate-800/80 p-5 rounded-2xl flex items-center justify-between shadow-xl transition-all duration-300 hover:border-slate-700/60 hover:shadow-indigo-500/5 group">
+        <div 
+          onClick={() => {
+            setSelectedStatus('all');
+            setSelectedNodeType('all');
+            setSelectedProductId('all');
+          }}
+          className={`bg-slate-900/50 backdrop-blur-md border p-5 rounded-2xl flex items-center justify-between shadow-xl cursor-pointer hover:scale-[1.01] transition-all duration-300 group ${
+            selectedStatus === 'all' && selectedNodeType === 'all' && selectedProductId === 'all'
+              ? 'border-indigo-500/80 shadow-indigo-500/10 ring-1 ring-indigo-500/30'
+              : 'border-slate-800/80 hover:border-slate-700/60 hover:shadow-indigo-500/5'
+          }`}
+        >
           <div className="space-y-1">
             <span className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider font-mono">Total Server / Node</span>
             <div className="text-2xl font-bold text-white font-mono">{totalServers}</div>
@@ -308,7 +319,18 @@ export default function TenantManager() {
         </div>
 
         {/* Server Online */}
-        <div className="bg-slate-900/50 backdrop-blur-md border border-slate-800/80 p-5 rounded-2xl flex items-center justify-between shadow-xl transition-all duration-300 hover:border-slate-700/60 hover:shadow-emerald-500/5 group">
+        <div 
+          onClick={() => {
+            setSelectedStatus('online');
+            // Reset nodeType to all when status-focused to avoid empty filter states
+            if (selectedNodeType === 'TUNNEL') setSelectedNodeType('all');
+          }}
+          className={`bg-slate-900/50 backdrop-blur-md border p-5 rounded-2xl flex items-center justify-between shadow-xl cursor-pointer hover:scale-[1.01] transition-all duration-300 group ${
+            selectedStatus === 'online'
+              ? 'border-emerald-500/80 shadow-emerald-500/10 ring-1 ring-emerald-500/30'
+              : 'border-slate-800/80 hover:border-slate-700/60 hover:shadow-emerald-500/5'
+          }`}
+        >
           <div className="space-y-1">
             <span className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider font-mono">Server Online</span>
             <div className="text-2xl font-bold text-white font-mono flex items-baseline gap-2">
@@ -323,7 +345,17 @@ export default function TenantManager() {
         </div>
 
         {/* Server Offline */}
-        <div className="bg-slate-900/50 backdrop-blur-md border border-slate-800/80 p-5 rounded-2xl flex items-center justify-between shadow-xl transition-all duration-300 hover:border-slate-700/60 hover:shadow-rose-500/5 group">
+        <div 
+          onClick={() => {
+            setSelectedStatus('offline');
+            if (selectedNodeType === 'TUNNEL') setSelectedNodeType('all');
+          }}
+          className={`bg-slate-900/50 backdrop-blur-md border p-5 rounded-2xl flex items-center justify-between shadow-xl cursor-pointer hover:scale-[1.01] transition-all duration-300 group ${
+            selectedStatus === 'offline'
+              ? 'border-rose-500/80 shadow-rose-500/10 ring-1 ring-rose-500/30'
+              : 'border-slate-800/80 hover:border-slate-700/60 hover:shadow-rose-500/5'
+          }`}
+        >
           <div className="space-y-1">
             <span className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider font-mono">Server Offline</span>
             <div className="text-2xl font-bold text-white font-mono">{offlineServers}</div>
@@ -335,7 +367,18 @@ export default function TenantManager() {
         </div>
 
         {/* Easy Tunnel Aktif */}
-        <div className="bg-slate-900/50 backdrop-blur-md border border-slate-800/80 p-5 rounded-2xl flex items-center justify-between shadow-xl transition-all duration-300 hover:border-slate-700/60 hover:shadow-purple-500/5 group">
+        <div 
+          onClick={() => {
+            setSelectedNodeType('TUNNEL');
+            // Reset status filter to all to show both online/offline tunnels
+            setSelectedStatus('all');
+          }}
+          className={`bg-slate-900/50 backdrop-blur-md border p-5 rounded-2xl flex items-center justify-between shadow-xl cursor-pointer hover:scale-[1.01] transition-all duration-300 group ${
+            selectedNodeType === 'TUNNEL'
+              ? 'border-purple-500/80 shadow-purple-500/10 ring-1 ring-purple-500/30'
+              : 'border-slate-800/80 hover:border-slate-700/60 hover:shadow-purple-500/5'
+          }`}
+        >
           <div className="space-y-1">
             <span className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider font-mono">Easy Tunnel Aktif</span>
             <div className="text-2xl font-bold text-white font-mono">{activeTunnelsCount}</div>
