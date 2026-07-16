@@ -155,6 +155,41 @@ class WhatsappService extends events_1.EventEmitter {
                 const text = msg.message?.conversation ||
                     msg.message?.extendedTextMessage?.text ||
                     '';
+                // ── Handle pesan gambar (bukti transfer) ──────────────────────────────
+                const isImage = !!msg.message?.imageMessage;
+                if (isImage) {
+                    const caption = msg.message?.imageMessage?.caption || '';
+                    console.log(`[WA-BOT] Gambar masuk dari ${fromJid} (Alt: ${altJid}), caption: "${caption}"`);
+                    try {
+                        const { downloadMediaMessage } = await import('@whiskeysockets/baileys');
+                        const mediaBuffer = await downloadMediaMessage(msg, 'buffer', {});
+                        const ownerPhone = process.env.OWNER_WA_NUMBER || '6287779937341';
+                        await (0, wa_bot_service_1.handleIncomingMedia)(fromJid, altJid, mediaBuffer, caption, ownerPhone, async (_toJid, pesan) => {
+                            try {
+                                await this.sock.sendMessage(fromJid, { text: pesan });
+                                this.messagesSentToday++;
+                            }
+                            catch (e) {
+                                this.messagesFailedToday++;
+                                console.error('[WA-BOT] Gagal kirim reply teks setelah media:', e.message);
+                            }
+                        }, async (toJid, buffer, imgCaption) => {
+                            try {
+                                await this.sock.sendMessage(toJid, { image: buffer, caption: imgCaption });
+                                this.messagesSentToday++;
+                            }
+                            catch (e) {
+                                this.messagesFailedToday++;
+                                console.error('[WA-BOT] Gagal forward gambar ke owner:', e.message);
+                            }
+                        });
+                    }
+                    catch (e) {
+                        console.error('[WA-BOT] Gagal proses pesan gambar:', e.message);
+                    }
+                    continue; // skip pemrosesan teks untuk pesan ini
+                }
+                // ── Handle pesan teks ───────────────────────────────────────────────
                 if (!text.trim())
                     continue;
                 console.log(`[WA-BOT] Pesan masuk dari ${fromJid} (Alt: ${altJid}): "${text.trim()}"`);
@@ -169,7 +204,7 @@ class WhatsappService extends events_1.EventEmitter {
                         this.messagesFailedToday++;
                         console.error('[WA-BOT] Gagal kirim balasan:', e.message);
                     }
-                }).catch(err => console.error('[WA-BOT] Error handler:', err.message));
+                }, fromJid).catch(err => console.error('[WA-BOT] Error handler:', err.message));
             }
         });
     }
@@ -261,6 +296,32 @@ class WhatsappService extends events_1.EventEmitter {
             catch (e) {
                 console.error('[WA LOG DB ERROR]', e.message);
             }
+            throw err;
+        }
+    }
+    /**
+     * Kirim pesan gambar/media ke nomor WA.
+     * Digunakan untuk forward bukti transfer ke Owner.
+     */
+    async sendImageMessage(nomor, imageBuffer, caption) {
+        if (this.connectionStatus !== 'connected' || !this.sock) {
+            throw new Error('WhatsApp Gateway belum terhubung.');
+        }
+        let cleaned = nomor.replace(/[^0-9]/g, '');
+        if (cleaned.startsWith('08'))
+            cleaned = '62' + cleaned.slice(1);
+        else if (cleaned.startsWith('8') && cleaned.length >= 9)
+            cleaned = '62' + cleaned;
+        const jid = cleaned.includes('@') ? cleaned : cleaned + '@s.whatsapp.net';
+        try {
+            await this.sock.sendMessage(jid, { image: imageBuffer, caption });
+            this.messagesSentToday++;
+            console.log(`[WA] Gambar terkirim ke ${nomor} (JID: ${jid})`);
+            return true;
+        }
+        catch (err) {
+            this.messagesFailedToday++;
+            console.error(`[WA] Gagal kirim gambar ke ${nomor}:`, err.message);
             throw err;
         }
     }

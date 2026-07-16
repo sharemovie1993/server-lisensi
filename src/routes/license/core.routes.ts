@@ -12,6 +12,7 @@ import {
 import { PRIVATE_KEY, PUBLIC_KEY } from '../../utils/keys';
 import { logLicenseActivity } from '../../utils/logger';
 import { waGateway } from '../../services/whatsapp.service';
+import { registerPaymentConfirmSession } from '../../services/wa-bot.service';
 
 export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
 
@@ -411,6 +412,9 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
             'Manual',
             'unpaid'
           ).catch(e => console.error('[WA Manual License Notify Error]', e.message));
+
+          // Daftarkan sesi konfirmasi pembayaran WA bot
+          registerPaymentConfirmSession(targetPhone, invoiceNumber, newKey, resolvedSchoolName, prodId);
         }
 
         // Notifikasi ke Owner
@@ -562,6 +566,9 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
             tx.pay_code,
             tx.qr_url
           ).catch(e => console.error('[WA Tripay License Notify Error]', e.message));
+
+          // Daftarkan sesi konfirmasi pembayaran WA bot
+          registerPaymentConfirmSession(targetPhone, invoiceNumber, newKey, resolvedSchoolName, prodId);
         }
 
         // Notifikasi ke Owner

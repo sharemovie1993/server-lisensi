@@ -123,6 +123,7 @@ Terima kasih ya sudah rajin belajar di Privateer. Semangat terus! ✨🚀`;
         }
         else {
             // Branding Standard Cakola
+            const confirmInstructions = status === 'unpaid' ? `\n\n━━━━━━━━━━━━━━━━━━━━\n💡 *Sudah Membayar?*\nBalas pesan ini dengan:\n  *KONFIRMASI ${invoiceNum}*\nKami akan memandu Anda mengirim bukti transfer secara langsung via WhatsApp ini.\n━━━━━━━━━━━━━━━━━━━━` : '';
             message = `*🔑 [Platform Cakola] PENGAJUAN LISENSI BARU*
 
 Halo! Pengajuan lisensi server Anda telah berhasil diproses. Berikut adalah rincian lisensi Anda:
@@ -138,7 +139,7 @@ Halo! Pengajuan lisensi server Anda telah berhasil diproses. Berikut adalah rinc
 * Nomor Invoice: *${invoiceNum}*
 * Total Biaya: *${amountFormatted}*
 * Metode Pembayaran: *${paymentMethod}*
-${paymentStatusNotes}
+${paymentStatusNotes}${confirmInstructions}
 
 Terima kasih telah menggunakan layanan kami!`;
         }

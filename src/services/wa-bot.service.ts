@@ -1,12 +1,17 @@
 /**
  * wa-bot.service.ts
  * ─────────────────────────────────────────────────────────────────────────────
- * Interactive WhatsApp Bot untuk manajemen lisensi trial Absenta.
+ * Interactive WhatsApp Bot untuk manajemen lisensi Absenta.
  *
- * Alur percakapan:
+ * Alur 1 — Trial Management:
  *  1. Sistem mengirim pesan peringatan dengan menu angka pilihan.
  *  2. Operator membalas dengan angka: 1, 2, atau 3.
  *  3. Bot mengeksekusi aksi dan mengkonfirmasi hasilnya.
+ *
+ * Alur 2 — Konfirmasi Pembayaran Manual:
+ *  1. Sistem mengirim tagihan pending dengan instruksi "balas KONFIRMASI INV-xxx".
+ *  2. User membalas keyword KONFIRMASI → bot minta upload bukti transfer.
+ *  3. User kirim foto bukti → bot forward ke Owner, konfirmasi ke user.
  *
  * State per nomor disimpan di in-memory Map dengan TTL 24 jam.
  * ─────────────────────────────────────────────────────────────────────────────
@@ -29,9 +34,23 @@ interface PendingSession {
   expiresAt: number;  // epoch ms — session TTL
 }
 
-// ─── In-memory session store (phone → pending action) ─────────────────────────
+/** Sesi konfirmasi pembayaran manual via upload bukti transfer */
+interface PaymentConfirmSession {
+  invoiceNumber: string;
+  licenseKey: string;
+  schoolName: string;
+  productId: string;
+  phone: string;
+  step: 'awaiting_proof';  // user sudah ketik KONFIRMASI, menunggu kirim foto
+  expiresAt: number;
+}
+
+// ─── In-memory session stores ─────────────────────────────────────────────────
 // Key: cleaned phone number (e.g. "6281234567890")
 const pendingSessions = new Map<string, PendingSession>();
+
+/** Sesi konfirmasi pembayaran: phone → PaymentConfirmSession */
+const paymentConfirmSessions = new Map<string, PaymentConfirmSession>();
 
 // Mapping untuk WhatsApp LID (List Identifier) ke nomor HP
 const lidToPhoneMap = new Map<string, string>();
@@ -92,10 +111,108 @@ export function registerSession(
  *
  * @returns Teks balasan yang harus dikirim balik, atau null jika bukan pesan bot.
  */
+/**
+ * Daftarkan sesi konfirmasi pembayaran untuk nomor telepon tertentu.
+ * Dipanggil dari core.routes.ts saat order dengan pembayaran pending dibuat.
+ */
+export function registerPaymentConfirmSession(
+  phone: string,
+  invoiceNumber: string,
+  licenseKey: string,
+  schoolName: string,
+  productId: string
+): void {
+  const cleaned = cleanPhone(phone);
+  paymentConfirmSessions.set(cleaned, {
+    invoiceNumber,
+    licenseKey,
+    schoolName,
+    productId,
+    phone: cleaned,
+    step: 'awaiting_proof',
+    expiresAt: Date.now() + SESSION_TTL_MS
+  });
+  console.log(`[WA-BOT] PaymentConfirm session registered for ${cleaned} → Invoice: ${invoiceNumber}`);
+}
+
+/**
+ * Tangani pesan media (gambar) masuk dari user.
+ * Dipanggil oleh whatsapp.service.ts saat mendeteksi imageMessage.
+ *
+ * @param fromJid JID pengirim (untuk membalas)
+ * @param altJid  JID alternatif (untuk resolusi sesi)
+ * @param mediaBuffer Buffer gambar yang sudah didownload
+ * @param caption Caption dari gambar (opsional)
+ * @param ownerPhone Nomor WA Owner untuk forward bukti
+ * @param sendText Fungsi untuk kirim teks reply
+ * @param sendImage Fungsi untuk kirim gambar (forward ke owner)
+ */
+export async function handleIncomingMedia(
+  fromJid: string,
+  altJid: string,
+  mediaBuffer: Buffer,
+  _caption: string,
+  ownerPhone: string,
+  sendText: (to: string, msg: string) => Promise<void>,
+  sendImage: (to: string, buffer: Buffer, caption: string) => Promise<void>
+): Promise<void> {
+  let phone = formatPhone(fromJid);
+
+  // Resolve LID jika perlu
+  if (fromJid.endsWith('@lid')) {
+    const mappedPhone = lidToPhoneMap.get(phone);
+    if (mappedPhone) phone = mappedPhone;
+  }
+  // Coba altJid juga
+  const altPhone = formatPhone(altJid);
+  const session = paymentConfirmSessions.get(phone) || paymentConfirmSessions.get(altPhone);
+  const resolvedPhone = paymentConfirmSessions.has(phone) ? phone : altPhone;
+
+  if (!session) return; // Bukan sesi konfirmasi aktif — abaikan
+
+  if (Date.now() > session.expiresAt) {
+    paymentConfirmSessions.delete(resolvedPhone);
+    await sendText(fromJid, `⏰ *Sesi konfirmasi pembayaran habis waktu.*\n\nSilakan hubungi admin jika butuh bantuan.`);
+    return;
+  }
+
+  // Hapus sesi
+  paymentConfirmSessions.delete(resolvedPhone);
+
+  // 1. Forward gambar ke Owner
+  const ownerJid = cleanPhone(ownerPhone) + '@s.whatsapp.net';
+  const ownerCaption =
+    `📎 *[BUKTI TRANSFER MASUK]*\n\n` +
+    `- *Invoice*: ${session.invoiceNumber}\n` +
+    `- *Instansi*: ${session.schoolName}\n` +
+    `- *Produk*: ${session.productId.toUpperCase()}\n` +
+    `- *License Key*: \`${session.licenseKey}\`\n` +
+    `- *Dari*: ${phone}\n\n` +
+    `_Silakan verifikasi di dashboard payment gateway dan ubah status invoice secara manual._`;
+
+  try {
+    await sendImage(ownerJid, mediaBuffer, ownerCaption);
+    console.log(`[WA-BOT] Bukti transfer invoice ${session.invoiceNumber} berhasil diteruskan ke owner.`);
+  } catch (e: any) {
+    console.error('[WA-BOT] Gagal forward bukti ke owner:', e.message);
+  }
+
+  // 2. Konfirmasi ke pembeli
+  await sendText(fromJid,
+    `✅ *Bukti pembayaran Anda telah kami terima!*\n\n` +
+    `- *Invoice*: ${session.invoiceNumber}\n` +
+    `- *Instansi*: ${session.schoolName}\n\n` +
+    `Bukti transfer sudah diteruskan ke admin untuk diverifikasi. ` +
+    `Kami akan segera memproses pembayaran Anda.\n\n` +
+    `Setelah dikonfirmasi, Anda akan menerima notifikasi otomatis bahwa lisensi sudah *AKTIF*. 🙏`
+  );
+}
+
 export async function handleIncomingMessage(
   fromJid: string,
   text: string,
-  sendReply: (to: string, msg: string) => Promise<void>
+  sendReply: (to: string, msg: string) => Promise<void>,
+  altJid?: string
 ): Promise<void> {
   const cmd = text.trim();
   let phone = formatPhone(fromJid);
@@ -106,6 +223,37 @@ export async function handleIncomingMessage(
     if (mappedPhone) {
       console.log(`[WA-BOT] Resolved LID: ${phone} -> Phone: ${mappedPhone}`);
       phone = mappedPhone;
+    }
+  }
+
+  // ── Cek sesi konfirmasi pembayaran terlebih dahulu ───────────────────────
+  const altPhone = altJid ? formatPhone(altJid) : phone;
+  const confirmSessionPhone = paymentConfirmSessions.has(phone) ? phone
+    : paymentConfirmSessions.has(altPhone) ? altPhone
+    : null;
+
+  // Deteksi keyword KONFIRMASI dari user (format: "KONFIRMASI INV-xxx" atau hanya "KONFIRMASI")
+  const isKonfirmasi = /^konfirmasi(\s+\S+)?$/i.test(cmd);
+  if (isKonfirmasi) {
+    // Coba cari sesi konfirmasi yang sudah terdaftar berdasarkan nomor
+    const existingConfirm = confirmSessionPhone ? paymentConfirmSessions.get(confirmSessionPhone) : null;
+    if (existingConfirm && Date.now() < existingConfirm.expiresAt) {
+      await sendReply(fromJid,
+        `📷 *Terima kasih, ${existingConfirm.schoolName}!*\n\n` +
+        `Silakan kirim *foto/gambar bukti transfer* Anda ke chat ini sekarang.\n\n` +
+        `- *Invoice*: ${existingConfirm.invoiceNumber}\n` +
+        `- *Produk*: ${existingConfirm.productId.toUpperCase()}\n\n` +
+        `_Pastikan bukti transfer terlihat jelas (nominal, tanggal, rekening tujuan). ` +
+        `Sesi ini aktif selama 24 jam._`
+      );
+      return;
+    } else {
+      // Tidak ada sesi terdaftar — coba cari invoice dari DB berdasarkan nomor
+      await sendReply(fromJid,
+        `ℹ️ *Tidak ditemukan tagihan aktif untuk nomor Anda.*\n\n` +
+        `Jika Anda yakin memiliki tagihan pending, silakan hubungi admin atau tunggu sistem memperbarui sesi Anda. 🙏`
+      );
+      return;
     }
   }
 

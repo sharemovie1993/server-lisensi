@@ -10,6 +10,7 @@ const helpers_1 = require("./helpers");
 const keys_1 = require("../../utils/keys");
 const logger_1 = require("../../utils/logger");
 const whatsapp_service_1 = require("../../services/whatsapp.service");
+const wa_bot_service_1 = require("../../services/wa-bot.service");
 const registerCoreLicenseRoutes = (fastify) => {
     // 1. Request / renew license and billing setup
     fastify.post('/api/license/request', async (request, reply) => {
@@ -335,6 +336,8 @@ const registerCoreLicenseRoutes = (fastify) => {
                 });
                 if (targetPhone) {
                     (0, helpers_1.sendLicenseWhatsAppNotification)(targetPhone, resolvedSchoolName, resolvedSlug, prodId, plan.name, newKey, invoiceNumber, basePrice, 'Manual', 'unpaid').catch(e => console.error('[WA Manual License Notify Error]', e.message));
+                    // Daftarkan sesi konfirmasi pembayaran WA bot
+                    (0, wa_bot_service_1.registerPaymentConfirmSession)(targetPhone, invoiceNumber, newKey, resolvedSchoolName, prodId);
                 }
                 // Notifikasi ke Owner
                 (0, helpers_1.sendOwnerOrderNotification)(resolvedSchoolName, resolvedSlug, prodId, plan.name, newKey, invoiceNumber, basePrice, 'Manual').catch(e => console.error('[WA Manual Owner Notify Error]', e.message));
@@ -455,6 +458,8 @@ const registerCoreLicenseRoutes = (fastify) => {
                 });
                 if (targetPhone) {
                     (0, helpers_1.sendLicenseWhatsAppNotification)(targetPhone, resolvedSchoolName, resolvedSlug, prodId, plan.name, newKey, invoiceNumber, tx.amount || basePrice, resolvedPaymentMethod, 'unpaid', tx.pay_code, tx.qr_url).catch(e => console.error('[WA Tripay License Notify Error]', e.message));
+                    // Daftarkan sesi konfirmasi pembayaran WA bot
+                    (0, wa_bot_service_1.registerPaymentConfirmSession)(targetPhone, invoiceNumber, newKey, resolvedSchoolName, prodId);
                 }
                 // Notifikasi ke Owner
                 (0, helpers_1.sendOwnerOrderNotification)(resolvedSchoolName, resolvedSlug, prodId, plan.name, newKey, invoiceNumber, tx.amount || basePrice, resolvedPaymentMethod).catch(e => console.error('[WA Tripay Owner Notify Error]', e.message));
