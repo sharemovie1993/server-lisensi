@@ -12,6 +12,8 @@ import {
 import { PRIVATE_KEY, PUBLIC_KEY } from '../../utils/keys';
 import { logLicenseActivity } from '../../utils/logger';
 import { waGateway } from '../../services/whatsapp.service';
+import { getSetting, getSettingsMap } from '../../config/settings.service';
+import { TRIPAY_EXPIRY_SECONDS } from '../../config/constants';
 import { registerPaymentConfirmSession } from '../../services/wa-bot.service';
 
 export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
@@ -378,8 +380,9 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
           });
         }
 
+        const bankInfo = await getSetting('bank_account_info', 'Transfer ke Rekening BNI: 1234567890 a/n Baraya Teknologi');
         const instructions = [
-          { title: 'Langkah 1: Transfer Bank', steps: ['Transfer ke Rekening BNI: 1234567890 a/n Baraya Teknologi', `Sebesar Rp ${basePrice.toLocaleString('id-ID')}`] },
+          { title: 'Langkah 1: Transfer Bank', steps: [bankInfo, `Sebesar Rp ${basePrice.toLocaleString('id-ID')}`] },
           { title: 'Langkah 2: Konfirmasi', steps: ['Kirim bukti transfer ke WhatsApp admin kami.'] }
         ];
 
@@ -455,13 +458,14 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
           .update(TRIPAY_MERCHANT_CODE + invoiceNumber + basePrice)
           .digest('hex');
 
+      const settingsMap = await getSettingsMap(['billing_email', 'contact_phone']);
       const tripayPayload = {
         method: resolvedPaymentMethod,
         merchant_ref: invoiceNumber,
         amount: basePrice,
         customer_name: resolvedSchoolName,
-        customer_email: 'billing@absenta.id',
-        customer_phone: '087779937341',
+        customer_email: settingsMap.billing_email || 'billing@absenta.id',
+        customer_phone: settingsMap.contact_phone || '087779937341',
         order_items: [
           {
             sku: plan.id,
@@ -470,7 +474,7 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
             quantity: 1
           }
         ],
-        expired_time: Math.floor(Date.now() / 1000) + 24 * 3600,
+        expired_time: Math.floor(Date.now() / 1000) + TRIPAY_EXPIRY_SECONDS,
         signature
       };
 

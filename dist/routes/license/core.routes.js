@@ -10,6 +10,8 @@ const helpers_1 = require("./helpers");
 const keys_1 = require("../../utils/keys");
 const logger_1 = require("../../utils/logger");
 const whatsapp_service_1 = require("../../services/whatsapp.service");
+const settings_service_1 = require("../../config/settings.service");
+const constants_1 = require("../../config/constants");
 const wa_bot_service_1 = require("../../services/wa-bot.service");
 const registerCoreLicenseRoutes = (fastify) => {
     // 1. Request / renew license and billing setup
@@ -315,8 +317,9 @@ const registerCoreLicenseRoutes = (fastify) => {
                         }
                     });
                 }
+                const bankInfo = await (0, settings_service_1.getSetting)('bank_account_info', 'Transfer ke Rekening BNI: 1234567890 a/n Baraya Teknologi');
                 const instructions = [
-                    { title: 'Langkah 1: Transfer Bank', steps: ['Transfer ke Rekening BNI: 1234567890 a/n Baraya Teknologi', `Sebesar Rp ${basePrice.toLocaleString('id-ID')}`] },
+                    { title: 'Langkah 1: Transfer Bank', steps: [bankInfo, `Sebesar Rp ${basePrice.toLocaleString('id-ID')}`] },
                     { title: 'Langkah 2: Konfirmasi', steps: ['Kirim bukti transfer ke WhatsApp admin kami.'] }
                 ];
                 await helpers_1.prisma.invoice.create({
@@ -364,13 +367,14 @@ const registerCoreLicenseRoutes = (fastify) => {
                 .createHmac('sha256', TRIPAY_PRIVATE_KEY)
                 .update(TRIPAY_MERCHANT_CODE + invoiceNumber + basePrice)
                 .digest('hex');
+            const settingsMap = await (0, settings_service_1.getSettingsMap)(['billing_email', 'contact_phone']);
             const tripayPayload = {
                 method: resolvedPaymentMethod,
                 merchant_ref: invoiceNumber,
                 amount: basePrice,
                 customer_name: resolvedSchoolName,
-                customer_email: 'billing@absenta.id',
-                customer_phone: '087779937341',
+                customer_email: settingsMap.billing_email || 'billing@absenta.id',
+                customer_phone: settingsMap.contact_phone || '087779937341',
                 order_items: [
                     {
                         sku: plan.id,
@@ -379,7 +383,7 @@ const registerCoreLicenseRoutes = (fastify) => {
                         quantity: 1
                     }
                 ],
-                expired_time: Math.floor(Date.now() / 1000) + 24 * 3600,
+                expired_time: Math.floor(Date.now() / 1000) + constants_1.TRIPAY_EXPIRY_SECONDS,
                 signature
             };
             let tripayResponseData = null;

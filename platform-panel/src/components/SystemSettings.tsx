@@ -11,6 +11,9 @@ export default function SystemSettings() {
   const [supportEmail, setSupportEmail] = useState('');
   const [waSessionName, setWaSessionName] = useState('');
   const [ownerWaNumber, setOwnerWaNumber] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const [billingEmail, setBillingEmail] = useState('');
+  const [bankAccountInfo, setBankAccountInfo] = useState('');
 
   const loadData = async () => {
     setLoading(true);
@@ -21,6 +24,9 @@ export default function SystemSettings() {
       setSupportEmail(res.data?.data?.supportEmail || '');
       setWaSessionName(res.data?.data?.waSessionName || '');
       setOwnerWaNumber(res.data?.data?.OWNER_WA_NUMBER || '');
+      setContactPhone(res.data?.data?.contact_phone || '');
+      setBillingEmail(res.data?.data?.billing_email || '');
+      setBankAccountInfo(res.data?.data?.bank_account_info || '');
     } catch (e) {
       console.error('Failed to load settings data', e);
     } finally {
@@ -40,6 +46,9 @@ export default function SystemSettings() {
         supportEmail,
         waSessionName,
         OWNER_WA_NUMBER: ownerWaNumber,
+        contact_phone: contactPhone,
+        billing_email: billingEmail,
+        bank_account_info: bankAccountInfo,
       });
       alert('Pengaturan umum berhasil disimpan.');
       loadData();
@@ -117,6 +126,39 @@ export default function SystemSettings() {
               placeholder="Contoh: 6287779937341"
               value={ownerWaNumber}
               onChange={(e) => setOwnerWaNumber(e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-650 text-sm focus:border-indigo-500 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-slate-400 text-xs font-semibold uppercase mb-1">Nomor WhatsApp Admin (Notifikasi ke Client)</label>
+            <input
+              type="text"
+              required
+              placeholder="Contoh: 087779937341"
+              value={contactPhone}
+              onChange={(e) => setContactPhone(e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-650 text-sm focus:border-indigo-500 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-slate-400 text-xs font-semibold uppercase mb-1">Email Billing Invoice</label>
+            <input
+              type="email"
+              required
+              placeholder="Contoh: billing@absenta.id"
+              value={billingEmail}
+              onChange={(e) => setBillingEmail(e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-650 text-sm focus:border-indigo-500 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-slate-400 text-xs font-semibold uppercase mb-1">Informasi Rekening Bank Transfer Manual</label>
+            <input
+              type="text"
+              required
+              placeholder="Contoh: BNI: 1234567890 a/n Baraya Teknologi"
+              value={bankAccountInfo}
+              onChange={(e) => setBankAccountInfo(e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-650 text-sm focus:border-indigo-500 focus:outline-none"
             />
           </div>

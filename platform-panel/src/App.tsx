@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import apiClient from './api/apiClient';
 import { SocketContext } from './hooks/useSocket';
+import { TOKEN_KEY, THEME_KEY } from './constants/storage';
+import { APP_NAME, SIDEBAR_NAME, MRR_PER_TENANT, POLL_INTERVAL_MS } from './constants/app';
 
 // Components
 import DashboardOverview from './components/DashboardOverview';
@@ -55,7 +57,7 @@ const dummySocket = {
 };
 
 export default function App() {
-  const [theme, setTheme] = useState<'dark' | 'light'>(() => (localStorage.getItem('hq-theme') as 'dark' | 'light') || 'dark');
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => (localStorage.getItem(THEME_KEY) as 'dark' | 'light') || 'dark');
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [adminSecretInput, setAdminSecretInput] = useState<string>('');
   const [checkingAuth, setCheckingAuth] = useState<boolean>(true);
@@ -94,7 +96,7 @@ export default function App() {
   });
 
   const checkAuth = async () => {
-    const token = localStorage.getItem('x-admin-secret');
+    const token = localStorage.getItem(TOKEN_KEY);
     if (!token) {
       setIsLoggedIn(false);
       setCheckingAuth(false);
@@ -109,7 +111,7 @@ export default function App() {
         loadOverviewStats();
       }
     } catch (e) {
-      localStorage.removeItem('x-admin-secret');
+      localStorage.removeItem(TOKEN_KEY);
       setIsLoggedIn(false);
     } finally {
       setCheckingAuth(false);
@@ -128,7 +130,7 @@ export default function App() {
 
       const tenantsList = tenantsRes.data?.data || [];
       const activeCount = tenantsList.filter((t: any) => t.status === 'ACTIVE').length;
-      const totalMRR = activeCount * 150000;
+      const totalMRR = activeCount * MRR_PER_TENANT;
       const openTicketsCount = (ticketsRes.data?.data || []).filter((t: any) => t.status === 'OPEN').length;
       const waConnected = waRes.data?.data?.state === 'connected' || waRes.data?.data?.status === 'connected';
 
@@ -159,12 +161,12 @@ export default function App() {
     if (!isLoggedIn) return;
     const interval = setInterval(() => {
       loadOverviewStats();
-    }, 10000); // Polling telemetry & stats every 10 seconds
+    }, POLL_INTERVAL_MS); // Polling telemetry & stats
     return () => clearInterval(interval);
   }, [isLoggedIn]);
 
   useEffect(() => {
-    localStorage.setItem('hq-theme', theme);
+    localStorage.setItem(THEME_KEY, theme);
   }, [theme]);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -178,7 +180,7 @@ export default function App() {
         secret: adminSecretInput
       });
       if (res.data && res.data.success && res.data.token) {
-        localStorage.setItem('x-admin-secret', res.data.token);
+        localStorage.setItem(TOKEN_KEY, res.data.token);
         setIsLoggedIn(true);
         loadOverviewStats();
       } else {
@@ -194,7 +196,7 @@ export default function App() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('x-admin-secret');
+    localStorage.removeItem(TOKEN_KEY);
     setIsLoggedIn(false);
   };
 
@@ -216,7 +218,7 @@ export default function App() {
             <ShieldAlert className="w-8 h-8" />
           </div>
           <div>
-            <h2 className="text-white text-2xl font-black tracking-tight">Console Platform Cakola</h2>
+            <h2 className="text-white text-2xl font-black tracking-tight">{APP_NAME}</h2>
             <p className="text-slate-400 text-sm mt-1.5">Akses terbatas untuk administrator sistem pusat.</p>
           </div>
           <form onSubmit={handleLogin} className="space-y-4">
@@ -279,7 +281,7 @@ export default function App() {
               <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-extrabold shadow-lg shadow-indigo-600/20">
                 A
               </div>
-              <span className="text-white font-extrabold tracking-wide text-lg">Cakola HQ</span>
+              <span className="text-white font-extrabold tracking-wide text-lg">{SIDEBAR_NAME}</span>
             </div>
 
             <nav className="flex-1 p-4 space-y-1 overflow-y-auto">

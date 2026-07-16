@@ -19,9 +19,19 @@ const os_1 = __importDefault(require("os"));
 const helpers_1 = require("./license/helpers");
 const logger_1 = require("../utils/logger");
 const cron_service_1 = require("../services/cron.service");
+const settings_service_1 = require("../config/settings.service");
 const prisma = new client_1.PrismaClient();
-const ADMIN_SECRET = process.env.ADMIN_SECRET || 'kumahatetehwe';
-const TOTP_SECRET = process.env.TOTP_SECRET || 'ABSENTASECRETKEYMYSECURETOKEN';
+if (!process.env.ADMIN_SECRET) {
+    throw new Error('[Security] ADMIN_SECRET is not set in environment variables!');
+}
+if (!process.env.TOTP_SECRET) {
+    throw new Error('[Security] TOTP_SECRET is not set in environment variables!');
+}
+if (!process.env.JWT_SECRET) {
+    throw new Error('[Security] JWT_SECRET is not set in environment variables!');
+}
+const ADMIN_SECRET = process.env.ADMIN_SECRET;
+const TOTP_SECRET = process.env.TOTP_SECRET;
 async function verifyAdmin(request, reply) {
     const authHeader = request.headers['x-admin-secret'] || request.query.secret;
     if (!authHeader) {
@@ -669,7 +679,8 @@ Terima kasih. Selamat belajar di Privateer! ✨🚀`;
             }
             // Realtime webhook push to school client tenant
             if (lic.requestedSlug) {
-                const schoolDomain = `https://${lic.requestedSlug}.absenta.id`;
+                const dbMainDomain = await (0, settings_service_1.getSetting)('main_domain', 'absenta.id');
+                const schoolDomain = `https://${lic.requestedSlug}.${dbMainDomain}`;
                 const callbackUrl = `${schoolDomain}/api/billing/subscriptions/license/callback`;
                 (0, http_1.httpPost)(callbackUrl, { license_key: lic.licenseKey, tenant_id: lic.requestedSlug }, {}, 6000)
                     .then(res => console.log('[Manual Approval Callback Push Success]', res.status))
@@ -789,12 +800,13 @@ Terima kasih. Selamat belajar di Privateer! ✨🚀`;
             const cleanSchoolName = license.schoolName.trim();
             const cleanSlug = license.requestedSlug ? license.requestedSlug.trim().toLowerCase() : '';
             const newKey = license.licenseKey;
+            const dbMainDomain = await (0, settings_service_1.getSetting)('main_domain', 'absenta.id');
             const waMessage = `🟢 *[AKTIVASI LISENSI LOKAL PLATFORM CAKOLA SUCCESS]*\n\n` +
                 `Yth. Operator *${cleanSchoolName}*,\n` +
                 `Selamat! Proses registrasi server dan pemasangan Platform Cakola untuk sekolah Anda telah berhasil diselesaikan secara sempurna.\n\n` +
                 `Berikut adalah detail lisensi dan akses Anda:\n` +
                 `🔑 Kunci Lisensi: \`${newKey}\`\n` +
-                `🌐 Subdomain Akses Online: *https://${cleanSlug}.absenta.id*\n` +
+                `🌐 Subdomain Akses Online: *https://${cleanSlug}.${dbMainDomain}*\n` +
                 `📅 Status Lisensi: *AKTIF*\n\n` +
                 `*Catatan Penting*:\n` +
                 `- *Akses Online (Easy-Tunnel)*: Sudah aktif secara otomatis. Aplikasi dapat langsung diakses dari internet luar melalui tautan domain di atas.\n` +
@@ -1041,7 +1053,8 @@ Terima kasih. Selamat belajar di Privateer! ✨🚀`;
             return reply.status(400).send('Domain parameter required');
         }
         const cleanDomain = domain.trim().toLowerCase();
-        const MAIN_DOMAIN = (process.env.MAIN_DOMAIN || 'absenta.id').toLowerCase();
+        const dbMainDomain = await (0, settings_service_1.getSetting)('main_domain', 'absenta.id');
+        const MAIN_DOMAIN = (process.env.MAIN_DOMAIN || dbMainDomain).toLowerCase();
         // 1. Allow main domain and its platform subdomains
         if (cleanDomain === MAIN_DOMAIN || cleanDomain === `www.${MAIN_DOMAIN}` || cleanDomain === `api.${MAIN_DOMAIN}`) {
             return reply.status(200).send('OK');
@@ -1103,9 +1116,10 @@ Terima kasih. Selamat belajar di Privateer! ✨🚀`;
         if (reply.sent)
             return;
         reply.send({ success: true, message: 'Menginisialisasi restart server lisensi dalam 1 detik...' });
-        setTimeout(() => {
+        setTimeout(async () => {
             console.log('[Admin Command] Restarting process via PM2...');
-            (0, child_process_1.exec)('pm2 restart licensing-server');
+            const pm2App = await (0, settings_service_1.getSetting)('pm2_app_name', 'licensing-server');
+            (0, child_process_1.exec)(`pm2 restart ${pm2App}`);
         }, 1000);
     });
     // 17. WhatsApp status
@@ -1155,11 +1169,12 @@ Terima kasih. Selamat belajar di Privateer! ✨🚀`;
             return;
         const checkCmd = process.platform === 'linux' ? 'systemctl is-active caddy' : 'echo active';
         return new Promise((resolve) => {
-            (0, child_process_1.exec)(checkCmd, (err, stdout) => {
+            (0, child_process_1.exec)(checkCmd, async (err, stdout) => {
                 const isActive = !err && stdout.trim() === 'active';
                 let caddyfileContent = '';
                 try {
-                    const caddyPath = process.platform === 'linux' ? '/etc/caddy/Caddyfile' : path_1.default.join(__dirname, '../../Caddyfile.generated');
+                    const defaultCaddyPath = process.platform === 'linux' ? '/etc/caddy/Caddyfile' : path_1.default.join(__dirname, '../../Caddyfile.generated');
+                    const caddyPath = await (0, settings_service_1.getSetting)('caddy_config_path', defaultCaddyPath);
                     if (fs_1.default.existsSync(caddyPath)) {
                         caddyfileContent = fs_1.default.readFileSync(caddyPath, 'utf8');
                     }
@@ -1373,7 +1388,7 @@ Terima kasih. Selamat belajar di Privateer! ✨🚀`;
                 email: 'support@system.com',
                 tenantId: ticket.tenantId,
                 roleName: 'SUPERADMIN',
-            }, process.env.JWT_SECRET || 'super_secret_orkestrator_license_key_2026_change_me', { expiresIn: '15m' });
+            }, process.env.JWT_SECRET, { expiresIn: '15m' });
             return reply.send({ success: true, token });
         }
         catch (err) {
