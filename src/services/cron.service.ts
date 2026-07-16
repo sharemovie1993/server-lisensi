@@ -245,26 +245,32 @@ export async function cleanupExpiredInvoices(): Promise<void> {
       include: { license: true }
     });
 
-    let deletedCount = 0;
+    let deletedInvoicesCount = 0;
+    let deletedLicensesCount = 0;
+    
     for (const inv of deleteCandidates) {
-      // Safety: Jangan hapus jika lisensi sudah lunas/aktif secara tidak sengaja
       const hasPaid = inv.license && (inv.license.status === 'active' || inv.license.isActive === 1);
-      if (hasPaid) continue;
-
-      console.log(`[CRON-INVOICE] Deleting expired invoice & license: ${inv.invoiceNumber} (created: ${inv.createdAt})`);
-
-      await prisma.subscription.deleteMany({ where: { licenseId: inv.licenseId } });
-      await prisma.activatedDevice.deleteMany({ where: { licenseId: inv.licenseId } });
       
-      // Hapus invoice dan license
-      await prisma.invoice.delete({ where: { id: inv.id } });
-      await prisma.license.deleteMany({ where: { id: inv.licenseId } });
-
-      deletedCount++;
+      if (hasPaid) {
+        // Jika lisensinya aktif (sudah dibayar melalui invoice lain),
+        // cukup hapus invoice yang expired ini saja agar database bersih. Jangan sentuh lisensi aktifnya!
+        console.log(`[CRON-INVOICE] Deleting expired invoice only (license active): ${inv.invoiceNumber}`);
+        await prisma.invoice.delete({ where: { id: inv.id } });
+        deletedInvoicesCount++;
+      } else {
+        // Jika lisensinya memang tidak aktif (unpaid/trial terbengkalai), hapus keduanya
+        console.log(`[CRON-INVOICE] Deleting expired invoice & license: ${inv.invoiceNumber} (created: ${inv.createdAt})`);
+        await prisma.subscription.deleteMany({ where: { licenseId: inv.licenseId } });
+        await prisma.activatedDevice.deleteMany({ where: { licenseId: inv.licenseId } });
+        await prisma.invoice.delete({ where: { id: inv.id } });
+        await prisma.license.deleteMany({ where: { id: inv.licenseId } });
+        deletedLicensesCount++;
+        deletedInvoicesCount++;
+      }
     }
 
-    if (deletedCount > 0) {
-      console.log(`[CRON-INVOICE] Purged ${deletedCount} old expired invoices & licenses from database.`);
+    if (deletedInvoicesCount > 0) {
+      console.log(`[CRON-INVOICE] Purged ${deletedInvoicesCount} old expired invoices and ${deletedLicensesCount} licenses from database.`);
       await triggerCaddySync();
     }
   } catch (err: any) {
