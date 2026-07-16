@@ -145,11 +145,10 @@ Wah, asyik sekali! Ada pengajuan top-up sesi belajar baru nih. Yuk, segera seles
 ${paymentStatusNotes}
 
 Terima kasih ya sudah rajin belajar di Privateer. Semangat terus! ✨🚀`;
-    } else {
-      // Branding Standard Cakola
+      // Branding Standard
       const confirmInstructions = status === 'unpaid' ? `\n\n━━━━━━━━━━━━━━━━━━━━\n💡 *Sudah Membayar?*\nBalas pesan ini dengan:\n  *KONFIRMASI ${invoiceNum}*\nKami akan memandu Anda mengirim bukti transfer secara langsung via WhatsApp ini.\n━━━━━━━━━━━━━━━━━━━━` : '';
 
-      message = `*🔑 [Platform Cakola] PENGAJUAN LISENSI BARU*
+      message = `*🔑 [${productLabel}] PENGAJUAN LISENSI BARU*
 
 Halo! Pengajuan lisensi server Anda telah berhasil diproses. Berikut adalah rincian lisensi Anda:
 
