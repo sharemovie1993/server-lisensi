@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '../api/apiClient';
-import { ShieldAlert, RefreshCw, FileText } from 'lucide-react';
+import { ShieldAlert, RefreshCw, FileText, CheckCircle2, Users, Search } from 'lucide-react';
 
 interface AuditLog {
   id: string;
@@ -133,6 +133,10 @@ export default function AuditLogs() {
   const [products, setProducts] = useState<any[]>([]);
   const [selectedProductId, setSelectedProductId] = useState<string>('all');
   const [loading, setLoading] = useState(false);
+  
+  // New states for search and advanced filtering
+  const [searchQuery, setSearchQuery] = useState('');
+  const [eventFilter, setEventFilter] = useState('all');
 
   const loadData = async () => {
     setLoading(true);
@@ -155,11 +159,64 @@ export default function AuditLogs() {
   }, []);
 
   const filteredLogs = logs.filter(log => {
-    // Normalisasi alias lama: platform-absenta dan absenta → cakola
+    // 1. Filter by Product
     const normalId = (log.productId === 'platform-absenta' || log.productId === 'absenta')
       ? 'cakola' : log.productId;
-    return selectedProductId === 'all' || normalId === selectedProductId;
+    const matchProduct = selectedProductId === 'all' || normalId === selectedProductId;
+
+    // 2. Filter by Event Type
+    let matchEvent = true;
+    if (eventFilter === 'success') {
+      matchEvent = 
+        log.action === 'ACTIVATE_SUCCESS' || 
+        log.action === 'ACTIVATE_RESTORED' || 
+        log.action === 'VERIFY_ONLINE_SUCCESS' || 
+        log.action === 'RECEIPT_UPLOAD_SUCCESS' ||
+        log.action === 'WA_RESEND_LICENSE_SUCCESS' ||
+        log.action === 'WA_LOCAL_FREE_ACTIVATION_SENT';
+    } else if (eventFilter === 'failed') {
+      matchEvent = 
+        log.action.includes('FAILED') || 
+        log.action.includes('MISSING') ||
+        log.action.includes('UNKNOWN') ||
+        log.action.includes('MISMATCH');
+    } else if (eventFilter !== 'all') {
+      matchEvent = log.action === eventFilter;
+    }
+
+    // 3. Filter by Search Query
+    const searchLower = searchQuery.toLowerCase();
+    const matchSearch = 
+      !searchQuery ||
+      log.licenseKey.toLowerCase().includes(searchLower) ||
+      (log.ipAddress && log.ipAddress.toLowerCase().includes(searchLower)) ||
+      (log.license && log.license.schoolName.toLowerCase().includes(searchLower)) ||
+      (log.license && log.license.requestedSlug && log.license.requestedSlug.toLowerCase().includes(searchLower)) ||
+      log.action.toLowerCase().includes(searchLower);
+
+    return matchProduct && matchEvent && matchSearch;
   });
+
+  // Calculate dynamic analytics from currently filtered logs
+  const totalLogs = filteredLogs.length;
+
+  const successCount = filteredLogs.filter(log => 
+    log.action === 'ACTIVATE_SUCCESS' || 
+    log.action === 'ACTIVATE_RESTORED' || 
+    log.action === 'VERIFY_ONLINE_SUCCESS' || 
+    log.action === 'RECEIPT_UPLOAD_SUCCESS' ||
+    log.action === 'WA_RESEND_LICENSE_SUCCESS' ||
+    log.action === 'WA_LOCAL_FREE_ACTIVATION_SENT'
+  ).length;
+
+  const failedCount = filteredLogs.filter(log => 
+    log.action.includes('FAILED') || 
+    log.action.includes('MISSING') ||
+    log.action.includes('UNKNOWN') ||
+    log.action.includes('MISMATCH')
+  ).length;
+
+  const uniqueIps = new Set(filteredLogs.map(log => log.ipAddress).filter(Boolean)).size;
 
   return (
     <div className="space-y-6 text-left">
@@ -176,21 +233,102 @@ export default function AuditLogs() {
         </button>
       </div>
 
-      {/* PRODUCT FILTER SELECT */}
-      <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl flex justify-end">
-        <div className="w-full sm:w-72">
-          <select
-            value={selectedProductId}
-            onChange={(e) => setSelectedProductId(e.target.value)}
-            className="w-full px-4 py-2.5 bg-slate-950 border border-slate-850 rounded-xl text-indigo-400 font-bold text-sm focus:border-indigo-500 focus:outline-none cursor-pointer"
-          >
-            <option value="all">🌐 Semua Produk / Aplikasi</option>
-            {products.map((pkg) => (
-              <option key={pkg.id} value={pkg.id}>
-                📦 {pkg.name} ({pkg.id})
-              </option>
-            ))}
-          </select>
+      {/* ANALYTICS CARDS */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Activity */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex items-center justify-between shadow-sm">
+          <div className="space-y-1">
+            <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">Total Aktivitas</span>
+            <div className="text-2xl font-black text-white">{totalLogs}</div>
+          </div>
+          <div className="w-12 h-12 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400">
+            <FileText className="w-6 h-6" />
+          </div>
+        </div>
+
+        {/* Success Activities */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex items-center justify-between shadow-sm">
+          <div className="space-y-1">
+            <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">Sukses</span>
+            <div className="text-2xl font-black text-emerald-400">{successCount}</div>
+          </div>
+          <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+            <CheckCircle2 className="w-6 h-6" />
+          </div>
+        </div>
+
+        {/* Failed Activities */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex items-center justify-between shadow-sm">
+          <div className="space-y-1">
+            <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">Gagal / Ditolak</span>
+            <div className="text-2xl font-black text-rose-400">{failedCount}</div>
+          </div>
+          <div className="w-12 h-12 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-450">
+            <ShieldAlert className="w-6 h-6" />
+          </div>
+        </div>
+
+        {/* Unique IP Addresses */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex items-center justify-between shadow-sm">
+          <div className="space-y-1">
+            <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">IP Unik Klien</span>
+            <div className="text-2xl font-black text-sky-400">{uniqueIps} IP</div>
+          </div>
+          <div className="w-12 h-12 rounded-xl bg-sky-500/10 flex items-center justify-center text-sky-400">
+            <Users className="w-6 h-6" />
+          </div>
+        </div>
+      </div>
+
+      {/* FILTER & SEARCH BAR */}
+      <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl space-y-3">
+        <div className="flex flex-col md:flex-row gap-3">
+          {/* Search Box */}
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Cari Sekolah, License Key, atau IP..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-850 hover:border-slate-800 focus:border-indigo-500 focus:outline-none rounded-xl text-sm text-slate-200 placeholder-slate-500 transition"
+            />
+          </div>
+
+          <div className="flex flex-wrap sm:flex-nowrap gap-3">
+            {/* Event Filter */}
+            <div className="w-full sm:w-56">
+              <select
+                value={eventFilter}
+                onChange={(e) => setEventFilter(e.target.value)}
+                className="w-full px-4 py-2.5 bg-slate-950 border border-slate-850 hover:border-slate-800 focus:border-indigo-500 focus:outline-none rounded-xl text-sm text-slate-300 font-medium cursor-pointer transition"
+              >
+                <option value="all">⚡ Semua Aktivitas</option>
+                <option value="success">🟢 Hanya Berhasil/Sukses</option>
+                <option value="failed">🔴 Hanya Gagal/Ditolak</option>
+                <option value="ACTIVATE_RESTORED">🔄 Pemulihan Sesi (Restored)</option>
+                <option value="ACTIVATE_SUCCESS">🆕 Aktivasi Perangkat Baru</option>
+                <option value="VERIFY_ONLINE_SUCCESS">📡 Verifikasi Online</option>
+                <option value="CRON_EXPIRED">🕒 Dicabut otomatis (Cron)</option>
+              </select>
+            </div>
+
+            {/* Product Filter */}
+            <div className="w-full sm:w-56">
+              <select
+                value={selectedProductId}
+                onChange={(e) => setSelectedProductId(e.target.value)}
+                className="w-full px-4 py-2.5 bg-slate-950 border border-slate-850 hover:border-slate-800 focus:border-indigo-500 focus:outline-none rounded-xl text-sm text-indigo-400 font-bold cursor-pointer transition"
+              >
+                <option value="all">🌐 Semua Produk</option>
+                {products.map((pkg) => (
+                  <option key={pkg.id} value={pkg.id}>
+                    📦 {pkg.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
       </div>
 
