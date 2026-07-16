@@ -13,6 +13,11 @@ const whatsapp_service_1 = require("../../services/whatsapp.service");
 const settings_service_1 = require("../../config/settings.service");
 const constants_1 = require("../../config/constants");
 const wa_bot_service_1 = require("../../services/wa-bot.service");
+const license_helpers_1 = require("./helpers/license.helpers");
+const token_helpers_1 = require("./helpers/token.helpers");
+const billing_service_1 = require("./services/billing.service");
+const tripay_service_1 = require("./services/tripay.service");
+const format_1 = require("../../utils/format");
 const registerCoreLicenseRoutes = (fastify) => {
     // 1. Request / renew license and billing setup
     fastify.post('/api/license/request', async (request, reply) => {
@@ -216,57 +221,36 @@ const registerCoreLicenseRoutes = (fastify) => {
                     licenseId = existingLicense.id;
                 }
                 else {
-                    const lic = await helpers_1.prisma.license.create({
-                        data: {
-                            licenseKey: newKey,
-                            productId: prodId,
-                            schoolName: resolvedSchoolName,
-                            deviceLimit: limit,
-                            isUnlimited: isUnlimited,
-                            expiresAt: expiresStr,
-                            status: 'pending',
-                            isActive: 0,
-                            planId: plan.id,
-                            requestedSlug: resolvedSlug,
-                            includeVpn: include_vpn || 0,
-                            originalDeviceId: device_id || null,
-                            operatorPhone: targetPhone || null
-                        }
-                    });
-                    licenseId = lic.id;
-                    await helpers_1.prisma.subscription.create({
-                        data: {
-                            licenseId,
-                            schoolName: resolvedSchoolName,
-                            productId: prodId,
-                            planId: plan.id,
-                            status: 'pending',
-                            startDate: '',
-                            endDate: ''
-                        }
-                    });
-                }
-                await helpers_1.prisma.invoice.create({
-                    data: {
-                        invoiceNumber,
-                        licenseId,
-                        schoolName: resolvedSchoolName,
+                    const { license } = await (0, billing_service_1.createLicenseAndSubscription)(newKey, {
                         productId: prodId,
-                        planTitle: plan.name,
-                        amount: 0,
-                        status: 'paid',
-                        paymentMethod: 'Gateway',
-                        paymentInstructions: [],
-                        expiredTime: String(Math.floor(Date.now() / 1000) + 48 * 3600),
-                        paidAt: new Date(),
-                        planId: plan.id
-                    }
-                });
-                if (targetPhone) {
-                    (0, helpers_1.sendLicenseWhatsAppNotification)(targetPhone, resolvedSchoolName, resolvedSlug, prodId, plan.name, newKey, invoiceNumber, 0, 'Gratis', 'paid').catch(e => console.error('[WA Free License Notify Error]', e.message));
+                        schoolName: resolvedSchoolName,
+                        deviceLimit: limit,
+                        isUnlimited: isUnlimited,
+                        expiresAt: expiresStr,
+                        status: 'pending',
+                        isActive: 0,
+                        planId: plan.id,
+                        requestedSlug: resolvedSlug,
+                        includeVpn: include_vpn || 0,
+                        originalDeviceId: device_id || null,
+                        operatorPhone: targetPhone || null
+                    });
+                    licenseId = license.id;
                 }
-                // Notifikasi ke Owner
-                (0, helpers_1.sendOwnerOrderNotification)(resolvedSchoolName, resolvedSlug, prodId, plan.name, newKey, invoiceNumber, 0, 'Gratis').catch(e => console.error('[WA Free Owner Notify Error]', e.message));
+                await (0, billing_service_1.createInvoice)({
+                    invoiceNumber,
+                    licenseId,
+                    schoolName: resolvedSchoolName,
+                    productId: prodId,
+                    planTitle: plan.name,
+                    amount: 0,
+                    status: 'paid',
+                    paymentMethod: 'Gateway',
+                    paymentInstructions: [],
+                    expiredTime: String(Math.floor(Date.now() / 1000) + constants_1.INVOICE_EXPIRY_SECONDS),
+                    planId: plan.id
+                });
+                (0, billing_service_1.sendBothWaNotifications)(targetPhone || '', resolvedSchoolName, resolvedSlug, prodId, plan.name, newKey, invoiceNumber, 0, 'Gratis', 'paid').catch(e => console.error('[WA Free License Notify Error]', e.message));
                 return reply.send({
                     success: true,
                     message: 'Pengajuan lisensi gratis berhasil diaktifkan.',
@@ -276,7 +260,7 @@ const registerCoreLicenseRoutes = (fastify) => {
                         amount: 0,
                         payment_method: 'Gateway',
                         status: 'paid',
-                        expired_time: Math.floor(Date.now() / 1000) + 48 * 3600
+                        expired_time: Math.floor(Date.now() / 1000) + constants_1.INVOICE_EXPIRY_SECONDS
                     }
                 });
             }
@@ -287,63 +271,45 @@ const registerCoreLicenseRoutes = (fastify) => {
                     licenseId = existingLicense.id;
                 }
                 else {
-                    const lic = await helpers_1.prisma.license.create({
-                        data: {
-                            licenseKey: newKey,
-                            productId: prodId,
-                            schoolName: resolvedSchoolName,
-                            deviceLimit: limit,
-                            isUnlimited: isUnlimited,
-                            expiresAt: expiresStr,
-                            status: 'pending',
-                            isActive: 0,
-                            planId: plan.id,
-                            requestedSlug: resolvedSlug,
-                            includeVpn: include_vpn || 0,
-                            originalDeviceId: device_id || null,
-                            operatorPhone: targetPhone || null
-                        }
+                    const { license } = await (0, billing_service_1.createLicenseAndSubscription)(newKey, {
+                        productId: prodId,
+                        schoolName: resolvedSchoolName,
+                        deviceLimit: limit,
+                        isUnlimited: isUnlimited,
+                        expiresAt: expiresStr,
+                        status: 'pending',
+                        isActive: 0,
+                        planId: plan.id,
+                        requestedSlug: resolvedSlug,
+                        includeVpn: include_vpn || 0,
+                        originalDeviceId: device_id || null,
+                        operatorPhone: targetPhone || null
                     });
-                    licenseId = lic.id;
-                    await helpers_1.prisma.subscription.create({
-                        data: {
-                            licenseId,
-                            schoolName: resolvedSchoolName,
-                            productId: prodId,
-                            planId: plan.id,
-                            status: 'pending',
-                            startDate: '',
-                            endDate: ''
-                        }
-                    });
+                    licenseId = license.id;
                 }
                 const bankInfo = await (0, settings_service_1.getSetting)('bank_account_info', 'Transfer ke Rekening BNI: 1234567890 a/n Baraya Teknologi');
                 const instructions = [
                     { title: 'Langkah 1: Transfer Bank', steps: [bankInfo, `Sebesar Rp ${basePrice.toLocaleString('id-ID')}`] },
                     { title: 'Langkah 2: Konfirmasi', steps: ['Kirim bukti transfer ke WhatsApp admin kami.'] }
                 ];
-                await helpers_1.prisma.invoice.create({
-                    data: {
-                        invoiceNumber,
-                        licenseId,
-                        schoolName: resolvedSchoolName,
-                        productId: prodId,
-                        planTitle: plan.name,
-                        amount: basePrice,
-                        status: 'unpaid',
-                        paymentMethod: 'Manual',
-                        paymentInstructions: instructions,
-                        expiredTime: String(Math.floor(Date.now() / 1000) + 48 * 3600),
-                        planId: plan.id
-                    }
+                await (0, billing_service_1.createInvoice)({
+                    invoiceNumber,
+                    licenseId,
+                    schoolName: resolvedSchoolName,
+                    productId: prodId,
+                    planTitle: plan.name,
+                    amount: basePrice,
+                    status: 'unpaid',
+                    paymentMethod: 'Manual',
+                    paymentInstructions: instructions,
+                    expiredTime: String(Math.floor(Date.now() / 1000) + constants_1.INVOICE_EXPIRY_SECONDS),
+                    planId: plan.id
                 });
+                (0, billing_service_1.sendBothWaNotifications)(targetPhone || '', resolvedSchoolName, resolvedSlug, prodId, plan.name, newKey, invoiceNumber, basePrice, 'Manual', 'unpaid').catch(e => console.error('[WA Manual License Notify Error]', e.message));
                 if (targetPhone) {
-                    (0, helpers_1.sendLicenseWhatsAppNotification)(targetPhone, resolvedSchoolName, resolvedSlug, prodId, plan.name, newKey, invoiceNumber, basePrice, 'Manual', 'unpaid').catch(e => console.error('[WA Manual License Notify Error]', e.message));
                     // Daftarkan sesi konfirmasi pembayaran WA bot
                     (0, wa_bot_service_1.registerPaymentConfirmSession)(targetPhone, invoiceNumber, newKey, resolvedSchoolName, prodId);
                 }
-                // Notifikasi ke Owner
-                (0, helpers_1.sendOwnerOrderNotification)(resolvedSchoolName, resolvedSlug, prodId, plan.name, newKey, invoiceNumber, basePrice, 'Manual').catch(e => console.error('[WA Manual Owner Notify Error]', e.message));
                 return reply.send({
                     success: true,
                     message: 'Pengajuan lisensi manual berhasil diproses.',
@@ -353,7 +319,7 @@ const registerCoreLicenseRoutes = (fastify) => {
                         amount: basePrice,
                         payment_method: 'Manual',
                         payment_instructions: instructions,
-                        expired_time: Math.floor(Date.now() / 1000) + 48 * 3600
+                        expired_time: Math.floor(Date.now() / 1000) + constants_1.INVOICE_EXPIRY_SECONDS
                     }
                 });
             }
@@ -362,111 +328,72 @@ const registerCoreLicenseRoutes = (fastify) => {
             const TRIPAY_PRIVATE_KEY = process.env.TRIPAY_PRIVATE_KEY || '';
             const TRIPAY_MERCHANT_CODE = process.env.TRIPAY_MERCHANT_CODE || '';
             const TRIPAY_API_URL = process.env.TRIPAY_API_URL || 'https://tripay.co.id/api-sandbox';
-            // Signature Tripay
-            const signature = crypto_1.default
-                .createHmac('sha256', TRIPAY_PRIVATE_KEY)
-                .update(TRIPAY_MERCHANT_CODE + invoiceNumber + basePrice)
-                .digest('hex');
+            const signature = (0, tripay_service_1.buildTripaySignature)(TRIPAY_MERCHANT_CODE, invoiceNumber, basePrice, TRIPAY_PRIVATE_KEY);
             const settingsMap = await (0, settings_service_1.getSettingsMap)(['billing_email', 'contact_phone']);
-            const tripayPayload = {
+            const tripayPayload = (0, tripay_service_1.buildTripayPayload)({
                 method: resolvedPaymentMethod,
-                merchant_ref: invoiceNumber,
+                merchantRef: invoiceNumber,
                 amount: basePrice,
-                customer_name: resolvedSchoolName,
-                customer_email: settingsMap.billing_email || 'billing@absenta.id',
-                customer_phone: settingsMap.contact_phone || '087779937341',
-                order_items: [
-                    {
-                        sku: plan.id,
-                        name: `${prodId.toUpperCase()} - ${plan.name}`,
-                        price: basePrice,
-                        quantity: 1
-                    }
-                ],
-                expired_time: Math.floor(Date.now() / 1000) + constants_1.TRIPAY_EXPIRY_SECONDS,
+                customerName: resolvedSchoolName,
+                customerEmail: settingsMap.billing_email || 'billing@absenta.id',
+                customerPhone: settingsMap.contact_phone || '087779937341',
+                sku: plan.id,
+                itemName: `${prodId.toUpperCase()} - ${plan.name}`,
+                expirySeconds: constants_1.TRIPAY_EXPIRY_SECONDS,
                 signature
-            };
-            let tripayResponseData = null;
+            });
+            let tx = null;
             try {
-                const fetch = require('node-fetch');
-                const response = await fetch(`${TRIPAY_API_URL}/transaction/create`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${TRIPAY_API_KEY}`
-                    },
-                    body: JSON.stringify(tripayPayload),
-                    timeout: 4000
-                });
-                tripayResponseData = await response.json();
+                tx = await (0, tripay_service_1.createTripayTransaction)(tripayPayload, TRIPAY_API_URL, TRIPAY_API_KEY);
             }
             catch (err) {
-                console.error('[Tripay API Net Error]', err.message);
+                return reply.status(400).send({ success: false, message: err.message });
             }
-            if (tripayResponseData && tripayResponseData.success && tripayResponseData.data) {
-                const tx = tripayResponseData.data;
+            if (tx) {
                 let licenseId = '';
                 if (existingLicense) {
                     licenseId = existingLicense.id;
                 }
                 else {
-                    const lic = await helpers_1.prisma.license.create({
-                        data: {
-                            licenseKey: newKey,
-                            productId: prodId,
-                            schoolName: resolvedSchoolName,
-                            deviceLimit: limit,
-                            isUnlimited: isUnlimited,
-                            expiresAt: expiresStr,
-                            status: 'pending',
-                            isActive: 0,
-                            planId: plan.id,
-                            requestedSlug: resolvedSlug,
-                            includeVpn: include_vpn || 0,
-                            originalDeviceId: device_id || null,
-                            operatorPhone: targetPhone || null
-                        }
-                    });
-                    licenseId = lic.id;
-                    await helpers_1.prisma.subscription.create({
-                        data: {
-                            licenseId,
-                            schoolName: resolvedSchoolName,
-                            productId: prodId,
-                            planId: plan.id,
-                            status: 'pending',
-                            startDate: '',
-                            endDate: ''
-                        }
-                    });
-                }
-                await helpers_1.prisma.invoice.create({
-                    data: {
-                        invoiceNumber,
-                        licenseId,
-                        schoolName: resolvedSchoolName,
+                    const { license } = await (0, billing_service_1.createLicenseAndSubscription)(newKey, {
                         productId: prodId,
-                        planTitle: plan.name,
-                        amount: tx.amount || basePrice,
-                        status: 'unpaid',
-                        paymentMethod: resolvedPaymentMethod,
-                        paymentInstructions: {
-                            instructions: tx.instructions || [],
-                            pay_code: tx.pay_code || '',
-                            qr_url: tx.qr_url || '',
-                            reference: tx.reference || ''
-                        },
-                        expiredTime: String(tx.expired_time),
-                        planId: plan.id
-                    }
+                        schoolName: resolvedSchoolName,
+                        deviceLimit: limit,
+                        isUnlimited: isUnlimited,
+                        expiresAt: expiresStr,
+                        status: 'pending',
+                        isActive: 0,
+                        planId: plan.id,
+                        requestedSlug: resolvedSlug,
+                        includeVpn: include_vpn || 0,
+                        originalDeviceId: device_id || null,
+                        operatorPhone: targetPhone || null
+                    });
+                    licenseId = license.id;
+                }
+                await (0, billing_service_1.createInvoice)({
+                    invoiceNumber,
+                    licenseId,
+                    schoolName: resolvedSchoolName,
+                    productId: prodId,
+                    planTitle: plan.name,
+                    amount: tx.amount || basePrice,
+                    status: 'unpaid',
+                    paymentMethod: resolvedPaymentMethod,
+                    paymentInstructions: {
+                        instructions: tx.instructions || [],
+                        pay_code: tx.pay_code || '',
+                        qr_url: tx.qr_url || '',
+                        reference: tx.reference || ''
+                    },
+                    expiredTime: String(tx.expired_time),
+                    planId: plan.id
                 });
+                (0, billing_service_1.sendBothWaNotifications)(targetPhone || '', resolvedSchoolName, resolvedSlug, prodId, plan.name, newKey, invoiceNumber, tx.amount || basePrice, resolvedPaymentMethod, 'unpaid', tx.pay_code, tx.qr_url).catch(e => console.error('[WA Tripay License Notify Error]', e.message));
                 if (targetPhone) {
-                    (0, helpers_1.sendLicenseWhatsAppNotification)(targetPhone, resolvedSchoolName, resolvedSlug, prodId, plan.name, newKey, invoiceNumber, tx.amount || basePrice, resolvedPaymentMethod, 'unpaid', tx.pay_code, tx.qr_url).catch(e => console.error('[WA Tripay License Notify Error]', e.message));
                     // Daftarkan sesi konfirmasi pembayaran WA bot
                     (0, wa_bot_service_1.registerPaymentConfirmSession)(targetPhone, invoiceNumber, newKey, resolvedSchoolName, prodId);
                 }
-                // Notifikasi ke Owner
-                (0, helpers_1.sendOwnerOrderNotification)(resolvedSchoolName, resolvedSlug, prodId, plan.name, newKey, invoiceNumber, tx.amount || basePrice, resolvedPaymentMethod).catch(e => console.error('[WA Tripay Owner Notify Error]', e.message));
                 return reply.send({
                     success: true,
                     message: 'Invoice Tripay berhasil dibuat.',
@@ -484,8 +411,7 @@ const registerCoreLicenseRoutes = (fastify) => {
                 });
             }
             else {
-                const errorMsg = tripayResponseData?.message || 'Gateway pembayaran Tripay sedang offline.';
-                return reply.status(400).send({ success: false, message: errorMsg });
+                return reply.status(400).send({ success: false, message: 'Gateway pembayaran Tripay sedang offline.' });
             }
         }
         catch (err) {
@@ -636,14 +562,11 @@ const registerCoreLicenseRoutes = (fastify) => {
     fastify.get('/api/license/check/:key', async (request, reply) => {
         const { key } = request.params;
         try {
-            const license = await helpers_1.prisma.license.findUnique({
-                where: { licenseKey: key.trim() }
-            });
+            const license = await (0, license_helpers_1.getLicenseByKey)(key);
             if (!license) {
-                return reply.status(404).send({ success: false, message: 'Kunci lisensi tidak ditemukan.' });
+                return (0, format_1.sendError)(reply, 404, 'Kunci lisensi tidak ditemukan.');
             }
-            const todayStr = new Date().toISOString().slice(0, 10);
-            const expired = license.expiresAt < todayStr;
+            const expired = (0, license_helpers_1.isLicenseExpired)(license);
             const active = license.isActive === 1 && license.status === 'active' && !expired;
             const devices = await helpers_1.prisma.activatedDevice.findMany({
                 where: { licenseId: license.id }
@@ -653,14 +576,7 @@ const registerCoreLicenseRoutes = (fastify) => {
                 activated_at: d.activatedAt.toISOString()
             }));
             // ── Ambil featuresJson dari Plan ─────────────────────────────────
-            let features = [];
-            try {
-                if (license.planId) {
-                    const plan = await helpers_1.prisma.plan.findUnique({ where: { id: license.planId } });
-                    features = plan?.featuresJson ?? [];
-                }
-            }
-            catch (_) { }
+            const features = await (0, license_helpers_1.getPlanFeatures)(license.planId);
             return reply.send({
                 success: true,
                 data: {
@@ -691,11 +607,9 @@ const registerCoreLicenseRoutes = (fastify) => {
     fastify.get('/api/license/my-subscriptions/:key', async (request, reply) => {
         const { key } = request.params;
         try {
-            const license = await helpers_1.prisma.license.findUnique({
-                where: { licenseKey: key.trim() }
-            });
+            const license = await (0, license_helpers_1.getLicenseByKey)(key);
             if (!license) {
-                return reply.status(404).send({ success: false, message: 'Lisensi tidak ditemukan.' });
+                return (0, format_1.sendError)(reply, 404, 'Lisensi tidak ditemukan.');
             }
             const subs = await helpers_1.prisma.subscription.findMany({
                 where: { licenseId: license.id },
@@ -723,11 +637,9 @@ const registerCoreLicenseRoutes = (fastify) => {
     fastify.get('/api/license/my-invoices/:key', async (request, reply) => {
         const { key } = request.params;
         try {
-            const license = await helpers_1.prisma.license.findUnique({
-                where: { licenseKey: key.trim() }
-            });
+            const license = await (0, license_helpers_1.getLicenseByKey)(key);
             if (!license) {
-                return reply.status(404).send({ success: false, message: 'Lisensi tidak ditemukan.' });
+                return (0, format_1.sendError)(reply, 404, 'Lisensi tidak ditemukan.');
             }
             const list = await helpers_1.prisma.invoice.findMany({
                 where: { licenseId: license.id },
@@ -797,16 +709,10 @@ const registerCoreLicenseRoutes = (fastify) => {
         const prodId = (0, helpers_1.normalizeProductId)(product_id || 'cakola');
         const clientIp = request.ip;
         try {
-            const license = await helpers_1.prisma.license.findFirst({
-                where: {
-                    licenseKey: license_key.trim(),
-                    isActive: 1,
-                    status: 'active'
-                }
-            });
-            if (!license) {
+            const license = await (0, license_helpers_1.getLicenseByKey)(license_key);
+            if (!license || license.isActive !== 1 || license.status !== 'active') {
                 await (0, logger_1.logLicenseActivity)(license_key, prodId, clientIp, 'ACTIVATE_FAILED_NOT_FOUND');
-                return reply.status(404).send({ success: false, message: 'Kunci lisensi tidak ditemukan, kedaluwarsa, atau belum disetujui.' });
+                return (0, format_1.sendError)(reply, 404, 'Kunci lisensi tidak ditemukan, kedaluwarsa, atau belum disetujui.');
             }
             if (license.productId !== prodId) {
                 await (0, logger_1.logLicenseActivity)(license_key, prodId, clientIp, 'ACTIVATE_FAILED_PRODUCT_MISMATCH');
@@ -896,25 +802,8 @@ const registerCoreLicenseRoutes = (fastify) => {
                 }
             });
             // ── Ambil featuresJson dari Plan untuk token payload ────────────────
-            let features = [];
-            try {
-                if (license.planId) {
-                    const plan = await helpers_1.prisma.plan.findUnique({ where: { id: license.planId } });
-                    features = plan?.featuresJson ?? [];
-                }
-            }
-            catch (_) { }
-            const token = jsonwebtoken_1.default.sign({
-                license_key: license.licenseKey,
-                product_id: license.productId,
-                school_name: license.schoolName,
-                device_id,
-                expires_at: license.expiresAt,
-                include_vpn: license.includeVpn,
-                vpn_enabled: license.includeVpn,
-                vpn_license_key: vpnLicenseKey,
-                features // ← NEW: daftar fitur dari plan
-            }, keys_1.PRIVATE_KEY, { algorithm: 'RS256', expiresIn: '365d' });
+            const features = await (0, license_helpers_1.getPlanFeatures)(license.planId);
+            const token = (0, token_helpers_1.buildActivationToken)(license, device_id, vpnLicenseKey, features);
             await (0, logger_1.logLicenseActivity)(license_key, prodId, clientIp, 'ACTIVATE_SUCCESS');
             return reply.send({
                 success: true,
@@ -940,11 +829,9 @@ const registerCoreLicenseRoutes = (fastify) => {
             return reply.status(400).send({ success: false, message: 'Kunci lisensi (license_key) wajib diisi.' });
         }
         try {
-            const license = await helpers_1.prisma.license.findUnique({
-                where: { licenseKey: license_key.trim() }
-            });
+            const license = await (0, license_helpers_1.getLicenseByKey)(license_key);
             if (!license) {
-                return reply.status(404).send({ success: false, message: 'Lisensi tidak ditemukan.' });
+                return (0, format_1.sendError)(reply, 404, 'Lisensi tidak ditemukan.');
             }
             if (device_id) {
                 // Delete specific device registration
@@ -990,19 +877,12 @@ const registerCoreLicenseRoutes = (fastify) => {
         const clientIp = request.ip;
         try {
             const decoded = jsonwebtoken_1.default.verify(token, keys_1.PUBLIC_KEY, { algorithms: ['RS256'] });
-            const license = await helpers_1.prisma.license.findFirst({
-                where: {
-                    licenseKey: decoded.license_key,
-                    isActive: 1,
-                    status: 'active'
-                }
-            });
-            if (!license) {
+            const license = await (0, license_helpers_1.getLicenseByKey)(decoded.license_key);
+            if (!license || license.isActive !== 1 || license.status !== 'active') {
                 await (0, logger_1.logLicenseActivity)(decoded.license_key, decoded.product_id, clientIp, 'VERIFY_FAILED_REVOKED');
                 return reply.status(401).send({ success: false, message: 'Lisensi dibatalkan atau dinonaktifkan oleh administrator.' });
             }
-            const todayStr = new Date().toISOString().slice(0, 10);
-            if (license.expiresAt < todayStr) {
+            if ((0, license_helpers_1.isLicenseExpired)(license)) {
                 await (0, logger_1.logLicenseActivity)(decoded.license_key, decoded.product_id, clientIp, 'VERIFY_FAILED_EXPIRED');
                 return reply.status(401).send({ success: false, message: 'Lisensi ini sudah habis masa berlakunya.' });
             }
