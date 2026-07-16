@@ -2,6 +2,18 @@ import React, { useState, useEffect } from 'react';
 import apiClient from '../api/apiClient';
 import { BadgeCheck, ShieldAlert, Key, Plus, Trash2, Check, RefreshCw, Search, ChevronDown, ChevronUp, Database, Users, Activity, Cpu, Building, Eye, ExternalLink, Send } from 'lucide-react';
 
+const WindowsIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" {...props}>
+    <path d="M0 3.449L9.75 2.1v9.45H0V3.449zM0 12.45h9.75v9.45L0 20.551v-8.1zM10.8 1.95L24 0v11.55H10.8V1.95zM10.8 12.45H24v11.55l-13.2-1.95v-9.6z"/>
+  </svg>
+);
+
+const LinuxIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" {...props}>
+    <path d="M12 2a5 5 0 0 0-5 5v3c0 .5.2.9.5 1.2A5.9 5.9 0 0 0 4 16v1a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-1a5.9 5.9 0 0 0-3.5-4.8c.3-.3.5-.7.5-1.2V7a5 5 0 0 0-5-5zm-2.5 5a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm5 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zM12 11c1 0 1.5.5 1.5 1S13 13 12 13s-1.5-.5-1.5-1 1-1 1.5-1z"/>
+  </svg>
+);
+
 interface Tenant {
   id: string;
   schoolName: string;
@@ -327,6 +339,27 @@ export default function TenantManager() {
                                 <span className="inline-flex items-center px-1.5 py-0.25 rounded text-[8.5px] font-extrabold bg-amber-500/10 border border-amber-500/30 text-amber-400 uppercase tracking-wider">
                                   Trial
                                 </span>
+                              )}
+                              {t.osType && (
+                                <div className="inline-flex items-center gap-1 text-[10px] text-slate-500 font-normal px-1.5 py-0.5 rounded bg-slate-950/80 border border-slate-800">
+                                  {String(t.osType).toLowerCase().includes('windows') || String(t.osType).toLowerCase().includes('win32') ? (
+                                    <span className="text-sky-400 flex items-center gap-1" title={t.osType}>
+                                      <WindowsIcon className="w-3 h-3" /> Win
+                                    </span>
+                                  ) : (
+                                    <span className="text-amber-500 flex items-center gap-1" title={t.osType}>
+                                      <LinuxIcon className="w-3 h-3" /> Linux
+                                    </span>
+                                  )}
+                                  {t.hostname && (
+                                    <>
+                                      <span className="text-slate-800">|</span>
+                                      <span className="text-slate-400 font-mono text-[9px] truncate max-w-[80px]" title={t.hostname}>
+                                        {t.hostname}
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
                               )}
                             </span>
                             <div className="text-[10px] text-slate-500 font-mono mt-0.5 flex items-center gap-1.5 whitespace-nowrap">
