@@ -9,6 +9,10 @@ interface AuditLog {
   licenseKey: string;
   ipAddress: string | null;
   createdAt: string;
+  license?: {
+    schoolName: string;
+    requestedSlug: string | null;
+  } | null;
 }
 
 const getHumanReadableAction = (action: string) => {
@@ -197,6 +201,7 @@ export default function AuditLogs() {
               <tr className="border-b border-slate-800 bg-slate-950 text-slate-400 text-xs font-semibold uppercase tracking-wider">
                 <th className="px-6 py-4">Waktu</th>
                 <th className="px-6 py-4">Produk</th>
+                <th className="px-6 py-4">Sekolah / Instansi</th>
                 <th className="px-6 py-4">License Key</th>
                 <th className="px-6 py-4">Aktivitas / Event</th>
                 <th className="px-6 py-4">IP Address</th>
@@ -205,7 +210,7 @@ export default function AuditLogs() {
             <tbody className="divide-y divide-slate-800 text-slate-300 text-sm">
               {filteredLogs.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-10 text-center text-slate-500 font-sans">
+                  <td colSpan={6} className="px-6 py-10 text-center text-slate-500 font-sans">
                     {loading ? 'Memuat data...' : 'Tidak ada log aktivitas terdaftar.'}
                   </td>
                 </tr>
@@ -220,6 +225,18 @@ export default function AuditLogs() {
                       <td className="px-6 py-4 text-xs text-indigo-400 uppercase font-bold whitespace-nowrap font-mono">
                         {log.productId}
                       </td>
+                      <td className="px-6 py-4 text-xs font-sans whitespace-nowrap">
+                        {log.license ? (
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-white font-bold">{log.license.schoolName}</span>
+                            {log.license.requestedSlug && (
+                              <span className="text-[10px] text-indigo-400 font-mono">@{log.license.requestedSlug}</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-slate-500 italic">Sistem / Terhapus</span>
+                        )}
+                      </td>
                       <td className="px-6 py-4 text-xs text-slate-400 font-mono">
                         {log.licenseKey}
                       </td>
@@ -229,7 +246,7 @@ export default function AuditLogs() {
                             {actionData.label}
                           </span>
                           <span className="text-[9px] text-slate-600 font-mono mt-0.5">{log.action}</span>
-                          <p className="text-slate-400 text-xs mt-0.5 font-normal max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl break-words">
+                          <p className="text-slate-400 text-xs mt-0.5 font-normal max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl break-words">
                             {actionData.desc}
                           </p>
                         </div>

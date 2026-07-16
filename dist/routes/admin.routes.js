@@ -297,7 +297,15 @@ const adminRoutes = async (fastify) => {
         try {
             const list = await prisma.activityLog.findMany({
                 orderBy: { createdAt: 'desc' },
-                take: 300
+                take: 300,
+                include: {
+                    license: {
+                        select: {
+                            schoolName: true,
+                            requestedSlug: true
+                        }
+                    }
+                }
             });
             return reply.send({ success: true, data: list });
         }
