@@ -66,7 +66,7 @@ const registerEasyTunnelRoutes = (fastify) => {
     // 3. POST /api/license/easy-tunnel/request — Request WireGuard tunnel configuration
     fastify.post('/api/license/easy-tunnel/request', async (request, reply) => {
         const body = request.body;
-        const { license_key, subdomain_slug, local_port, app_name, hostname } = body;
+        const { license_key, subdomain_slug, local_port, app_name, hostname, os_type } = body;
         if (!license_key || !subdomain_slug || !local_port) {
             return reply.status(400).send({
                 success: false,
@@ -186,7 +186,8 @@ const registerEasyTunnelRoutes = (fastify) => {
                     requestedSlug: slugLower,
                     localPort: portNum,
                     appName: app_name || null,
-                    activeHostname: hostname ? hostname.trim() : null
+                    activeHostname: hostname ? hostname.trim() : null,
+                    activeOs: os_type ? os_type.trim() : null
                 }
             });
             await (0, caddy_service_1.triggerCaddySync)();
