@@ -233,6 +233,7 @@ export default function CronJobMonitor() {
             <thead>
               <tr className="border-b border-slate-800 text-slate-500 font-bold text-xs uppercase tracking-wider bg-slate-950/20">
                 <th className="px-6 py-4">Waktu Mulai</th>
+                <th className="px-6 py-4">Nama Job</th>
                 <th className="px-6 py-4">Durasi</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4">Metrik / Statistik Detail</th>
@@ -242,7 +243,7 @@ export default function CronJobMonitor() {
             <tbody className="divide-y divide-slate-800 text-sm">
               {logs.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500 font-medium">
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-500 font-medium">
                     Belum ada riwayat eksekusi terdaftar di database.
                   </td>
                 </tr>
@@ -251,6 +252,11 @@ export default function CronJobMonitor() {
                   <tr key={log.id} className="hover:bg-slate-850/20 transition">
                     <td className="px-6 py-4 text-white font-bold">
                       {formatDateTime(log.startedAt)}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="font-mono text-xs font-semibold px-2 py-0.5 bg-slate-800 text-slate-300 rounded border border-slate-700/60">
+                        {log.jobName}
+                      </span>
                     </td>
                     <td className="px-6 py-4 text-slate-400">
                       {getDuration(log.startedAt, log.finishedAt, log.meta?.durationMs)}
