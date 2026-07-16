@@ -95,7 +95,9 @@ const sendLicenseWhatsAppNotification = async (phone, schoolName, slug, prodId, 
         const amountFormatted = amount === 0 ? 'Rp 0 (Gratis)' : `Rp ${amount.toLocaleString('id-ID')}`;
         const normalizedId = normalizeProductId(prodId);
         const isPrivateer = normalizedId === 'privateer';
-        const productLabel = normalizedId === 'cakola' ? 'Platform Cakola' : (normalizedId === 'easy-tunnel' ? 'Easy Tunnel' : (isPrivateer ? 'Privateer' : prodId.toUpperCase()));
+        const productLabel = normalizedId === 'cakola' ? 'Platform Cakola'
+            : (normalizedId === 'easy-tunnel' ? 'Easy Tunnel'
+                : (isPrivateer ? 'Privateer' : prodId.toUpperCase()));
         let paymentStatusNotes = '';
         if (status === 'paid') {
             paymentStatusNotes = `*Status*: ✅ *${isPrivateer ? 'PEMBAYARAN BERHASIL' : 'LUNAS'}* (${isPrivateer ? 'Saldo Sesi Bertambah' : 'Lisensi Aktif'})`;
@@ -115,9 +117,12 @@ const sendLicenseWhatsAppNotification = async (phone, schoolName, slug, prodId, 
                 paymentStatusNotes += `Silakan lakukan pembayaran melalui metode ${paymentMethod} sesuai petunjuk di panel.`;
             }
         }
+        const confirmInstructions = status === 'unpaid'
+            ? `\n\n━━━━━━━━━━━━━━━━━━━━\n💡 *Sudah Membayar?*\nBalas pesan ini dengan:\n  *KONFIRMASI ${invoiceNum}*\nKami akan memandu Anda mengirim bukti transfer secara langsung via WhatsApp ini.\n━━━━━━━━━━━━━━━━━━━━`
+            : '';
         let message = '';
         if (isPrivateer) {
-            // Branding Privateer (Gaya Guru TK & Tanpa Kata Lisensi)
+            // Branding Privateer (Top-up sesi belajar)
             const parts = schoolName.split('|').map(p => p.trim());
             const studentName = parts[0] || schoolName;
             message = `*💎 [Privateer] TOP-UP SESI BELAJAR*
@@ -133,26 +138,27 @@ Wah, asyik sekali! Ada pengajuan top-up sesi belajar baru nih. Yuk, segera seles
 - *Nomor Invoice*: *${invoiceNum}*
 - *Total Biaya*: *${amountFormatted}*
 - *Metode*: ${paymentMethod}
-${paymentStatusNotes}
+${paymentStatusNotes}${confirmInstructions}
 
 Terima kasih ya sudah rajin belajar di Privateer. Semangat terus! ✨🚀`;
-            // Branding Standard
-            const confirmInstructions = status === 'unpaid' ? `\n\n━━━━━━━━━━━━━━━━━━━━\n💡 *Sudah Membayar?*\nBalas pesan ini dengan:\n  *KONFIRMASI ${invoiceNum}*\nKami akan memandu Anda mengirim bukti transfer secara langsung via WhatsApp ini.\n━━━━━━━━━━━━━━━━━━━━` : '';
+        }
+        else {
+            // Branding Standard (cakola / easy-tunnel / produk lainnya)
             message = `*🔑 [${productLabel}] PENGAJUAN LISENSI BARU*
 
 Halo! Pengajuan lisensi server Anda telah berhasil diproses. Berikut adalah rincian lisensi Anda:
 
-* Nama Sekolah: *${schoolName}*
-* Subdomain: *${slug ? slug + '.absenta.id' : '-'}*
-* Produk: *${productLabel}*
-* Paket/Plan: *${planName}*
-* Lisensi Key: \`${key}\`
+*📋 Rincian Lisensi:*
+- *Nama Instansi*: ${schoolName}
+- *Subdomain*: ${slug ? slug + '.absenta.id' : '-'}
+- *Produk*: ${productLabel}
+- *Paket/Plan*: ${planName}
+- *Lisensi Key*: \`${key}\`
 
-----------------------------------
-*Rincian Tagihan:*
-* Nomor Invoice: *${invoiceNum}*
-* Total Biaya: *${amountFormatted}*
-* Metode Pembayaran: *${paymentMethod}*
+*💳 Rincian Tagihan:*
+- *Nomor Invoice*: *${invoiceNum}*
+- *Total Biaya*: *${amountFormatted}*
+- *Metode Pembayaran*: *${paymentMethod}*
 ${paymentStatusNotes}${confirmInstructions}
 
 Terima kasih telah menggunakan layanan kami!`;
