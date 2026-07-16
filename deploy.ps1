@@ -148,6 +148,11 @@ Read-Host "Tekan [ENTER] untuk restart layanan..."
 # -----------------------------------------------
 Show-Header "4 / 4 - Restart Layanan & Sync Caddy"
 
+# Bersihkan port sebelum restart — cegah EADDRINUSE
+Write-Host "Membersihkan port lama sebelum restart..." -ForegroundColor Yellow
+ssh -i $VPS_PEM -o StrictHostKeyChecking=no "${VPS_USER}@${VPS_IP}" "sudo pm2 stop licensing-server 2>/dev/null; sudo pkill -9 -f 'PM2.*God Daemon.*asepsuryadi' 2>/dev/null; sleep 3; sudo fuser -k 5001/tcp 2>/dev/null; sleep 1; echo 'Port cleared'"
+Write-Host "Port dibersihkan." -ForegroundColor Green
+
 Write-Host "Merestart layanan menggunakan PM2..." -ForegroundColor Yellow
 try {
     $pm2Out = ssh -i $VPS_PEM -o StrictHostKeyChecking=no "${VPS_USER}@${VPS_IP}" "cd $REMOTE_DIR && sudo pm2 startOrReload ecosystem.config.js && sudo pm2 save && echo 'PM2_OK'"
