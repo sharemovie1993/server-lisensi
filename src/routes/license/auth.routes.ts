@@ -194,7 +194,8 @@ export const registerAuthLicenseRoutes = (fastify: FastifyInstance) => {
         payment_method: i.paymentMethod,
         expired_time: i.expiredTime,
         paid_at: i.paidAt ? i.paidAt.toISOString() : null,
-        created_at: i.createdAt
+        created_at: i.createdAt,
+        payment_instructions: i.paymentInstructions
       }));
       return reply.send({ success: true, count: mapped.length, data: mapped });
     } catch (err: any) {
