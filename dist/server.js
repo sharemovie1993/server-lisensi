@@ -3,6 +3,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+const dns_1 = __importDefault(require("dns"));
+// Force Node.js to prefer IPv4 over IPv6 when resolving DNS to avoid 'fetch failed' errors on VPS
+dns_1.default.setDefaultResultOrder('ipv4first');
 const dotenv_1 = __importDefault(require("dotenv"));
 const path_1 = __importDefault(require("path"));
 const child_process_1 = require("child_process");

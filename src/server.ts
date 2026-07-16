@@ -1,3 +1,7 @@
+import dns from 'dns';
+// Force Node.js to prefer IPv4 over IPv6 when resolving DNS to avoid 'fetch failed' errors on VPS
+dns.setDefaultResultOrder('ipv4first');
+
 import dotenv from 'dotenv';
 import path from 'path';
 import { exec } from 'child_process';

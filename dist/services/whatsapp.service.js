@@ -163,7 +163,20 @@ class WhatsappService extends events_1.EventEmitter {
                     try {
                         const { downloadMediaMessage } = await import('@whiskeysockets/baileys');
                         const mediaBuffer = await downloadMediaMessage(msg, 'buffer', {});
-                        const ownerPhone = process.env.OWNER_WA_NUMBER || '6287779937341';
+                        let ownerPhone = '6287779937341';
+                        try {
+                            const setting = await prisma.systemSetting.findUnique({ where: { key: 'OWNER_WA_NUMBER' } });
+                            if (setting && setting.value.trim() !== '') {
+                                ownerPhone = setting.value.trim();
+                            }
+                            else {
+                                ownerPhone = process.env.OWNER_WA_NUMBER || ownerPhone;
+                            }
+                        }
+                        catch (dbErr) {
+                            console.warn('[WA-BOT] Gagal membaca OWNER_WA_NUMBER dari DB saat incoming media:', dbErr.message);
+                            ownerPhone = process.env.OWNER_WA_NUMBER || ownerPhone;
+                        }
                         await (0, wa_bot_service_1.handleIncomingMedia)(fromJid, altJid, mediaBuffer, caption, ownerPhone, async (_toJid, pesan) => {
                             try {
                                 await this.sock.sendMessage(fromJid, { text: pesan });
