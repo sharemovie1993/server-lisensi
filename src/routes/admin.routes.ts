@@ -584,6 +584,46 @@ Terima kasih. Selamat belajar di Privateer! ✨🚀`;
     }
   });
 
+  // 9.7 Migrate all school subscriptions to another server license
+  fastify.post('/api/admin/subscriptions/migrate', async (request: FastifyRequest, reply: FastifyReply) => {
+    await verifyAdmin(request, reply);
+    if (reply.sent) return;
+
+    const { schoolName, targetLicenseId } = request.body as { schoolName: string; targetLicenseId: string };
+
+    if (!schoolName || !targetLicenseId) {
+      return reply.status(400).send({ success: false, message: 'Parameter schoolName dan targetLicenseId wajib diisi.' });
+    }
+
+    try {
+      // Validate target license
+      const targetLic = await prisma.license.findUnique({
+        where: { id: targetLicenseId }
+      });
+      if (!targetLic) {
+        return reply.status(404).send({ success: false, message: 'Server target tidak ditemukan.' });
+      }
+
+      // Update all subscriptions for this school to point to the new licenseId
+      const updateRes = await prisma.subscription.updateMany({
+        where: { schoolName: { startsWith: schoolName } },
+        data: { licenseId: targetLicenseId }
+      });
+
+      // Trigger dynamic routing sync to sync Caddy mappings
+      if (targetLic.productId !== 'privateer') {
+        await triggerCaddySync();
+      }
+
+      return reply.send({
+        success: true,
+        message: `Berhasil memindahkan ${updateRes.count} langganan sekolah ke server ${targetLic.schoolName}.`,
+      });
+    } catch (err: any) {
+      return reply.status(500).send({ success: false, message: 'Gagal memindahkan server: ' + err.message });
+    }
+  });
+
   // 10. Manually mark invoice as paid
   fastify.post('/api/admin/invoices/pay/:id', async (request: FastifyRequest, reply: FastifyReply) => {
     await verifyAdmin(request, reply);

@@ -24,6 +24,7 @@ interface Tenant {
   activatedDevices?: Array<{ id: number; deviceId: string; activatedAt: string }>;
   wireguardIp?: string | null;
   is_trial?: boolean;
+  nodeType?: string;
 }
 
 export default function TenantManager() {
@@ -91,7 +92,7 @@ export default function TenantManager() {
     setLoading(true);
     try {
       const [tenantsRes, packagesRes] = await Promise.all([
-        apiClient.get('/api/admin/tenants'),
+        apiClient.get('/api/admin/nodes'),
         apiClient.get('/api/admin/products')
       ]);
       setTenants(tenantsRes.data?.data || []);
@@ -169,6 +170,32 @@ export default function TenantManager() {
     return <span className="px-1.5 py-0.5 bg-slate-800 text-[9px] font-bold text-slate-400 rounded">{mode.toUpperCase()}</span>;
   };
 
+  const getNodeTypeBadge = (nodeType?: string) => {
+    const type = nodeType || 'SERVER_SAAS';
+    if (type === 'SERVER_SAAS') {
+      return (
+        <span className="px-1.5 py-0.5 bg-indigo-500/10 border border-indigo-500/20 text-[8.5px] font-extrabold text-indigo-400 rounded uppercase tracking-wider">
+          SaaS Node
+        </span>
+      );
+    }
+    if (type === 'SERVER_ONPREMISE') {
+      return (
+        <span className="px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/20 text-[8.5px] font-extrabold text-amber-400 rounded uppercase tracking-wider">
+          On-Premise
+        </span>
+      );
+    }
+    if (type === 'TUNNEL') {
+      return (
+        <span className="px-1.5 py-0.5 bg-purple-500/10 border border-purple-500/20 text-[8.5px] font-extrabold text-purple-400 rounded uppercase tracking-wider">
+          Tunnel Node
+        </span>
+      );
+    }
+    return null;
+  };
+
   // AGREGASI / MERGER LISENSI UNTUK MODE HYBRID TUNNEL
   const getAggregatedTenants = (): (Tenant & { tunnelLicenseKey?: string; tunnelStatus?: string })[] => {
     const tunnels = tenants.filter(t => t.productId === 'easy-tunnel');
@@ -217,8 +244,8 @@ export default function TenantManager() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-white text-2xl font-bold">Kelola Server / Node</h2>
-          <p className="text-slate-400 text-sm">Daftar server node dan lisensi aktif.</p>
+          <h2 className="text-white text-2xl font-bold">Kelola Server & Tunnel</h2>
+          <p className="text-slate-400 text-sm">Daftar infrastruktur server node (SaaS, On-Premise) dan Easy Tunnel.</p>
         </div>
         <div className="flex gap-3 w-full md:w-auto">
           <button
@@ -295,6 +322,7 @@ export default function TenantManager() {
                           <div className="flex flex-col">
                             <span className="font-semibold text-white text-xs sm:text-sm flex items-center gap-1.5 flex-wrap">
                               <span>{t.schoolName}</span>
+                              {getNodeTypeBadge(t.nodeType)}
                               {t.is_trial && (
                                 <span className="inline-flex items-center px-1.5 py-0.25 rounded text-[8.5px] font-extrabold bg-amber-500/10 border border-amber-500/30 text-amber-400 uppercase tracking-wider">
                                   Trial
