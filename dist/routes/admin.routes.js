@@ -167,6 +167,47 @@ const adminRoutes = async (fastify) => {
             return reply.status(500).send({ success: false, message: 'Gagal mengambil daftar tenant: ' + err.message });
         }
     });
+    // 3.5 Get active infrastructure server & tunnel nodes
+    fastify.get('/api/admin/nodes', async (request, reply) => {
+        await verifyAdmin(request, reply);
+        if (reply.sent)
+            return;
+        try {
+            const list = await prisma.license.findMany({
+                include: {
+                    activatedDevices: true
+                },
+                orderBy: { createdAt: 'desc' }
+            });
+            const mapped = list.map(t => ({
+                id: t.id,
+                name: t.schoolName,
+                schoolName: t.schoolName,
+                licenseKey: t.licenseKey,
+                productId: (0, helpers_1.normalizeProductId)(t.productId),
+                requestedSlug: t.requestedSlug,
+                customDomain: t.customDomain,
+                deployMode: t.deployMode,
+                nodeType: t.nodeType,
+                wireguardIp: t.wireguardIp,
+                status: t.status,
+                isActive: t.isActive,
+                lastHeartbeatAt: t.lastHeartbeatAt,
+                activeUsers: t.activeUsers,
+                dbSize: t.dbSize,
+                memoryUsage: t.memoryUsage,
+                lastTapped: t.lastTapped,
+                hostname: t.activeHostname,
+                osType: t.activeOs,
+                activeDevices: t.activatedDevices.length,
+                createdAt: t.createdAt
+            }));
+            return reply.send({ success: true, count: mapped.length, data: mapped });
+        }
+        catch (err) {
+            return reply.status(500).send({ success: false, message: 'Gagal mengambil daftar server node: ' + err.message });
+        }
+    });
     // 4. Generate new license manually
     fastify.post('/api/license/generate', async (request, reply) => {
         await verifyAdmin(request, reply);
@@ -389,6 +430,54 @@ const adminRoutes = async (fastify) => {
             return reply.status(500).send({ success: false, message: 'Gagal mengambil daftar langganan.' });
         }
     });
+    // 9.5 Get Privateer topups history & student credit balances
+    fastify.get('/api/admin/privateer/topups', async (request, reply) => {
+        await verifyAdmin(request, reply);
+        if (reply.sent)
+            return;
+        try {
+            const [credits, transactions] = await Promise.all([
+                prisma.userCredit.findMany({
+                    orderBy: { balance: 'desc' }
+                }),
+                prisma.topUpTransaction.findMany({
+                    include: {
+                        userCredit: true
+                    },
+                    orderBy: { createdAt: 'desc' }
+                })
+            ]);
+            const mappedCredits = credits.map(c => ({
+                id: c.id,
+                phone: c.phone,
+                balance: c.balance,
+                studentName: c.studentName,
+                createdAt: c.createdAt,
+                updatedAt: c.updatedAt
+            }));
+            const mappedTx = transactions.map(t => ({
+                id: t.id,
+                phone: t.userCredit.phone,
+                studentName: t.userCredit.studentName || 'Siswa',
+                amount: t.amount,
+                pricePaid: t.pricePaid,
+                invoiceNumber: t.invoiceNumber,
+                status: t.status,
+                paidAt: t.paidAt,
+                createdAt: t.createdAt
+            }));
+            return reply.send({
+                success: true,
+                data: {
+                    credits: mappedCredits,
+                    transactions: mappedTx
+                }
+            });
+        }
+        catch (err) {
+            return reply.status(500).send({ success: false, message: 'Gagal mengambil riwayat top-up Privateer: ' + err.message });
+        }
+    });
     // 10. Manually mark invoice as paid
     fastify.post('/api/admin/invoices/pay/:id', async (request, reply) => {
         await verifyAdmin(request, reply);
@@ -406,10 +495,16 @@ const adminRoutes = async (fastify) => {
                 return reply.send({ success: true, message: 'Invoice sudah lunas.' });
             }
             // Update invoice status to paid
-            await prisma.invoice.update({
+            const updatedInvoice = await prisma.invoice.update({
                 where: { id: id },
                 data: { status: 'paid', paidAt: new Date() }
             });
+            // Jika ini transaksi Privateer, proses penambahan sesi dan langsung return
+            if ((0, helpers_1.normalizeProductId)(invoice.productId) === 'privateer') {
+                const { processPrivateerTopUp } = require('./license/helpers');
+                await processPrivateerTopUp(updatedInvoice);
+                return reply.send({ success: true, message: 'Transaksi Privateer dikonfirmasi & sesi berhasil ditambahkan!' });
+            }
             // Resolve duration in days
             const planId = invoice.planId || '';
             let days = 30;

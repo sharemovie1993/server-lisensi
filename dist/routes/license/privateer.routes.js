@@ -171,5 +171,44 @@ const registerPrivateerLicenseRoutes = (fastify) => {
             return reply.status(500).send({ success: false, message: 'Gagal mengambil data sesi Privateer.' });
         }
     });
+    /**
+     * 3. Check Student Session Balance by Phone Number
+     * Called by client computer course application to verify student's active credits.
+     */
+    fastify.get('/api/license/privateer/balance/:phone', async (request, reply) => {
+        const { phone } = request.params;
+        if (!phone) {
+            return reply.status(400).send({ success: false, message: 'Nomor HP tidak valid.' });
+        }
+        try {
+            const { formatWA } = require('./helpers');
+            const cleanPhone = formatWA(phone);
+            const userCredit = await helpers_1.prisma.userCredit.findUnique({
+                where: { phone: cleanPhone }
+            });
+            if (!userCredit) {
+                return reply.send({
+                    success: true,
+                    data: {
+                        phone: cleanPhone,
+                        balance: 0,
+                        studentName: 'Belum Terdaftar / Tidak Ada Saldo'
+                    }
+                });
+            }
+            return reply.send({
+                success: true,
+                data: {
+                    phone: userCredit.phone,
+                    balance: userCredit.balance,
+                    studentName: userCredit.studentName || 'Siswa Privateer'
+                }
+            });
+        }
+        catch (err) {
+            console.error('[Privateer Balance Check Error]', err.message);
+            return reply.status(500).send({ success: false, message: 'Gagal memeriksa saldo sesi Privateer.' });
+        }
+    });
 };
 exports.registerPrivateerLicenseRoutes = registerPrivateerLicenseRoutes;

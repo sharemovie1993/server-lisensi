@@ -115,10 +115,16 @@ const registerPaymentLicenseRoutes = (fastify) => {
                     return reply.send({ success: true, message: 'Already paid.' });
                 }
                 // Update invoice
-                await helpers_1.prisma.invoice.update({
+                const updatedInvoice = await helpers_1.prisma.invoice.update({
                     where: { id: invoice.id },
                     data: { status: 'paid', paidAt: new Date() }
                 });
+                // Jika ini transaksi Privateer, proses penambahan sesi dan langsung return
+                if ((0, helpers_1.normalizeProductId)(invoice.productId) === 'privateer') {
+                    const { processPrivateerTopUp } = require('./helpers');
+                    await processPrivateerTopUp(updatedInvoice);
+                    return reply.send({ success: true, message: 'Privateer topup processed.' });
+                }
                 // Resolve license duration
                 const planId = invoice.planId || '';
                 let days = 30;

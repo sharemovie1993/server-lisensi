@@ -289,3 +289,81 @@ _Catatan: Karena sistem dalam mode sandbox, Anda dapat membuka dashboard Sandbox
   }
 };
 
+/**
+ * Memproses top-up sesi belajar Privateer saat invoice status berubah menjadi 'paid'
+ */
+export async function processPrivateerTopUp(invoice: any): Promise<void> {
+  if (!invoice || normalizeProductId(invoice.productId) !== 'privateer') return;
+
+  const metadata = invoice.schoolName || '';
+  const parts = metadata.split('|').map((p: string) => p.trim());
+  const studentName = parts[0] || 'Siswa Privateer';
+  const rawPhone = parts[3] || ''; // Nomor WA disimpan di index ke-3
+
+  if (!rawPhone) {
+    console.warn(`[Privateer-Topup] Skip topup untuk invoice ${invoice.invoiceNumber} karena nomor WA tidak ditemukan di metadata.`);
+    return;
+  }
+
+  const phone = formatWA(rawPhone);
+
+  // Extract session count dari planId (e.g. PVT_SESSION_10 -> 10, PVT_SESSION_25 -> 25)
+  const sessionMatch = (invoice.planId || '').match(/SESSION_(\d+)/);
+  const sessionCount = sessionMatch ? parseInt(sessionMatch[1], 10) : 0;
+
+  if (sessionCount <= 0) {
+    console.warn(`[Privateer-Topup] Jumlah sesi untuk plan ${invoice.planId} adalah 0. Skip.`);
+    return;
+  }
+
+  try {
+    // 1. Upsert UserCredit berdasarkan nomor WA
+    const userCredit = await prisma.userCredit.upsert({
+      where: { phone },
+      update: {
+        balance: { increment: sessionCount },
+        studentName: studentName
+      },
+      create: {
+        phone,
+        balance: sessionCount,
+        studentName: studentName
+      }
+    });
+
+    // 2. Catat transaksi top-up
+    await prisma.topUpTransaction.create({
+      data: {
+        userCreditId: userCredit.id,
+        amount: sessionCount,
+        pricePaid: Math.floor(Number(invoice.amount)),
+        invoiceNumber: invoice.invoiceNumber,
+        status: 'PAID',
+        paidAt: new Date()
+      }
+    });
+
+    console.log(`[Privateer-Topup] Berhasil topup ${sessionCount} sesi untuk ${studentName} (${phone}). Saldo baru: ${userCredit.balance}`);
+
+    // 3. Kirim notifikasi WA Lunas & Saldo Baru ke Siswa
+    const message = `*💎 [Privateer] TOP-UP SESI BELAJAR BERHASIL*
+
+Halo *${studentName}*, pembayaran top-up sesi belajar Anda telah kami terima secara sistem.
+
+*📋 Rincian Top-up:*
+- *No. Invoice*: ${invoice.invoiceNumber}
+- *Paket*: ${invoice.planTitle}
+- *Tambahan Sesi*: *+${sessionCount} Sesi Belajar*
+- *Status*: ✅ *LUNAS (Saldo Ditambahkan)*
+
+*💳 Saldo Sesi Belajar Anda Sekarang:*
+- *Total Saldo*: *${userCredit.balance} Sesi Belajar*
+
+Terima kasih ya sudah rajin belajar di Privateer. Semangat terus! ✨🚀`;
+    await waGateway.sendMessage(phone, message, 'TOPUP_NOTIFICATION', 'privateer');
+
+  } catch (err: any) {
+    console.error(`[Privateer-Topup] Error memproses topup untuk invoice ${invoice.invoiceNumber}:`, err.message);
+  }
+}
+
