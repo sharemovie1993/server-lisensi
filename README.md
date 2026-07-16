@@ -65,7 +65,12 @@ Jika tidak ada aktivitas heartbeat selama **14+ hari** (atau lisensi trial baru 
 
 ## 📂 Struktur Direktori Projek (TS Framework)
 * `src/server.ts`: Entry point Fastify, inisialisasi WA Gateway, dan scheduler cron.
-* `src/routes/`: Router API (`license/core.routes.ts`, `admin.routes.ts`, `payment.routes.ts`, dsb).
+* `src/routes/`: Router API.
+  * `src/routes/license/`: Logika validasi dan transaksi billing lisensi untuk server klien (klien Easy Tunnel).
+  * `src/routes/admin/`: Folder sub-routing modular khusus untuk dashboard admin panel (auth, billing, nodes, settings, system, tickets, whatsapp, public, dsb).
+  * `src/routes/admin.routes.ts`: Central route entry point yang mendaftarkan seluruh sub-routing admin.
+  * `src/routes/tickets.routes.ts`: Router API tiket bantuan untuk client.
+  * `src/routes/heartbeat.routes.ts`: Router heartbeat server node.
 * `src/services/`: Logika modular (`caddy.service.ts`, `cron.service.ts`, `whatsapp.service.ts`, `wa-bot.service.ts`).
 * `prisma/schema.prisma`: Skema relasi PostgreSQL.
 * `dist/`: Berkas compiled JavaScript untuk produksi.
