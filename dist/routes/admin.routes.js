@@ -81,7 +81,7 @@ const adminRoutes = async (fastify) => {
         if (reply.sent)
             return;
         try {
-            const [list, subscriptions] = await Promise.all([
+            const [list, subscriptions, paidInvoices] = await Promise.all([
                 prisma.license.findMany({
                     include: {
                         activatedDevices: true
@@ -91,8 +91,13 @@ const adminRoutes = async (fastify) => {
                 prisma.subscription.findMany({
                     where: { status: 'active' },
                     select: { licenseId: true, productId: true, schoolName: true }
+                }),
+                prisma.invoice.findMany({
+                    where: { status: { in: ['paid', 'PAID'] } },
+                    select: { licenseId: true }
                 })
             ]);
+            const paidLicenseIds = new Set(paidInvoices.map(inv => inv.licenseId));
             const subscriptionMap = new Map();
             for (const sub of subscriptions) {
                 if (!subscriptionMap.has(sub.licenseId)) {
@@ -116,6 +121,7 @@ const adminRoutes = async (fastify) => {
                     uniqueSchools.push({ name: s.name, subdomain: s.subdomain });
                 }
                 const modules = licenseSubs.map(s => s.productId);
+                const isTrial = !paidLicenseIds.has(t.id);
                 return {
                     id: t.id,
                     name: t.schoolName,
@@ -128,6 +134,7 @@ const adminRoutes = async (fastify) => {
                     createdAt: t.createdAt,
                     isActive: t.isActive,
                     status: t.status,
+                    is_trial: isTrial,
                     productId: (0, helpers_1.normalizeProductId)(t.productId),
                     custom_domain: t.customDomain,
                     lastHeartbeatAt: t.lastHeartbeatAt,

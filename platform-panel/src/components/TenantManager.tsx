@@ -23,6 +23,7 @@ interface Tenant {
   activeDevices?: number | null;
   activatedDevices?: Array<{ id: number; deviceId: string; activatedAt: string }>;
   wireguardIp?: string | null;
+  is_trial?: boolean;
 }
 
 export default function TenantManager() {
@@ -292,8 +293,13 @@ export default function TenantManager() {
                         <div className="flex items-center space-x-3">
                           {getOnlineStatusDot(t)}
                           <div className="flex flex-col">
-                            <span className="font-semibold text-white text-xs sm:text-sm">
-                              {t.schoolName}
+                            <span className="font-semibold text-white text-xs sm:text-sm flex items-center gap-1.5 flex-wrap">
+                              <span>{t.schoolName}</span>
+                              {t.is_trial && (
+                                <span className="inline-flex items-center px-1.5 py-0.25 rounded text-[8.5px] font-extrabold bg-amber-500/10 border border-amber-500/30 text-amber-400 uppercase tracking-wider">
+                                  Trial
+                                </span>
+                              )}
                             </span>
                             <div className="text-[10px] text-slate-500 font-mono mt-0.5 flex items-center gap-1.5 whitespace-nowrap">
                               {isTenantOnline(t.lastHeartbeatAt) ? (

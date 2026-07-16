@@ -85,7 +85,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
     if (reply.sent) return;
 
     try {
-      const [list, subscriptions] = await Promise.all([
+      const [list, subscriptions, paidInvoices] = await Promise.all([
         prisma.license.findMany({
           include: {
             activatedDevices: true
@@ -95,8 +95,14 @@ export const adminRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
         prisma.subscription.findMany({
           where: { status: 'active' },
           select: { licenseId: true, productId: true, schoolName: true }
+        }),
+        prisma.invoice.findMany({
+          where: { status: { in: ['paid', 'PAID'] } },
+          select: { licenseId: true }
         })
       ]);
+
+      const paidLicenseIds = new Set(paidInvoices.map(inv => inv.licenseId));
 
       const subscriptionMap = new Map<string, { productId: string, name: string, subdomain: string | null }[]>();
       for (const sub of subscriptions) {
@@ -123,6 +129,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
         }
 
         const modules = licenseSubs.map(s => s.productId);
+        const isTrial = !paidLicenseIds.has(t.id);
 
         return {
           id: t.id,
@@ -136,6 +143,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
           createdAt: t.createdAt,
           isActive: t.isActive,
           status: t.status,
+          is_trial: isTrial,
           productId: normalizeProductId(t.productId),
           custom_domain: t.customDomain,
           lastHeartbeatAt: t.lastHeartbeatAt,
