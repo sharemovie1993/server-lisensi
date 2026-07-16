@@ -296,12 +296,32 @@ export default function InvoicesList() {
                   }
 
                   const isManual = selectedInvoice.payment_method?.toLowerCase() === 'manual';
-                  
+
                   if (isManual) {
                     return (
-                      <p className="text-slate-400 leading-relaxed font-sans">
-                        Silakan lakukan transfer manual sebesar <strong className="text-white font-mono">{formatCurrency(selectedInvoice.amount)}</strong> ke Rekening Bank pengelola lisensi utama (misal: Bank Mandiri / BCA). Kirimkan bukti pembayaran kepada operator atau klik tombol persetujuan manual untuk melunasi lisensi ini.
-                      </p>
+                      <div className="space-y-3 text-left">
+                        <p className="text-slate-400 leading-relaxed font-sans">
+                          Silakan lakukan transfer manual sebesar <strong className="text-white font-mono">{formatCurrency(selectedInvoice.amount)}</strong> ke rekening pengelola berikut:
+                        </p>
+                        {payInfo ? (
+                          <div className="p-3 bg-slate-950 rounded-lg border border-slate-850 space-y-1 font-mono text-[11.5px] text-slate-300">
+                            {payInfo.bank_name && <div>Bank: <strong className="text-white">{payInfo.bank_name}</strong></div>}
+                            {payInfo.account_number && (
+                              <div className="flex justify-between items-center">
+                                <span>No. Rekening: <strong className="text-emerald-400 font-bold select-all">{payInfo.account_number}</strong></span>
+                              </div>
+                            )}
+                            {payInfo.account_holder && <div>Atas Nama: <strong className="text-white">{payInfo.account_holder}</strong></div>}
+                          </div>
+                        ) : (
+                          <div className="p-3 bg-slate-950 rounded-lg border border-slate-850 text-slate-500 italic">
+                            Detail rekening transfer tidak terlampir. Silakan hubungi admin.
+                          </div>
+                        )}
+                        <p className="text-slate-500 text-[10.5px]">
+                          Setelah transfer, kirimkan bukti pembayaran kepada operator/admin agar dapat disetujui secara manual.
+                        </p>
+                      </div>
                     );
                   }
 
