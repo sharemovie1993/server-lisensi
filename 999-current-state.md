@@ -14,12 +14,19 @@ Completed:
 - **Cron Monitoring Panel & DB Logging**: Menambahkan skema logging `CronJobLog` di database PostgreSQL dan halaman visual dashboard interaktif untuk memantau status running counter, last run, durasi, metrik sukses/gagal, dan bypass manual trigger.
 - **Client Hardware Specs Visualization**: Integrasi visualisasi rincian sistem klien (Sistem Operasi, CPU, RAM, Disk) di panel detail samping `TenantManager` dengan mem-parsing string telemetri `osType` secara dinamis.
 - **License Status Filter**: Penyaringan status lisensi non-pending (`{ not: 'pending' }`) pada API `/api/auth/my-licenses` agar lisensi belum terbayar tidak bocor ke klien Easy Tunnel.
+- **Dynamic System Settings (DB-based)**: Pemindahan data hardcoded (nomor WhatsApp, rekening bank, billing email, domain utama, PM2 app name, Caddy path) ke dalam database PostgreSQL (`system_settings`) dengan helper `settings.service.ts` agar dapat dikonfigurasi dinamis langsung via dashboard admin panel.
+- **Security Key Hardening**: Mencegah server berjalan tanpa kunci rahasia yang terkonfigurasi di `.env` (JWT_SECRET, ADMIN_SECRET, TOTP_SECRET), menghindari fallback tidak aman.
+- **Backend Refactoring & Helper Extraction**: Ekstraksi logika transaksi database pendaftaran lisensi & Tripay ke `billing.service.ts` dan `tripay.service.ts`, serta helper license query di `license.helpers.ts` dan JWT token generation di `token.helpers.ts`. Router `core.routes.ts` kini sangat ramping dan DRY.
+- **Frontend Shared Layer**: Pembentukan folder `src/types/` dan `src/utils/` di platform-panel untuk standardisasi tipe data global (`Tenant`, `Product`, `Plan`, `HardwareInfo`) dan helper telemetri.
+- **Vite & React Query Caching**: Integrasi custom hook `@tanstack/react-query` bernama `useProducts` untuk mem-cache daftar produk, mengeliminasi duplikasi query fetch manual pada `TenantManager.tsx` dan `ProductsManager.tsx`.
+- **Modular Frontend Components**: Memecah form dan modal telemetri di `TenantManager.tsx` (dari 950+ baris menjadi ~630 baris) menjadi subkomponen-subkomponen modular terpisah: `AddNodeModal.tsx`, `DetailNodeModal.tsx`, dan `TelemetryStatusIcon.tsx`.
+- **Self-Contained Dashboard Overview**: Memindahkan state statistik dan polling telemetri dari `App.tsx` ke dalam `DashboardOverview.tsx` sehingga merampingkan render tree aplikasi utama.
 
 In Progress:
 - None
 
 Current Focus:
-- Pemeliharaan sistem dan pemantauan stabilitas heartbeat.
+- Pemeliharaan struktur kode backend dan persiapan pemisahan route `admin.routes.ts`.
 
 Next Task:
-- Eksplorasi fitur otomatisasi port publik khusus untuk terowongan non-HTTP (RDP/TCP).
+- Phase 5: Backend Route Split (`admin.routes.ts` decomposition).
