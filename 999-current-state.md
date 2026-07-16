@@ -12,12 +12,14 @@ Completed:
 - **Cleanup SQLite Remnants**: Penghapusan berkas database SQLite `licenses.db*`, server JS lama, dan utilitas force-activate yang usang di repositori lokal dan server produksi VPS.
 - **Standard Industry Scheduler (`node-cron`)**: Mengganti interval timer lama (`setInterval`) dengan `node-cron` yang dijadwalkan tepat pukul 01:00 dini hari agar tidak mengganggu jam operasional KBM sekolah.
 - **Cron Monitoring Panel & DB Logging**: Menambahkan skema logging `CronJobLog` di database PostgreSQL dan halaman visual dashboard interaktif untuk memantau status running counter, last run, durasi, metrik sukses/gagal, dan bypass manual trigger.
+- **Client Hardware Specs Visualization**: Integrasi visualisasi rincian sistem klien (Sistem Operasi, CPU, RAM, Disk) di panel detail samping `TenantManager` dengan mem-parsing string telemetri `osType` secara dinamis.
+- **License Status Filter**: Penyaringan status lisensi non-pending (`{ not: 'pending' }`) pada API `/api/auth/my-licenses` agar lisensi belum terbayar tidak bocor ke klien Easy Tunnel.
 
 In Progress:
 - None
 
 Current Focus:
-- Deployment dan Uji Coba Lanjutan.
+- Pemeliharaan sistem dan pemantauan stabilitas heartbeat.
 
 Next Task:
-- Sinkronisasi deployment client Easy Tunnel dan Absenta.
+- Eksplorasi fitur otomatisasi port publik khusus untuk terowongan non-HTTP (RDP/TCP).
