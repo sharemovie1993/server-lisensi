@@ -17,6 +17,8 @@ Architecture Patterns:
 - **VPN Subnet Isolation (Client-to-Client block)**: Pemasangan aturan iptables di VPS untuk menolak komunikasi antar-client VPN (`FORWARD wg0 to wg0`), mengunci keamanan sekolah agar tidak saling mengintip data.
 - **Gateway Bot (Singleton Pattern)**: Pool WhatsApp gateway menggunakan `@whiskeysockets/baileys` yang diinisialisasi satu kali untuk mengirim OTP, notifikasi tagihan Tripay, dan peringatan kedaluwarsa sistem.
 - **Daily Cron Schedulers & Logger Database**: Pemasangan penjadwal harian menggunakan `node-cron` yang dieksekusi tepat pukul 01:00 pagi setiap hari. Dilengkapi dengan logging aktivitas `CronJobLog` ke PostgreSQL untuk memantau status keberhasilan job dan ringkasan metrik statistiknya secara terpusat.
+- **Client Specs Telemetry Parsing**: Penguraian string telemetri dinamis `osType` di sisi frontend platform panel untuk menyajikan rincian hardware spesifik klien (CPU, RAM, Storage) secara visual di antarmuka detail sekolah tanpa memodifikasi skema kolom database PostgreSQL pusat.
+- **License Payment Enforcement**: Menyaring hasil kueri lisensi klien pada endpoint `/api/auth/my-licenses` menggunakan kondisi `{ not: 'pending' }` agar aplikasi klien Easy Tunnel hanya menerima lisensi yang sudah lunas terbayar.
 
 
 Communication:
