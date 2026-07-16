@@ -210,7 +210,7 @@ pos.${MAIN_DOMAIN} {
 }
 
 # Catch-all web client for selected subdomains (Serving static files directly)
-1pwk.${MAIN_DOMAIN}, 2krw.${MAIN_DOMAIN}, 1krw.${MAIN_DOMAIN}, 1subang.${MAIN_DOMAIN}, smkn1pld.${MAIN_DOMAIN}, 3cianjur.${MAIN_DOMAIN}, 1maniis.${MAIN_DOMAIN} {
+1pwk.${MAIN_DOMAIN}, 2krw.${MAIN_DOMAIN}, 1krw.${MAIN_DOMAIN}, 1subang.${MAIN_DOMAIN}, 3cianjur.${MAIN_DOMAIN}, 1maniis.${MAIN_DOMAIN} {
     root * /var/www/${MAIN_DOMAIN}
     file_server
     try_files {path} {path}/ /index.html
