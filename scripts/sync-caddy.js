@@ -151,10 +151,12 @@ async function run() {
 
         const alreadyMapped = upstreams.some(u => u.slug.toLowerCase() === slugClean);
         if (!alreadyMapped) {
-          const domains = [`${slugClean}.${MAIN_DOMAIN}`];
+          const domainsSet = new Set([`${slugClean}.${MAIN_DOMAIN}`]);
           if (lic.custom_domain) {
-            domains.push(lic.custom_domain.trim().toLowerCase());
+            domainsSet.add(lic.custom_domain.trim().toLowerCase());
           }
+          const domains = Array.from(domainsSet);
+
           upstreams.push({
             slug: lic.requested_slug,
             domains,
