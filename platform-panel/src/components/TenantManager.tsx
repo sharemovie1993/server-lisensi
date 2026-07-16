@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '../api/apiClient';
+import type { Tenant } from '../types/tenant';
+import { parseHardware, isTenantOnline } from '../utils/tenant';
+import { useProducts } from '../hooks/useProducts';
 import { BadgeCheck, ShieldAlert, Key, Plus, Trash2, Check, RefreshCw, Search, ChevronDown, ChevronUp, Database, Users, Activity, Cpu, Building, Eye, ExternalLink, Send } from 'lucide-react';
 
 const WindowsIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -14,43 +17,6 @@ const LinuxIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-interface Tenant {
-  id: string;
-  schoolName: string;
-  requestedSlug: string;
-  licenseKey: string;
-  status: string;
-  createdAt: string;
-  productId?: string;
-  lastHeartbeatAt?: string | null;
-  deployMode?: string | null;
-  activeUsers?: number | null;
-  dbSize?: number | null;
-  memoryUsage?: number | null;
-  lastTapped?: string | null;
-  modules?: string[];
-  schools?: Array<{ name: string; subdomain: string | null } | string>;
-  hostname?: string | null;
-  osType?: string | null;
-  activeDevices?: number | null;
-  activatedDevices?: Array<{ id: number; deviceId: string; activatedAt: string }>;
-  wireguardIp?: string | null;
-  is_trial?: boolean;
-  nodeType?: string;
-}
-
-const parseHardware = (osType?: string | null) => {
-  if (!osType) return { os: 'N/A', cpu: 'N/A', ram: 'N/A', disk: 'N/A' };
-  if (!osType.includes('|')) return { os: osType, cpu: 'N/A', ram: 'N/A', disk: 'N/A' };
-  
-  const parts = osType.split('|').map(p => p.trim());
-  return {
-    os: parts[0] || 'N/A',
-    cpu: parts.find(p => p.startsWith('CPU:'))?.replace('CPU:', '').trim() || 'N/A',
-    ram: parts.find(p => p.startsWith('RAM:'))?.replace('RAM:', '').trim() || 'N/A',
-    disk: parts.find(p => p.startsWith('Storage:'))?.replace('Storage:', '').trim() || 'N/A'
-  };
-};
 
 export default function TenantManager() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -113,17 +79,13 @@ export default function TenantManager() {
   const [schoolName, setSchoolName] = useState('');
   const [requestedSlug, setRequestedSlug] = useState('');
   const [packageId, setPackageId] = useState('');
-  const [packages, setPackages] = useState<any[]>([]);
+  const { data: packages = [] } = useProducts();
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const [tenantsRes, packagesRes] = await Promise.all([
-        apiClient.get('/api/admin/nodes'),
-        apiClient.get('/api/admin/products')
-      ]);
+      const tenantsRes = await apiClient.get('/api/admin/nodes');
       setTenants(tenantsRes.data?.data || []);
-      setPackages(packagesRes.data?.data || []);
     } catch (e) {
       console.error('Failed to load tenants data', e);
     } finally {
@@ -184,10 +146,6 @@ export default function TenantManager() {
     }
   };
 
-  const isTenantOnline = (lastHeartbeatAt?: string | null) => {
-    if (!lastHeartbeatAt) return false;
-    return Date.now() - new Date(lastHeartbeatAt).getTime() < 5 * 60 * 1000;
-  };
 
   const getDeployModeBadge = (mode?: string | null) => {
     if (!mode) return null;

@@ -56,6 +56,25 @@ const dummySocket = {
   emit: () => {},
 };
 
+// SIDEBAR ITEMS
+const sidebarItems = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'tenants', label: 'Daftar Server & Tunnel', icon: Server },
+  { id: 'subscriptions', label: 'Langganan Sekolah', icon: Users },
+  { id: 'privateer', label: 'Transaksi Privateer', icon: CreditCard },
+  { id: 'invoices', label: 'Invoice', icon: DollarSign },
+  { id: 'products', label: 'Produk & Plan', icon: Layers },
+  { id: 'risk', label: 'Churn Risk', icon: AlertTriangle },
+  { id: 'revenue', label: 'Proyeksi Pendapatan', icon: TrendingUp },
+  { id: 'upgrade', label: 'Minat Upgrade', icon: Sparkles },
+  { id: 'tickets', label: 'Tiket Bantuan CS', icon: MessageSquare },
+  { id: 'whatsapp', label: 'WhatsApp Gateway', icon: Smartphone },
+  { id: 'logs', label: 'Log Audit Trail', icon: FileText },
+  { id: 'caddy', label: 'Caddy Gateway', icon: Network },
+  { id: 'cron-logs', label: 'Monitoring Cron', icon: Clock },
+  { id: 'settings', label: 'Konfigurasi Sistem', icon: Settings },
+];
+
 export default function App() {
   const [theme, setTheme] = useState<'dark' | 'light'>(() => (localStorage.getItem(THEME_KEY) as 'dark' | 'light') || 'dark');
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
@@ -63,37 +82,6 @@ export default function App() {
   const [checkingAuth, setCheckingAuth] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [loginError, setLoginError] = useState<string | null>(null);
-
-  // Overview states
-  const [overviewStats, setOverviewStats] = useState({
-    totalTenants: 0,
-    activeTenants: 0,
-    totalMRR: 0,
-    activeTickets: 0,
-    waConnected: false,
-  });
-
-  const [telemetry, setTelemetry] = useState({
-    cpu: 0,
-    ram: 0,
-    ramTotal: '0',
-    ramUsed: '0',
-    disk: 0,
-    diskTotal: '0',
-    diskUsed: '0',
-  });
-
-  const [activity, setActivity] = useState({
-    activeStudents: 0,
-    activityToday: 0,
-    activeDevices: 0,
-    whatsapp: {
-      status: 'disconnected',
-      number: null as string | null,
-      sentToday: 0,
-      failedToday: 0
-    }
-  });
 
   const checkAuth = async () => {
     const token = localStorage.getItem(TOKEN_KEY);
@@ -108,7 +96,6 @@ export default function App() {
       const res = await apiClient.get('/api/admin/settings');
       if (res.status === 200) {
         setIsLoggedIn(true);
-        loadOverviewStats();
       }
     } catch (e) {
       localStorage.removeItem(TOKEN_KEY);
@@ -118,52 +105,9 @@ export default function App() {
     }
   };
 
-  const loadOverviewStats = async () => {
-    try {
-      const [tenantsRes, ticketsRes, waRes, telemetryRes, activityRes] = await Promise.all([
-        apiClient.get('/api/admin/tenants'),
-        apiClient.get('/api/admin/tickets'),
-        apiClient.get('/api/admin/wa/status'),
-        apiClient.get('/api/admin/system/telemetry'),
-        apiClient.get('/api/admin/system/activity'),
-      ]);
-
-      const tenantsList = tenantsRes.data?.data || [];
-      const activeCount = tenantsList.filter((t: any) => t.status === 'ACTIVE').length;
-      const totalMRR = activeCount * MRR_PER_TENANT;
-      const openTicketsCount = (ticketsRes.data?.data || []).filter((t: any) => t.status === 'OPEN').length;
-      const waConnected = waRes.data?.data?.state === 'connected' || waRes.data?.data?.status === 'connected';
-
-      setOverviewStats({
-        totalTenants: tenantsList.length,
-        activeTenants: activeCount,
-        totalMRR,
-        activeTickets: openTicketsCount,
-        waConnected,
-      });
-
-      if (telemetryRes.data?.success) {
-        setTelemetry(telemetryRes.data.data);
-      }
-      if (activityRes.data?.success) {
-        setActivity(activityRes.data.data);
-      }
-    } catch (e) {
-      console.error('Failed to load overview stats', e);
-    }
-  };
-
   useEffect(() => {
     checkAuth();
   }, []);
-
-  useEffect(() => {
-    if (!isLoggedIn) return;
-    const interval = setInterval(() => {
-      loadOverviewStats();
-    }, POLL_INTERVAL_MS); // Polling telemetry & stats
-    return () => clearInterval(interval);
-  }, [isLoggedIn]);
 
   useEffect(() => {
     localStorage.setItem(THEME_KEY, theme);
@@ -182,7 +126,6 @@ export default function App() {
       if (res.data && res.data.success && res.data.token) {
         localStorage.setItem(TOKEN_KEY, res.data.token);
         setIsLoggedIn(true);
-        loadOverviewStats();
       } else {
         setLoginError(res.data.message || 'PIN Admin tidak valid!');
         setIsLoggedIn(false);
@@ -252,24 +195,6 @@ export default function App() {
     );
   }
 
-  // SIDEBAR ITEMS
-  const sidebarItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'tenants', label: 'Daftar Server & Tunnel', icon: Server },
-    { id: 'subscriptions', label: 'Langganan Sekolah', icon: Users },
-    { id: 'privateer', label: 'Transaksi Privateer', icon: CreditCard },
-    { id: 'invoices', label: 'Invoice', icon: DollarSign },
-    { id: 'products', label: 'Produk & Plan', icon: Layers },
-    { id: 'risk', label: 'Churn Risk', icon: AlertTriangle },
-    { id: 'revenue', label: 'Proyeksi Pendapatan', icon: TrendingUp },
-    { id: 'upgrade', label: 'Minat Upgrade', icon: Sparkles },
-    { id: 'tickets', label: 'Tiket Bantuan CS', icon: MessageSquare },
-    { id: 'whatsapp', label: 'WhatsApp Gateway', icon: Smartphone },
-    { id: 'logs', label: 'Log Audit Trail', icon: FileText },
-    { id: 'caddy', label: 'Caddy Gateway', icon: Network },
-    { id: 'cron-logs', label: 'Monitoring Cron', icon: Clock },
-    { id: 'settings', label: 'Konfigurasi Sistem', icon: Settings },
-  ];
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -293,7 +218,6 @@ export default function App() {
                     key={item.id}
                     onClick={() => {
                       setActiveTab(item.id);
-                      loadOverviewStats();
                     }}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${
                       isActive
@@ -339,12 +263,7 @@ export default function App() {
           {/* MAIN CONTENT AREA */}
           <main className="flex-1 p-8 overflow-y-auto h-screen">
             {activeTab === 'dashboard' && (
-              <DashboardOverview 
-                stats={overviewStats} 
-                telemetry={telemetry}
-                activity={activity}
-                onSwitchTab={setActiveTab} 
-              />
+              <DashboardOverview onSwitchTab={setActiveTab} />
             )}
             {activeTab === 'tenants' && <TenantManager />}
             {activeTab === 'subscriptions' && <SubscriptionsList />}

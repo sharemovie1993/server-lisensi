@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import apiClient from '../api/apiClient';
+import { POLL_INTERVAL_MS, MRR_PER_TENANT } from '../constants/app';
 import { 
   Users, 
   CreditCard, 
@@ -26,50 +28,85 @@ const LinuxIcon = (props: React.SVGProps<SVGSVGElement>) => (
 );
 
 interface OverviewProps {
-  stats: {
-    totalTenants: number;
-    activeTenants: number;
-    totalMRR: number;
-    activeTickets: number;
-    waConnected: boolean;
-  };
-  telemetry?: {
-    cpu: number;
-    ram: number;
-    ramTotal: string;
-    ramUsed: string;
-    disk: number;
-    diskTotal: string;
-    diskUsed: string;
-  };
-  activity?: {
-    activeStudents: number;
-    activityToday: number;
-    activeDevices: number;
-    servers?: Array<{
-      id: string;
-      schoolName: string;
-      isOnline: boolean;
-      memoryUsage: number | null;
-      dbSize: number | null;
-      lastTapped: string | null;
-      activeUsers: number;
-      osType?: string | null;
-      hostname?: string | null;
-    }>;
-    onlineServersCount?: number;
-    totalServersCount?: number;
-    whatsapp: {
-      status: string;
-      number: string | null;
-      sentToday: number;
-      failedToday: number;
-    };
-  };
   onSwitchTab: (tab: string) => void;
 }
 
-export default function DashboardOverview({ stats, telemetry, activity, onSwitchTab }: OverviewProps) {
+export default function DashboardOverview({ onSwitchTab }: OverviewProps) {
+  const [stats, setStats] = useState({
+    totalTenants: 0,
+    activeTenants: 0,
+    totalMRR: 0,
+    activeTickets: 0,
+    waConnected: false,
+  });
+
+  const [telemetry, setTelemetry] = useState<any>({
+    cpu: 0,
+    ram: 0,
+    ramTotal: '0 GB',
+    ramUsed: '0 GB',
+    disk: 0,
+    diskTotal: '0 GB',
+    diskUsed: '0 GB'
+  });
+
+  const [activity, setActivity] = useState<any>({
+    activeStudents: 0,
+    activityToday: 0,
+    activeDevices: 0,
+    servers: [],
+    onlineServersCount: 0,
+    totalServersCount: 0,
+    whatsapp: {
+      status: 'offline',
+      number: null,
+      sentToday: 0,
+      failedToday: 0
+    }
+  });
+
+  const loadOverviewStats = async () => {
+    try {
+      const [tenantsRes, ticketsRes, waRes, telemetryRes, activityRes] = await Promise.all([
+        apiClient.get('/api/admin/tenants'),
+        apiClient.get('/api/admin/tickets'),
+        apiClient.get('/api/admin/wa/status'),
+        apiClient.get('/api/admin/system/telemetry'),
+        apiClient.get('/api/admin/system/activity'),
+      ]);
+
+      const tenantsList = tenantsRes.data?.data || [];
+      const activeCount = tenantsList.filter((t: any) => t.status === 'ACTIVE').length;
+      const totalMRR = activeCount * MRR_PER_TENANT;
+      const openTicketsCount = (ticketsRes.data?.data || []).filter((t: any) => t.status === 'OPEN').length;
+      const waConnected = waRes.data?.data?.state === 'connected' || waRes.data?.data?.status === 'connected';
+
+      setStats({
+        totalTenants: tenantsList.length,
+        activeTenants: activeCount,
+        totalMRR,
+        activeTickets: openTicketsCount,
+        waConnected,
+      });
+
+      if (telemetryRes.data?.success) {
+        setTelemetry(telemetryRes.data.data);
+      }
+      if (activityRes.data?.success) {
+        setActivity(activityRes.data.data);
+      }
+    } catch (e) {
+      console.error('Failed to load overview stats', e);
+    }
+  };
+
+  useEffect(() => {
+    loadOverviewStats();
+    const interval = setInterval(() => {
+      loadOverviewStats();
+    }, POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, []);
   const cards = [
     {
       title: 'Total Sekolah (Tenant)',

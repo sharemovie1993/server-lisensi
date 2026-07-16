@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '../api/apiClient';
+import { useQueryClient } from '@tanstack/react-query';
+import { useProducts } from '../hooks/useProducts';
 import { 
   Layers, 
   Plus, 
@@ -17,7 +19,8 @@ import {
 } from 'lucide-react';
 
 export default function ProductsManager() {
-  const [products, setProducts] = useState<any[]>([]);
+  const queryClient = useQueryClient();
+  const { data: products = [] } = useProducts();
   const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,12 +55,9 @@ export default function ProductsManager() {
     setLoading(true);
     setError(null);
     try {
-      const [prodRes, planRes] = await Promise.all([
-        apiClient.get('/api/admin/products'),
-        apiClient.get('/api/admin/plans')
-      ]);
-      setProducts(prodRes.data?.data || []);
+      const planRes = await apiClient.get('/api/admin/plans');
       setPlans(planRes.data?.data || []);
+      queryClient.invalidateQueries({ queryKey: ['products'] });
     } catch (e: any) {
       setError(e.response?.data?.message || 'Gagal memuat data produk & paket.');
     } finally {
