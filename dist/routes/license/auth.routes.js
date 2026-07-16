@@ -121,8 +121,7 @@ const registerAuthLicenseRoutes = (fastify) => {
             const list = await helpers_1.prisma.license.findMany({
                 where: {
                     operatorPhone: { in: getPhoneVariants(nomor) },
-                    productId: 'easy-tunnel',
-                    status: { not: 'pending' }
+                    productId: 'easy-tunnel'
                 },
                 orderBy: { createdAt: 'desc' }
             });
