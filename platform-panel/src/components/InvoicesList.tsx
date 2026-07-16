@@ -146,17 +146,31 @@ export default function InvoicesList() {
                         : 'Belum dibayar'}
                     </td>
                     <td className="px-6 py-4">
-                      {inv.status === 'paid' || inv.status === 'PAID' ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs font-semibold text-emerald-400">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          Lunas
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-xs font-semibold text-amber-400">
-                          <ShieldAlert className="w-3.5 h-3.5" />
-                          Pending
-                        </span>
-                      )}
+                      {(() => {
+                        const statusLower = inv.status.toLowerCase();
+                        if (statusLower === 'paid' || statusLower === 'lunas') {
+                          return (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs font-semibold text-emerald-400">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              Lunas
+                            </span>
+                          );
+                        } else if (statusLower === 'expired' || statusLower === 'cancelled') {
+                          return (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-xs font-semibold text-rose-450 opacity-60">
+                              <ShieldAlert className="w-3.5 h-3.5" />
+                              Kedaluwarsa
+                            </span>
+                          );
+                        } else {
+                          return (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-xs font-semibold text-amber-400">
+                              <ShieldAlert className="w-3.5 h-3.5" />
+                              Pending
+                            </span>
+                          );
+                        }
+                      })()}
                     </td>
                     <td className="px-6 py-4 text-right space-x-2 flex justify-end items-center">
                       <button
