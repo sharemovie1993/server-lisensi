@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import crypto from 'crypto';
-import { prisma, normalizeProductId } from './helpers';
+import { prisma, normalizeProductId, sendLicenseWhatsAppNotification } from './helpers';
 import { httpPost } from '../../utils/http';
 import { renderInvoiceTemplate, formatIndonesianDate } from '../../utils/invoice-template';
 import { triggerCaddySync } from '../../services/caddy.service';
@@ -181,6 +181,41 @@ export const registerPaymentLicenseRoutes = (fastify: FastifyInstance) => {
               endDate: expiresStr
             }
           });
+        }
+ 
+        // 1. Kirim notifikasi WA Lunas ke Pembeli (Operator)
+        if (lic.operatorPhone) {
+          sendLicenseWhatsAppNotification(
+            lic.operatorPhone,
+            invoice.schoolName,
+            lic.requestedSlug,
+            lic.productId,
+            invoice.planTitle,
+            lic.licenseKey,
+            invoice.invoiceNumber,
+            Number(invoice.amount),
+            invoice.paymentMethod,
+            'paid'
+          ).catch(e => console.error('[WA Paid License Notify Error]', e.message));
+        }
+
+        // 2. Kirim notifikasi WA Info Lunas ke Owner
+        const ownerWA = process.env.OWNER_WA_NUMBER || '6287779937341';
+        if (ownerWA) {
+          const ownerMsg = `*📢 [NOTIFIKASI OWNER] PEMBAYARAN LUNAS (PAID)*
+
+Pembayaran untuk invoice *${invoice.invoiceNumber}* telah berhasil diterima!
+
+- *Instansi*: ${invoice.schoolName}
+- *Produk*: ${lic.productId.toUpperCase()}
+- *Paket*: ${invoice.planTitle}
+- *Metode*: ${invoice.paymentMethod}
+- *Jumlah*: Rp ${Number(invoice.amount).toLocaleString('id-ID')}
+- *Status*: ✅ *LUNAS (Aktif s.d ${expiresStr})*`;
+          
+          const { waGateway } = require('../../services/whatsapp.service');
+          waGateway.sendMessage(ownerWA, ownerMsg, 'ADMIN_NOTIFICATION', lic.productId)
+            .catch((e: any) => console.error('[WA Owner Paid Notify Error]', e.message));
         }
 
         // Realtime webhook push to school client
