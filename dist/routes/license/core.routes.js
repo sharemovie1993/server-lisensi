@@ -262,6 +262,8 @@ const registerCoreLicenseRoutes = (fastify) => {
                 if (targetPhone) {
                     (0, helpers_1.sendLicenseWhatsAppNotification)(targetPhone, resolvedSchoolName, resolvedSlug, prodId, plan.name, newKey, invoiceNumber, 0, 'Gratis', 'paid').catch(e => console.error('[WA Free License Notify Error]', e.message));
                 }
+                // Notifikasi ke Owner
+                (0, helpers_1.sendOwnerOrderNotification)(resolvedSchoolName, resolvedSlug, prodId, plan.name, newKey, invoiceNumber, 0, 'Gratis').catch(e => console.error('[WA Free Owner Notify Error]', e.message));
                 return reply.send({
                     success: true,
                     message: 'Pengajuan lisensi gratis berhasil diaktifkan.',
@@ -334,6 +336,8 @@ const registerCoreLicenseRoutes = (fastify) => {
                 if (targetPhone) {
                     (0, helpers_1.sendLicenseWhatsAppNotification)(targetPhone, resolvedSchoolName, resolvedSlug, prodId, plan.name, newKey, invoiceNumber, basePrice, 'Manual', 'unpaid').catch(e => console.error('[WA Manual License Notify Error]', e.message));
                 }
+                // Notifikasi ke Owner
+                (0, helpers_1.sendOwnerOrderNotification)(resolvedSchoolName, resolvedSlug, prodId, plan.name, newKey, invoiceNumber, basePrice, 'Manual').catch(e => console.error('[WA Manual Owner Notify Error]', e.message));
                 return reply.send({
                     success: true,
                     message: 'Pengajuan lisensi manual berhasil diproses.',
@@ -452,6 +456,8 @@ const registerCoreLicenseRoutes = (fastify) => {
                 if (targetPhone) {
                     (0, helpers_1.sendLicenseWhatsAppNotification)(targetPhone, resolvedSchoolName, resolvedSlug, prodId, plan.name, newKey, invoiceNumber, tx.amount || basePrice, resolvedPaymentMethod, 'unpaid', tx.pay_code, tx.qr_url).catch(e => console.error('[WA Tripay License Notify Error]', e.message));
                 }
+                // Notifikasi ke Owner
+                (0, helpers_1.sendOwnerOrderNotification)(resolvedSchoolName, resolvedSlug, prodId, plan.name, newKey, invoiceNumber, tx.amount || basePrice, resolvedPaymentMethod).catch(e => console.error('[WA Tripay Owner Notify Error]', e.message));
                 return reply.send({
                     success: true,
                     message: 'Invoice Tripay berhasil dibuat.',

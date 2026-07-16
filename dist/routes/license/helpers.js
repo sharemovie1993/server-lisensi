@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendPrivateerTopUpNotification = exports.sendLicenseWhatsAppNotification = exports.prisma = void 0;
+exports.sendOwnerOrderNotification = exports.sendPrivateerTopUpNotification = exports.sendLicenseWhatsAppNotification = exports.prisma = void 0;
 exports.normalizeProductId = normalizeProductId;
 exports.getProductPrefix = getProductPrefix;
 exports.formatWA = formatWA;
@@ -188,3 +188,37 @@ Terima kasih ya sudah rajin belajar di Privateer. Kalau ada yang bingung atau bu
     }
 };
 exports.sendPrivateerTopUpNotification = sendPrivateerTopUpNotification;
+/**
+ * Mengirim notifikasi WA ke Owner/Admin ketika ada pengajuan lisensi/transaksi baru
+ */
+const sendOwnerOrderNotification = async (schoolName, slug, prodId, planName, key, invoiceNum, amount, paymentMethod) => {
+    const ownerWA = process.env.OWNER_WA_NUMBER || '6287779937341';
+    try {
+        const amountFormatted = amount === 0 ? 'Rp 0 (Gratis)' : `Rp ${amount.toLocaleString('id-ID')}`;
+        const normalizedId = normalizeProductId(prodId);
+        const productLabel = normalizedId === 'cakola' ? 'Platform Cakola' : (normalizedId === 'easy-tunnel' ? 'Easy Tunnel' : (normalizedId === 'privateer' ? 'Privateer' : prodId.toUpperCase()));
+        const message = `*📢 [NOTIFIKASI OWNER] ORDER LISENSI BARU*
+
+Halo Owner! Ada transaksi/pengajuan lisensi baru masuk pada sistem.
+
+*📋 Rincian Pesanan:*
+- *Nama Instansi*: ${schoolName}
+- *Subdomain*: ${slug ? slug + '.absenta.id' : '-'}
+- *Produk*: ${productLabel}
+- *Paket/Plan*: ${planName}
+- *Lisensi Key*: \`${key}\`
+
+*💳 Rincian Tagihan:*
+- *Nomor Invoice*: *${invoiceNum}*
+- *Total Biaya*: *${amountFormatted}*
+- *Metode Pembayaran*: *${paymentMethod}*
+
+_Catatan: Karena sistem dalam mode sandbox, Anda dapat membuka dashboard Sandbox Tripay/Payment Gateway untuk mengubah status invoice *${invoiceNum}* secara manual agar terkonfirmasi otomatis oleh sistem._`;
+        await whatsapp_service_1.waGateway.sendMessage(ownerWA, message, 'ADMIN_NOTIFICATION', normalizedId);
+        console.log(`[WA Owner Notify] Berhasil mengirim notifikasi order baru ke Owner (${ownerWA})`);
+    }
+    catch (err) {
+        console.error('[WA Owner Notify Error]', err.message);
+    }
+};
+exports.sendOwnerOrderNotification = sendOwnerOrderNotification;

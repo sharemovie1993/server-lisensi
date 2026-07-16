@@ -221,3 +221,48 @@ Terima kasih ya sudah rajin belajar di Privateer. Kalau ada yang bingung atau bu
     console.error('[WA Privateer Notification Error]', err.message);
   }
 };
+
+/**
+ * Mengirim notifikasi WA ke Owner/Admin ketika ada pengajuan lisensi/transaksi baru
+ */
+export const sendOwnerOrderNotification = async (
+  schoolName: string,
+  slug: string | null,
+  prodId: string,
+  planName: string,
+  key: string,
+  invoiceNum: string,
+  amount: number,
+  paymentMethod: string
+) => {
+  const ownerWA = process.env.OWNER_WA_NUMBER || '6287779937341';
+  try {
+    const amountFormatted = amount === 0 ? 'Rp 0 (Gratis)' : `Rp ${amount.toLocaleString('id-ID')}`;
+    const normalizedId = normalizeProductId(prodId);
+    const productLabel = normalizedId === 'cakola' ? 'Platform Cakola' : (normalizedId === 'easy-tunnel' ? 'Easy Tunnel' : (normalizedId === 'privateer' ? 'Privateer' : prodId.toUpperCase()));
+
+    const message = `*📢 [NOTIFIKASI OWNER] ORDER LISENSI BARU*
+
+Halo Owner! Ada transaksi/pengajuan lisensi baru masuk pada sistem.
+
+*📋 Rincian Pesanan:*
+- *Nama Instansi*: ${schoolName}
+- *Subdomain*: ${slug ? slug + '.absenta.id' : '-'}
+- *Produk*: ${productLabel}
+- *Paket/Plan*: ${planName}
+- *Lisensi Key*: \`${key}\`
+
+*💳 Rincian Tagihan:*
+- *Nomor Invoice*: *${invoiceNum}*
+- *Total Biaya*: *${amountFormatted}*
+- *Metode Pembayaran*: *${paymentMethod}*
+
+_Catatan: Karena sistem dalam mode sandbox, Anda dapat membuka dashboard Sandbox Tripay/Payment Gateway untuk mengubah status invoice *${invoiceNum}* secara manual agar terkonfirmasi otomatis oleh sistem._`;
+
+    await waGateway.sendMessage(ownerWA, message, 'ADMIN_NOTIFICATION', normalizedId);
+    console.log(`[WA Owner Notify] Berhasil mengirim notifikasi order baru ke Owner (${ownerWA})`);
+  } catch (err: any) {
+    console.error('[WA Owner Notify Error]', err.message);
+  }
+};
+

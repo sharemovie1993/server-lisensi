@@ -5,6 +5,7 @@ import {
   prisma,
   RequestBody,
   sendLicenseWhatsAppNotification,
+  sendOwnerOrderNotification,
   getProductPrefix,
   normalizeProductId
 } from './helpers';
@@ -312,6 +313,18 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
           ).catch(e => console.error('[WA Free License Notify Error]', e.message));
         }
 
+        // Notifikasi ke Owner
+        sendOwnerOrderNotification(
+          resolvedSchoolName,
+          resolvedSlug,
+          prodId,
+          plan.name,
+          newKey,
+          invoiceNumber,
+          0,
+          'Gratis'
+        ).catch(e => console.error('[WA Free Owner Notify Error]', e.message));
+
         return reply.send({
           success: true,
           message: 'Pengajuan lisensi gratis berhasil diaktifkan.',
@@ -399,6 +412,18 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
             'unpaid'
           ).catch(e => console.error('[WA Manual License Notify Error]', e.message));
         }
+
+        // Notifikasi ke Owner
+        sendOwnerOrderNotification(
+          resolvedSchoolName,
+          resolvedSlug,
+          prodId,
+          plan.name,
+          newKey,
+          invoiceNumber,
+          basePrice,
+          'Manual'
+        ).catch(e => console.error('[WA Manual Owner Notify Error]', e.message));
 
         return reply.send({
           success: true,
@@ -538,6 +563,18 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
             tx.qr_url
           ).catch(e => console.error('[WA Tripay License Notify Error]', e.message));
         }
+
+        // Notifikasi ke Owner
+        sendOwnerOrderNotification(
+          resolvedSchoolName,
+          resolvedSlug,
+          prodId,
+          plan.name,
+          newKey,
+          invoiceNumber,
+          tx.amount || basePrice,
+          resolvedPaymentMethod
+        ).catch(e => console.error('[WA Tripay Owner Notify Error]', e.message));
 
         return reply.send({
           success: true,
