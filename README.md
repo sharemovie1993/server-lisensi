@@ -44,7 +44,7 @@ Sistem telah dimigrasikan sepenuhnya dari SQLite ke **PostgreSQL** dengan menggu
 
 ## 🤖 WhatsApp Bot & Pembersihan Trial Otomatis (Cron Cleanup)
 
-Sistem memantau masa aktif server uji coba (trial) melalui cron job di background yang dieksekusi secara periodik (setiap 24 jam):
+Sistem memantau masa aktif server uji coba (trial), penagihan invoice kadaluarsa, serta sinkronisasi routing proxy melalui cron job di background yang dieksekusi secara presisi menggunakan **`node-cron`** setiap hari pukul **01:00 AM** dini hari (untuk meminimalkan gangguan operasional KBM sekolah akibat pencabutan domain). Aktivitas ini direkam dalam tabel database `CronJobLog` dan dapat dimonitor secara visual melalui panel "Monitoring Cron" di Dashboard Admin.
 
 ### 1. Fase Peringatan (Hari ke-7)
 Jika server trial tidak mengirimkan heartbeat selama **7 s/d 14 hari**, bot WhatsApp Gateway (`6283816286608`) akan mengirimkan peringatan interaktif ke nomor WhatsApp operator yang terdaftar.

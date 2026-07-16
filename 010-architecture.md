@@ -16,6 +16,8 @@ Architecture Patterns:
 - **WebSocket VNC Proxying**: Menghubungkan admin Cakola HQ ke desktop sekolah jarak jauh. Mengimplementasikan bridging dua arah dari port biner WebSocket (`ws://api.absenta.id/api/vnc/connect/:licenseKey`) ke soket TCP port `5900` server TightVNC lokal sekolah melalui terowongan VPN WireGuard.
 - **VPN Subnet Isolation (Client-to-Client block)**: Pemasangan aturan iptables di VPS untuk menolak komunikasi antar-client VPN (`FORWARD wg0 to wg0`), mengunci keamanan sekolah agar tidak saling mengintip data.
 - **Gateway Bot (Singleton Pattern)**: Pool WhatsApp gateway menggunakan `@whiskeysockets/baileys` yang diinisialisasi satu kali untuk mengirim OTP, notifikasi tagihan Tripay, dan peringatan kedaluwarsa sistem.
+- **Daily Cron Schedulers & Logger Database**: Pemasangan penjadwal harian menggunakan `node-cron` yang dieksekusi tepat pukul 01:00 pagi setiap hari. Dilengkapi dengan logging aktivitas `CronJobLog` ke PostgreSQL untuk memantau status keberhasilan job dan ringkasan metrik statistiknya secara terpusat.
+
 
 Communication:
 - **REST API**: Endpoint untuk dashboard admin Cakola HQ, pengecekan heartbeat client, dan callback webhook payment gateway.
