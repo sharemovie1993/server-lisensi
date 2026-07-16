@@ -322,7 +322,7 @@ const adminRoutes = async (fastify) => {
         if (reply.sent)
             return;
         try {
-            const [list, plans, products] = await Promise.all([
+            const [list, plans, products, paidInvoices] = await Promise.all([
                 prisma.subscription.findMany({
                     include: {
                         license: true
@@ -330,10 +330,15 @@ const adminRoutes = async (fastify) => {
                     orderBy: { id: 'desc' }
                 }),
                 prisma.plan.findMany(),
-                prisma.product.findMany()
+                prisma.product.findMany(),
+                prisma.invoice.findMany({
+                    where: { status: { in: ['paid', 'PAID'] } },
+                    select: { licenseId: true }
+                })
             ]);
             const planMap = new Map(plans.map(p => [p.id, p]));
             const productMap = new Map(products.map(p => [p.id, p]));
+            const paidLicenseIds = new Set(paidInvoices.map(inv => inv.licenseId));
             const mapped = list.map(s => {
                 const plan = planMap.get(s.planId);
                 const parts = s.schoolName ? s.schoolName.split('|') : [];
@@ -346,6 +351,7 @@ const adminRoutes = async (fastify) => {
                 const prod = productMap.get(cleanProductId) || productMap.get(s.productId);
                 const productName = prod ? prod.name : 'Platform Cakola';
                 const rawPlanName = s.planId === 'saas-node' ? 'Akses Portal Utama' : (plan ? plan.name : s.planId || 'Standard');
+                const isTrial = s.licenseId ? !paidLicenseIds.has(s.licenseId) : true;
                 return {
                     id: s.id,
                     license_id: s.licenseId,
@@ -373,7 +379,8 @@ const adminRoutes = async (fastify) => {
                     end_date: s.endDate,
                     endDate: s.endDate,
                     created_at: s.createdAt,
-                    createdAt: s.createdAt
+                    createdAt: s.createdAt,
+                    isTrial
                 };
             });
             return reply.send({ success: true, data: mapped });

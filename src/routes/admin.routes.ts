@@ -344,7 +344,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
     if (reply.sent) return;
 
     try {
-      const [list, plans, products] = await Promise.all([
+      const [list, plans, products, paidInvoices] = await Promise.all([
         prisma.subscription.findMany({
           include: {
             license: true
@@ -352,11 +352,16 @@ export const adminRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
           orderBy: { id: 'desc' }
         }),
         prisma.plan.findMany(),
-        prisma.product.findMany()
+        prisma.product.findMany(),
+        prisma.invoice.findMany({
+          where: { status: { in: ['paid', 'PAID'] } },
+          select: { licenseId: true }
+        })
       ]);
 
       const planMap = new Map(plans.map(p => [p.id, p]));
       const productMap = new Map(products.map(p => [p.id, p]));
+      const paidLicenseIds = new Set(paidInvoices.map(inv => inv.licenseId));
 
       const mapped = list.map(s => {
         const plan = planMap.get(s.planId);
@@ -372,6 +377,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
         const productName = prod ? prod.name : 'Platform Cakola';
 
         const rawPlanName = s.planId === 'saas-node' ? 'Akses Portal Utama' : (plan ? plan.name : s.planId || 'Standard');
+        const isTrial = s.licenseId ? !paidLicenseIds.has(s.licenseId) : true;
 
         return {
           id: s.id,
@@ -400,7 +406,8 @@ export const adminRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
           end_date: s.endDate,
           endDate: s.endDate,
           created_at: s.createdAt,
-          createdAt: s.createdAt
+          createdAt: s.createdAt,
+          isTrial
         };
       });
       return reply.send({ success: true, data: mapped });

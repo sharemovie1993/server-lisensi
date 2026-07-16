@@ -17,6 +17,7 @@ interface Subscription {
   licenseKey?: string;
   serverName?: string;
   serverLastHeartbeatAt?: string | null;
+  isTrial?: boolean;
 }
 
 const getCleanModuleName = (productId?: string, planId?: string, productName?: string) => {
@@ -276,7 +277,8 @@ export default function SubscriptionsList() {
                     : false;
  
                   const activeCount = rawGroup.filter(s => s.status === 'ACTIVE').length;
- 
+                  const hasTrial = rawGroup.some(s => s.isTrial);
+
                   return (
                     <React.Fragment key={schoolName}>
                       <tr 
@@ -298,7 +300,14 @@ export default function SubscriptionsList() {
                           />
                         </td>
                         <td className="px-6 py-4">
-                          <span className="font-bold text-white text-sm text-left block">{schoolName}</span>
+                          <span className="font-bold text-white text-sm text-left flex items-center gap-1.5 flex-wrap">
+                            <span>{schoolName}</span>
+                            {hasTrial && (
+                              <span className="inline-flex items-center px-1.5 py-0.25 rounded text-[8.5px] font-extrabold bg-amber-500/10 border border-amber-500/30 text-amber-400 uppercase tracking-wider">
+                                Trial
+                              </span>
+                            )}
+                          </span>
                         </td>
                         <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                           {slug !== '-' ? (
