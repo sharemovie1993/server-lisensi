@@ -173,7 +173,7 @@ const registerPaymentLicenseRoutes = (fastify) => {
                     (0, helpers_1.sendLicenseWhatsAppNotification)(lic.operatorPhone, invoice.schoolName, lic.requestedSlug, lic.productId, invoice.planTitle, lic.licenseKey, invoice.invoiceNumber, Number(invoice.amount), invoice.paymentMethod, 'paid').catch(e => console.error('[WA Paid License Notify Error]', e.message));
                 }
                 // 2. Kirim notifikasi WA Info Lunas ke Owner
-                const ownerWA = process.env.OWNER_WA_NUMBER || '6287779937341';
+                const ownerWA = await (0, helpers_1.getSystemSetting)('OWNER_WA_NUMBER', '6287779937341');
                 if (ownerWA) {
                     const ownerMsg = `*📢 [NOTIFIKASI OWNER] PEMBAYARAN LUNAS (PAID)*
 

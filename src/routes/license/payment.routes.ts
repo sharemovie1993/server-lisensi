@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import crypto from 'crypto';
-import { prisma, normalizeProductId, sendLicenseWhatsAppNotification } from './helpers';
+import { prisma, normalizeProductId, sendLicenseWhatsAppNotification, getSystemSetting } from './helpers';
 import { httpPost } from '../../utils/http';
 import { renderInvoiceTemplate, formatIndonesianDate } from '../../utils/invoice-template';
 import { triggerCaddySync } from '../../services/caddy.service';
@@ -200,7 +200,7 @@ export const registerPaymentLicenseRoutes = (fastify: FastifyInstance) => {
         }
 
         // 2. Kirim notifikasi WA Info Lunas ke Owner
-        const ownerWA = process.env.OWNER_WA_NUMBER || '6287779937341';
+        const ownerWA = await getSystemSetting('OWNER_WA_NUMBER', '6287779937341');
         if (ownerWA) {
           const ownerMsg = `*📢 [NOTIFIKASI OWNER] PEMBAYARAN LUNAS (PAID)*
 

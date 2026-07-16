@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendOwnerOrderNotification = exports.sendPrivateerTopUpNotification = exports.sendLicenseWhatsAppNotification = exports.prisma = void 0;
 exports.normalizeProductId = normalizeProductId;
+exports.getSystemSetting = getSystemSetting;
 exports.getProductPrefix = getProductPrefix;
 exports.formatWA = formatWA;
 exports.verifyClient = verifyClient;
@@ -29,6 +30,21 @@ function normalizeProductId(productId) {
         'absenta': 'cakola',
     };
     return aliases[productId] ?? productId;
+}
+/**
+ * Mengambil pengaturan sistem dari database (system_settings) dengan fallback ke environment variable / default.
+ */
+async function getSystemSetting(key, fallback) {
+    try {
+        const setting = await exports.prisma.systemSetting.findUnique({ where: { key } });
+        if (setting && setting.value.trim() !== '') {
+            return setting.value.trim();
+        }
+    }
+    catch (err) {
+        console.warn(`[getSystemSetting] Gagal mengambil key '${key}':`, err.message);
+    }
+    return process.env[key] || fallback;
 }
 /**
  * Ambil prefix license key dari tabel Product secara dinamis.
@@ -191,8 +207,8 @@ exports.sendPrivateerTopUpNotification = sendPrivateerTopUpNotification;
  * Mengirim notifikasi WA ke Owner/Admin ketika ada pengajuan lisensi/transaksi baru
  */
 const sendOwnerOrderNotification = async (schoolName, slug, prodId, planName, key, invoiceNum, amount, paymentMethod) => {
-    const ownerWA = process.env.OWNER_WA_NUMBER || '6287779937341';
     try {
+        const ownerWA = await getSystemSetting('OWNER_WA_NUMBER', '6287779937341');
         const amountFormatted = amount === 0 ? 'Rp 0 (Gratis)' : `Rp ${amount.toLocaleString('id-ID')}`;
         const normalizedId = normalizeProductId(prodId);
         const productLabel = normalizedId === 'cakola' ? 'Platform Cakola' : (normalizedId === 'easy-tunnel' ? 'Easy Tunnel' : (normalizedId === 'privateer' ? 'Privateer' : prodId.toUpperCase()));

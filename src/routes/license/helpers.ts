@@ -25,6 +25,21 @@ export function normalizeProductId(productId: string): string {
 }
 
 /**
+ * Mengambil pengaturan sistem dari database (system_settings) dengan fallback ke environment variable / default.
+ */
+export async function getSystemSetting(key: string, fallback: string): Promise<string> {
+  try {
+    const setting = await prisma.systemSetting.findUnique({ where: { key } });
+    if (setting && setting.value.trim() !== '') {
+      return setting.value.trim();
+    }
+  } catch (err: any) {
+    console.warn(`[getSystemSetting] Gagal mengambil key '${key}':`, err.message);
+  }
+  return process.env[key] || fallback;
+}
+
+/**
  * Ambil prefix license key dari tabel Product secara dinamis.
  * Fallback ke 3 huruf pertama productId jika tidak ditemukan.
  */
@@ -236,8 +251,8 @@ export const sendOwnerOrderNotification = async (
   amount: number,
   paymentMethod: string
 ) => {
-  const ownerWA = process.env.OWNER_WA_NUMBER || '6287779937341';
   try {
+    const ownerWA = await getSystemSetting('OWNER_WA_NUMBER', '6287779937341');
     const amountFormatted = amount === 0 ? 'Rp 0 (Gratis)' : `Rp ${amount.toLocaleString('id-ID')}`;
     const normalizedId = normalizeProductId(prodId);
     const productLabel = normalizedId === 'cakola' ? 'Platform Cakola' : (normalizedId === 'easy-tunnel' ? 'Easy Tunnel' : (normalizedId === 'privateer' ? 'Privateer' : prodId.toUpperCase()));
