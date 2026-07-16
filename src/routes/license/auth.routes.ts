@@ -74,6 +74,14 @@ export const registerAuthLicenseRoutes = (fastify: FastifyInstance) => {
     });
   });
 
+  // Helper to handle both local (08...) and international (62...) phone number formats in DB query
+  const getPhoneVariants = (phone: string): string[] => {
+    const formatted = formatWA(phone);
+    if (!formatted) return [];
+    const local = '0' + formatted.slice(2);
+    return [formatted, local];
+  };
+
   // 3. Client Auth: Get my licenses
   fastify.get('/api/auth/my-licenses', async (request: FastifyRequest, reply: FastifyReply) => {
     await verifyClient(request, reply);
@@ -82,7 +90,10 @@ export const registerAuthLicenseRoutes = (fastify: FastifyInstance) => {
     const { nomor } = (request as any).operator;
     try {
       const list = await prisma.license.findMany({
-        where: { operatorPhone: nomor, productId: 'easy-tunnel' },
+        where: {
+          operatorPhone: { in: getPhoneVariants(nomor) },
+          productId: 'easy-tunnel'
+        },
         orderBy: { createdAt: 'desc' }
       });
       const mapped = list.map(l => ({
@@ -132,7 +143,8 @@ export const registerAuthLicenseRoutes = (fastify: FastifyInstance) => {
         return reply.status(404).send({ success: false, message: 'Kunci lisensi tidak ditemukan.' });
       }
 
-      if (license.operatorPhone && license.operatorPhone !== nomor) {
+      // Check if already claimed by someone else (not the same number in any format)
+      if (license.operatorPhone && !getPhoneVariants(nomor).includes(license.operatorPhone)) {
         return reply.status(400).send({
           success: false,
           message: 'Kunci lisensi ini sudah diklaim oleh operator lain.'
@@ -164,7 +176,7 @@ export const registerAuthLicenseRoutes = (fastify: FastifyInstance) => {
       const invoices = await prisma.invoice.findMany({
         where: {
           license: {
-            operatorPhone: nomor,
+            operatorPhone: { in: getPhoneVariants(nomor) },
             productId: 'easy-tunnel'
           }
         },

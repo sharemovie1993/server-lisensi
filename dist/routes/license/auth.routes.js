@@ -103,6 +103,14 @@ const registerAuthLicenseRoutes = (fastify) => {
             message: 'Verifikasi berhasil!'
         });
     });
+    // Helper to handle both local (08...) and international (62...) phone number formats in DB query
+    const getPhoneVariants = (phone) => {
+        const formatted = (0, helpers_1.formatWA)(phone);
+        if (!formatted)
+            return [];
+        const local = '0' + formatted.slice(2);
+        return [formatted, local];
+    };
     // 3. Client Auth: Get my licenses
     fastify.get('/api/auth/my-licenses', async (request, reply) => {
         await (0, helpers_1.verifyClient)(request, reply);
@@ -111,7 +119,10 @@ const registerAuthLicenseRoutes = (fastify) => {
         const { nomor } = request.operator;
         try {
             const list = await helpers_1.prisma.license.findMany({
-                where: { operatorPhone: nomor, productId: 'easy-tunnel' },
+                where: {
+                    operatorPhone: { in: getPhoneVariants(nomor) },
+                    productId: 'easy-tunnel'
+                },
                 orderBy: { createdAt: 'desc' }
             });
             const mapped = list.map(l => ({
@@ -158,7 +169,8 @@ const registerAuthLicenseRoutes = (fastify) => {
             if (!license || license.productId !== 'easy-tunnel') {
                 return reply.status(404).send({ success: false, message: 'Kunci lisensi tidak ditemukan.' });
             }
-            if (license.operatorPhone && license.operatorPhone !== nomor) {
+            // Check if already claimed by someone else (not the same number in any format)
+            if (license.operatorPhone && !getPhoneVariants(nomor).includes(license.operatorPhone)) {
                 return reply.status(400).send({
                     success: false,
                     message: 'Kunci lisensi ini sudah diklaim oleh operator lain.'
@@ -188,7 +200,7 @@ const registerAuthLicenseRoutes = (fastify) => {
             const invoices = await helpers_1.prisma.invoice.findMany({
                 where: {
                     license: {
-                        operatorPhone: nomor,
+                        operatorPhone: { in: getPhoneVariants(nomor) },
                         productId: 'easy-tunnel'
                     }
                 },
