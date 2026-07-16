@@ -12,8 +12,22 @@ interface AuditLog {
   license?: {
     schoolName: string;
     requestedSlug: string | null;
+    activeOs: string | null;
+    activeHostname: string | null;
   } | null;
 }
+
+const WindowsIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" {...props}>
+    <path d="M0 3.449L9.75 2.1v9.45H0V3.449zM0 12.45h9.75v9.45L0 20.551v-8.1zM10.8 1.95L24 0v11.55H10.8V1.95zM10.8 12.45H24v11.55l-13.2-1.95v-9.6z"/>
+  </svg>
+);
+
+const LinuxIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" {...props}>
+    <path d="M12 2a5 5 0 0 0-5 5v3c0 .5.2.9.5 1.2A5.9 5.9 0 0 0 4 16v1a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-1a5.9 5.9 0 0 0-3.5-4.8c.3-.3.5-.7.5-1.2V7a5 5 0 0 0-5-5zm-2.5 5a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm5 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zM12 11c1 0 1.5.5 1.5 1S13 13 12 13s-1.5-.5-1.5-1 1-1 1.5-1z"/>
+  </svg>
+);
 
 const getHumanReadableAction = (action: string) => {
   switch (action) {
@@ -365,8 +379,31 @@ export default function AuditLogs() {
                       </td>
                       <td className="px-6 py-4 text-xs font-sans whitespace-nowrap">
                         {log.license ? (
-                          <div className="flex flex-col gap-0.5">
-                            <span className="text-white font-bold">{log.license.schoolName}</span>
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-white font-bold">{log.license.schoolName}</span>
+                              {log.license.activeOs && (
+                                <div className="inline-flex items-center gap-1 text-[10px] text-slate-500 font-normal px-1.5 py-0.5 rounded bg-slate-950/80 border border-slate-800">
+                                  {String(log.license.activeOs).toLowerCase().includes('windows') || String(log.license.activeOs).toLowerCase().includes('win32') ? (
+                                    <span className="text-sky-400 flex items-center gap-1" title={log.license.activeOs}>
+                                      <WindowsIcon className="w-3 h-3" /> Win
+                                    </span>
+                                  ) : (
+                                    <span className="text-amber-500 flex items-center gap-1" title={log.license.activeOs}>
+                                      <LinuxIcon className="w-3 h-3" /> Linux
+                                    </span>
+                                  )}
+                                  {log.license.activeHostname && (
+                                    <>
+                                      <span className="text-slate-800">|</span>
+                                      <span className="text-slate-400 font-mono text-[9px] truncate max-w-[80px]" title={log.license.activeHostname}>
+                                        {log.license.activeHostname}
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                             {log.license.requestedSlug && (
                               <span className="text-[10px] text-indigo-400 font-mono">@{log.license.requestedSlug}</span>
                             )}
