@@ -175,6 +175,11 @@ const adminRoutes = async (fastify) => {
             return;
         try {
             const list = await prisma.license.findMany({
+                where: {
+                    productId: {
+                        in: ['cakola', 'easy-tunnel']
+                    }
+                },
                 include: {
                     activatedDevices: true
                 },
