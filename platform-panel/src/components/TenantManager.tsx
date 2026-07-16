@@ -44,6 +44,8 @@ export default function TenantManager() {
   const [loading, setLoading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<string>('all');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [selectedNodeType, setSelectedNodeType] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [expandedTenants, setExpandedTenants] = useState<Record<string, boolean>>({});
   
@@ -242,6 +244,12 @@ export default function TenantManager() {
 
   const aggregatedTenants = getAggregatedTenants();
 
+  // CALCULATE STATS FOR ANALYTICS CARDS
+  const totalServers = aggregatedTenants.length;
+  const onlineServers = aggregatedTenants.filter(t => isTenantOnline(t.lastHeartbeatAt)).length;
+  const offlineServers = totalServers - onlineServers;
+  const activeTunnelsCount = tenants.filter(t => t.productId === 'easy-tunnel' && t.status === 'active').length;
+
   const filteredTenants = aggregatedTenants.filter(t => {
     const matchesProduct = selectedProductId === 'all' || t.productId === selectedProductId;
     const matchesSearch = !searchQuery || 
@@ -249,7 +257,16 @@ export default function TenantManager() {
                           t.requestedSlug?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           t.licenseKey?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           (t as any).tunnelLicenseKey?.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesProduct && matchesSearch;
+    
+    const isOnline = isTenantOnline(t.lastHeartbeatAt);
+    const matchesStatus = selectedStatus === 'all' || 
+                          (selectedStatus === 'online' && isOnline) || 
+                          (selectedStatus === 'offline' && !isOnline);
+
+    const matchesNodeType = selectedNodeType === 'all' || 
+                            (selectedNodeType === t.nodeType);
+
+    return matchesProduct && matchesSearch && matchesStatus && matchesNodeType;
   });
 
   return (
@@ -276,9 +293,63 @@ export default function TenantManager() {
         </div>
       </div>
 
+      {/* ANALYTICS CARDS */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Server */}
+        <div className="bg-slate-900/50 backdrop-blur-md border border-slate-800/80 p-5 rounded-2xl flex items-center justify-between shadow-xl transition-all duration-300 hover:border-slate-700/60 hover:shadow-indigo-500/5 group">
+          <div className="space-y-1">
+            <span className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider font-mono">Total Server / Node</span>
+            <div className="text-2xl font-bold text-white font-mono">{totalServers}</div>
+            <span className="text-[10.5px] text-slate-400 font-sans block">Terdaftar di platform</span>
+          </div>
+          <div className="p-3 bg-indigo-500/10 text-indigo-400 rounded-2xl group-hover:scale-110 transition-transform duration-300">
+            <Building className="w-6 h-6" />
+          </div>
+        </div>
+
+        {/* Server Online */}
+        <div className="bg-slate-900/50 backdrop-blur-md border border-slate-800/80 p-5 rounded-2xl flex items-center justify-between shadow-xl transition-all duration-300 hover:border-slate-700/60 hover:shadow-emerald-500/5 group">
+          <div className="space-y-1">
+            <span className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider font-mono">Server Online</span>
+            <div className="text-2xl font-bold text-white font-mono flex items-baseline gap-2">
+              <span>{onlineServers}</span>
+              {onlineServers > 0 && <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />}
+            </div>
+            <span className="text-[10.5px] text-emerald-450 font-sans block font-semibold">Aktif mengirim heartbeat</span>
+          </div>
+          <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-2xl group-hover:scale-110 transition-transform duration-300">
+            <Activity className="w-6 h-6" />
+          </div>
+        </div>
+
+        {/* Server Offline */}
+        <div className="bg-slate-900/50 backdrop-blur-md border border-slate-800/80 p-5 rounded-2xl flex items-center justify-between shadow-xl transition-all duration-300 hover:border-slate-700/60 hover:shadow-rose-500/5 group">
+          <div className="space-y-1">
+            <span className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider font-mono">Server Offline</span>
+            <div className="text-2xl font-bold text-white font-mono">{offlineServers}</div>
+            <span className="text-[10.5px] text-rose-450 font-sans block font-semibold">Tidak terdeteksi / terputus</span>
+          </div>
+          <div className="p-3 bg-rose-500/10 text-rose-400 rounded-2xl group-hover:scale-110 transition-transform duration-300">
+            <ShieldAlert className="w-6 h-6" />
+          </div>
+        </div>
+
+        {/* Easy Tunnel Aktif */}
+        <div className="bg-slate-900/50 backdrop-blur-md border border-slate-800/80 p-5 rounded-2xl flex items-center justify-between shadow-xl transition-all duration-300 hover:border-slate-700/60 hover:shadow-purple-500/5 group">
+          <div className="space-y-1">
+            <span className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider font-mono">Easy Tunnel Aktif</span>
+            <div className="text-2xl font-bold text-white font-mono">{activeTunnelsCount}</div>
+            <span className="text-[10.5px] text-purple-450 font-sans block font-semibold">Koneksi VPN WireGuard aktif</span>
+          </div>
+          <div className="p-3 bg-purple-500/10 text-purple-400 rounded-2xl group-hover:scale-110 transition-transform duration-300">
+            <Cpu className="w-6 h-6" />
+          </div>
+        </div>
+      </div>
+
       {/* FILTER & SEARCH BAR */}
-      <div className="flex flex-col sm:flex-row gap-4 p-4 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl">
-        <div className="flex-1 relative">
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 p-4.5 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl">
+        <div className="md:col-span-4.5 relative">
           <input
             type="text"
             placeholder="Cari nama sekolah, slug, atau license key..."
@@ -288,11 +359,11 @@ export default function TenantManager() {
           />
           <Search className="absolute left-3 top-3.5 w-4 h-4 text-slate-500" />
         </div>
-        <div className="w-full sm:w-72">
+        <div className="md:col-span-3">
           <select
             value={selectedProductId}
             onChange={(e) => setSelectedProductId(e.target.value)}
-            className="w-full px-4 py-2.5 bg-slate-950 border border-slate-850 rounded-xl text-indigo-400 font-bold text-sm focus:border-indigo-500 focus:outline-none cursor-pointer"
+            className="w-full px-3 py-2.5 bg-slate-950 border border-slate-850 rounded-xl text-indigo-400 font-bold text-sm focus:border-indigo-500 focus:outline-none cursor-pointer"
           >
             <option value="all">🌐 Semua Produk / Aplikasi</option>
             {packages.map((pkg) => (
@@ -300,6 +371,29 @@ export default function TenantManager() {
                 📦 {pkg.name} ({pkg.id})
               </option>
             ))}
+          </select>
+        </div>
+        <div className="md:col-span-2.25 sm:col-span-1">
+          <select
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value)}
+            className="w-full px-3 py-2.5 bg-slate-950 border border-slate-850 rounded-xl text-slate-300 font-bold text-sm focus:border-indigo-500 focus:outline-none cursor-pointer"
+          >
+            <option value="all">⚡ Semua Status</option>
+            <option value="online">🟢 Online</option>
+            <option value="offline">💤 Offline</option>
+          </select>
+        </div>
+        <div className="md:col-span-2.25 sm:col-span-1">
+          <select
+            value={selectedNodeType}
+            onChange={(e) => setSelectedNodeType(e.target.value)}
+            className="w-full px-3 py-2.5 bg-slate-950 border border-slate-850 rounded-xl text-slate-300 font-bold text-sm focus:border-indigo-500 focus:outline-none cursor-pointer"
+          >
+            <option value="all">🖥️ Semua Tipe</option>
+            <option value="SERVER_SAAS">☁️ SaaS Node</option>
+            <option value="SERVER_ONPREMISE">🏫 On-Premise</option>
+            <option value="TUNNEL">🔑 Tunnel Node</option>
           </select>
         </div>
       </div>
