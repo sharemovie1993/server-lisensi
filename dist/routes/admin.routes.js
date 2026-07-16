@@ -302,7 +302,9 @@ const adminRoutes = async (fastify) => {
                     license: {
                         select: {
                             schoolName: true,
-                            requestedSlug: true
+                            requestedSlug: true,
+                            activeOs: true,
+                            activeHostname: true
                         }
                     }
                 }

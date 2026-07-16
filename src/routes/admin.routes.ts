@@ -324,7 +324,9 @@ export const adminRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
           license: {
             select: {
               schoolName: true,
-              requestedSlug: true
+              requestedSlug: true,
+              activeOs: true,
+              activeHostname: true
             }
           }
         }
