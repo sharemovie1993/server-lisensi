@@ -150,7 +150,7 @@ async function deleteSstpAccount(id) {
     return { success: true, username: existing.username };
 }
 function generateMikrotikScript(account) {
-    const commentText = account.comment ? account.comment.replace(/[\r\n]+/g, ' ') : 'Klien MikroTik RouterOS v6';
+    const commentText = account.comment ? account.comment.replace(/[\r\n"']/g, ' ') : 'Klien MikroTik RouterOS v6';
     return `# ========================================================
 # SKRIP SETUP SSTP CLIENT MIKROTIK (ROUTEROS v6)
 # Deskripsi / Instansi : ${commentText}
@@ -158,16 +158,6 @@ function generateMikrotikScript(account) {
 # Username Client      : ${account.username}
 # ========================================================
 
-/interface sstp-client
-add connect-to=${MAIN_DOMAIN}:4443 \\
-    port=4443 \\
-    disabled=no \\
-    name=sstp-out-absenta \\
-    user="${account.username}" \\
-    password="${account.password}" \\
-    profile=default-encryption \\
-    verify-server-certificate=no \\
-    add-default-route=no \\
-    comment="SSTP Tunnel Absenta HQ - ${commentText}"
+/interface sstp-client add connect-to=${MAIN_DOMAIN} port=4443 name=sstp-out-absenta user="${account.username}" password="${account.password}" profile=default-encryption verify-server-certificate=no add-default-route=no disabled=no comment="SSTP Tunnel Absenta HQ - ${commentText}"
 `;
 }
