@@ -276,5 +276,15 @@ model CronJobLog {
   @@map("cron_job_logs")
 }
 
+model SstpAccount {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  password  String
+  ipAddress String   @unique @map("ip_address")
+  comment   String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-
+  @@map("sstp_accounts")
+}

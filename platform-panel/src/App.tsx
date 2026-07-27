@@ -21,6 +21,7 @@ import AuditLogs from './components/AuditLogs';
 import CaddyGateway from './components/CaddyGateway';
 import PrivateerTransactions from './components/PrivateerTransactions';
 import CronJobMonitor from './components/CronJobMonitor';
+import SstpVpnManager from './components/SstpVpnManager';
 
 // Icons
 import {
@@ -43,7 +44,8 @@ import {
   Sun,
   Moon,
   CreditCard,
-  Clock
+  Clock,
+  ShieldCheck
 } from 'lucide-react';
 
 const queryClient = new QueryClient();
@@ -60,6 +62,7 @@ const dummySocket = {
 const sidebarItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'tenants', label: 'Daftar Server & Tunnel', icon: Server },
+  { id: 'sstp-vpn', label: 'SSTP VPN MikroTik', icon: ShieldCheck },
   { id: 'subscriptions', label: 'Langganan Sekolah', icon: Users },
   { id: 'privateer', label: 'Transaksi Privateer', icon: CreditCard },
   { id: 'invoices', label: 'Invoice', icon: DollarSign },
@@ -74,6 +77,7 @@ const sidebarItems = [
   { id: 'cron-logs', label: 'Monitoring Cron', icon: Clock },
   { id: 'settings', label: 'Konfigurasi Sistem', icon: Settings },
 ];
+
 
 export default function App() {
   const [theme, setTheme] = useState<'dark' | 'light'>(() => (localStorage.getItem(THEME_KEY) as 'dark' | 'light') || 'dark');
@@ -266,7 +270,9 @@ export default function App() {
               <DashboardOverview onSwitchTab={setActiveTab} />
             )}
             {activeTab === 'tenants' && <TenantManager />}
+            {activeTab === 'sstp-vpn' && <SstpVpnManager />}
             {activeTab === 'subscriptions' && <SubscriptionsList />}
+
             {activeTab === 'privateer' && <PrivateerTransactions />}
             {activeTab === 'invoices' && <InvoicesList />}
             {activeTab === 'products' && <ProductsManager />}

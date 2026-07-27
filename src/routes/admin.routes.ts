@@ -8,6 +8,8 @@ import { registerWhatsAppRoutes } from './admin/whatsapp.routes';
 import { registerSystemRoutes } from './admin/system.routes';
 import { registerTicketRoutes } from './admin/ticket.routes';
 import { registerPublicRoutes } from './admin/public.routes';
+import { registerSettingsRoutes } from './admin/settings.routes';
+import { registerSstpRoutes } from './admin/sstp.routes';
 
 // Re-export verifyAdmin for backwards compatibility
 export { verifyAdmin };
@@ -31,9 +33,17 @@ export const adminRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
   // Register System & Telemetry Sub-routes
   registerSystemRoutes(fastify);
 
+  // Register Settings Sub-routes
+  registerSettingsRoutes(fastify);
+
   // Register Helpdesk Tickets Sub-routes
   registerTicketRoutes(fastify);
 
   // Register Public Validation Sub-routes
   registerPublicRoutes(fastify);
+
+  // Register SSTP VPN Sub-routes
+  registerSstpRoutes(fastify);
 };
+
+

@@ -21,6 +21,7 @@ Completed:
 - **Vite & React Query Caching**: Integrasi custom hook `@tanstack/react-query` bernama `useProducts` untuk mem-cache daftar produk, mengeliminasi duplikasi query fetch manual pada `TenantManager.tsx` dan `ProductsManager.tsx`.
 - **Modular Frontend Components**: Memecah form dan modal telemetri di `TenantManager.tsx` (dari 950+ baris menjadi ~630 baris) menjadi subkomponen-subkomponen modular terpisah: `AddNodeModal.tsx`, `DetailNodeModal.tsx`, dan `TelemetryStatusIcon.tsx`.
 - **Self-Contained Dashboard Overview**: Memindahkan state statistik dan polling telemetri dari `App.tsx` ke dalam `DashboardOverview.tsx` sehingga merampingkan render tree aplikasi utama.
+- **SSTP VPN MikroTik RouterOS v6 Support**: Pemasangan layanan SSTP Daemon (port TCP 4443) pada VPS `103.196.155.87`, skema database Prisma `SstpAccount`, Fastify REST API `/api/admin/sstp/accounts`, sinkronisasi SoftEther otomatis, generator skrip CLI RouterOS v6, serta antarmuka visual `SstpVpnManager` pada platform panel admin.
 
 In Progress:
 - None
@@ -30,3 +31,4 @@ Current Focus:
 
 Next Task:
 - Phase 5: Backend Route Split (`admin.routes.ts` decomposition).
+
