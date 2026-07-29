@@ -8,6 +8,11 @@ const products = [
     "prefix": "ABS"
   },
   {
+    "id": "absenta",
+    "name": "Platform Absenta",
+    "prefix": "ABST"
+  },
+  {
     "id": "easy-tunnel",
     "name": "Easy Tunnel",
     "prefix": "ET"
@@ -21,6 +26,16 @@ const products = [
     "id": "project-yatim",
     "name": "Project Yatim",
     "prefix": "YT"
+  },
+  {
+    "id": "privateer",
+    "name": "Privateer Sessions",
+    "prefix": "PVT"
+  },
+  {
+    "id": "vpn-tunnel",
+    "name": "VPN Tunnel",
+    "prefix": "VPN"
   }
 ];
 
@@ -28,7 +43,7 @@ const products = [
 const plans = [
   {
     "id": "FREE_LICENSE_SERVER_ACTIVATION",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Free Lisensi - Aktivasi Server",
     "priceMonthly": 0,
     "priceYearly": 0,
@@ -45,7 +60,7 @@ const plans = [
   },
   {
     "id": "INVENTORY_SEKOLAH_LARGE_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Inventory Sekolah (Large) - Bulanan",
     "priceMonthly": 200000,
     "priceYearly": 1920000,
@@ -64,7 +79,7 @@ const plans = [
   },
   {
     "id": "INVENTORY_SEKOLAH_LARGE_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Inventory Sekolah (Large) - Tahunan",
     "priceMonthly": 160000,
     "priceYearly": 1920000,
@@ -83,7 +98,7 @@ const plans = [
   },
   {
     "id": "INVENTORY_SEKOLAH_ENTERPRISE_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Inventory Sekolah (Enterprise) - Bulanan",
     "priceMonthly": 350000,
     "priceYearly": 3360000,
@@ -102,7 +117,7 @@ const plans = [
   },
   {
     "id": "INVENTORY_SEKOLAH_ENTERPRISE_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Inventory Sekolah (Enterprise) - Tahunan",
     "priceMonthly": 280000,
     "priceYearly": 3360000,
@@ -121,7 +136,7 @@ const plans = [
   },
   {
     "id": "HUBUNGAN_INDUSTRI_MICRO_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Hubungan Industri (Micro) - Bulanan",
     "priceMonthly": 20000,
     "priceYearly": 192000,
@@ -140,7 +155,7 @@ const plans = [
   },
   {
     "id": "HUBUNGAN_INDUSTRI_MICRO_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Hubungan Industri (Micro) - Tahunan",
     "priceMonthly": 16000,
     "priceYearly": 192000,
@@ -159,7 +174,7 @@ const plans = [
   },
   {
     "id": "HUBUNGAN_INDUSTRI_SMALL_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Hubungan Industri (Small) - Bulanan",
     "priceMonthly": 40000,
     "priceYearly": 384000,
@@ -178,7 +193,7 @@ const plans = [
   },
   {
     "id": "HUBUNGAN_INDUSTRI_SMALL_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Hubungan Industri (Small) - Tahunan",
     "priceMonthly": 32000,
     "priceYearly": 384000,
@@ -197,7 +212,7 @@ const plans = [
   },
   {
     "id": "HUBUNGAN_INDUSTRI_MEDIUM_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Hubungan Industri (Medium) - Bulanan",
     "priceMonthly": 75000,
     "priceYearly": 720000,
@@ -216,7 +231,7 @@ const plans = [
   },
   {
     "id": "HUBUNGAN_INDUSTRI_MEDIUM_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Hubungan Industri (Medium) - Tahunan",
     "priceMonthly": 60000,
     "priceYearly": 720000,
@@ -235,7 +250,7 @@ const plans = [
   },
   {
     "id": "HUBUNGAN_INDUSTRI_LARGE_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Hubungan Industri (Large) - Bulanan",
     "priceMonthly": 150000,
     "priceYearly": 1440000,
@@ -254,7 +269,7 @@ const plans = [
   },
   {
     "id": "HUBUNGAN_INDUSTRI_LARGE_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Hubungan Industri (Large) - Tahunan",
     "priceMonthly": 120000,
     "priceYearly": 1440000,
@@ -273,7 +288,7 @@ const plans = [
   },
   {
     "id": "HUBUNGAN_INDUSTRI_ENTERPRISE_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Hubungan Industri (Enterprise) - Bulanan",
     "priceMonthly": 250000,
     "priceYearly": 2400000,
@@ -292,7 +307,7 @@ const plans = [
   },
   {
     "id": "HUBUNGAN_INDUSTRI_ENTERPRISE_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Hubungan Industri (Enterprise) - Tahunan",
     "priceMonthly": 200000,
     "priceYearly": 2400000,
@@ -311,7 +326,7 @@ const plans = [
   },
   {
     "id": "WHATSAPP_SERVICE_MICRO_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "WhatsApp Service (Micro) - Bulanan",
     "priceMonthly": 20000,
     "priceYearly": 192000,
@@ -331,7 +346,7 @@ const plans = [
   },
   {
     "id": "WHATSAPP_SERVICE_MICRO_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "WhatsApp Service (Micro) - Tahunan",
     "priceMonthly": 16000,
     "priceYearly": 192000,
@@ -351,7 +366,7 @@ const plans = [
   },
   {
     "id": "WHATSAPP_SERVICE_SMALL_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "WhatsApp Service (Small) - Bulanan",
     "priceMonthly": 40000,
     "priceYearly": 384000,
@@ -371,7 +386,7 @@ const plans = [
   },
   {
     "id": "WHATSAPP_SERVICE_SMALL_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "WhatsApp Service (Small) - Tahunan",
     "priceMonthly": 32000,
     "priceYearly": 384000,
@@ -391,7 +406,7 @@ const plans = [
   },
   {
     "id": "WHATSAPP_SERVICE_MEDIUM_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "WhatsApp Service (Medium) - Bulanan",
     "priceMonthly": 75000,
     "priceYearly": 720000,
@@ -411,7 +426,7 @@ const plans = [
   },
   {
     "id": "ACADEMIC_SMALL_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Academic Core (Small) - Tahunan",
     "priceMonthly": 0,
     "priceYearly": 0,
@@ -424,7 +439,7 @@ const plans = [
   },
   {
     "id": "ACADEMIC_MEDIUM_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Academic Core (Medium) - Tahunan",
     "priceMonthly": 0,
     "priceYearly": 0,
@@ -437,7 +452,7 @@ const plans = [
   },
   {
     "id": "ACADEMIC_LARGE_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Academic Core (Large) - Tahunan",
     "priceMonthly": 0,
     "priceYearly": 0,
@@ -450,7 +465,7 @@ const plans = [
   },
   {
     "id": "ACADEMIC_ENTERPRISE_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Academic Core (Enterprise) - Tahunan",
     "priceMonthly": 0,
     "priceYearly": 0,
@@ -463,7 +478,7 @@ const plans = [
   },
   {
     "id": "KOPERASI_SEKOLAH_MICRO_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Koperasi Sekolah (Micro) - Bulanan",
     "priceMonthly": 150000,
     "priceYearly": 1440000,
@@ -483,7 +498,7 @@ const plans = [
   },
   {
     "id": "KOPERASI_SEKOLAH_MICRO_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Koperasi Sekolah (Micro) - Tahunan",
     "priceMonthly": 120000,
     "priceYearly": 1440000,
@@ -503,7 +518,7 @@ const plans = [
   },
   {
     "id": "KOPERASI_SEKOLAH_SMALL_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Koperasi Sekolah (Small) - Bulanan",
     "priceMonthly": 300000,
     "priceYearly": 2880000,
@@ -523,7 +538,7 @@ const plans = [
   },
   {
     "id": "KOPERASI_SEKOLAH_SMALL_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Koperasi Sekolah (Small) - Tahunan",
     "priceMonthly": 240000,
     "priceYearly": 2880000,
@@ -543,7 +558,7 @@ const plans = [
   },
   {
     "id": "KOPERASI_SEKOLAH_MEDIUM_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Koperasi Sekolah (Medium) - Bulanan",
     "priceMonthly": 500000,
     "priceYearly": 4800000,
@@ -563,7 +578,7 @@ const plans = [
   },
   {
     "id": "KOPERASI_SEKOLAH_MEDIUM_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Koperasi Sekolah (Medium) - Tahunan",
     "priceMonthly": 400000,
     "priceYearly": 4800000,
@@ -583,7 +598,7 @@ const plans = [
   },
   {
     "id": "KOPERASI_SEKOLAH_LARGE_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Koperasi Sekolah (Large) - Bulanan",
     "priceMonthly": 850000,
     "priceYearly": 8160000,
@@ -603,7 +618,7 @@ const plans = [
   },
   {
     "id": "KOPERASI_SEKOLAH_LARGE_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Koperasi Sekolah (Large) - Tahunan",
     "priceMonthly": 680000,
     "priceYearly": 8160000,
@@ -623,7 +638,7 @@ const plans = [
   },
   {
     "id": "KOPERASI_SEKOLAH_ENTERPRISE_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Koperasi Sekolah (Enterprise) - Bulanan",
     "priceMonthly": 1750000,
     "priceYearly": 16800000,
@@ -643,7 +658,7 @@ const plans = [
   },
   {
     "id": "KOPERASI_SEKOLAH_ENTERPRISE_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Koperasi Sekolah (Enterprise) - Tahunan",
     "priceMonthly": 1400000,
     "priceYearly": 16800000,
@@ -663,7 +678,7 @@ const plans = [
   },
   {
     "id": "INVENTORY_SEKOLAH_MICRO_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Inventory Sekolah (Micro) - Bulanan",
     "priceMonthly": 25000,
     "priceYearly": 240000,
@@ -682,7 +697,7 @@ const plans = [
   },
   {
     "id": "INVENTORY_SEKOLAH_MICRO_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Inventory Sekolah (Micro) - Tahunan",
     "priceMonthly": 20000,
     "priceYearly": 240000,
@@ -701,7 +716,7 @@ const plans = [
   },
   {
     "id": "INVENTORY_SEKOLAH_SMALL_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Inventory Sekolah (Small) - Bulanan",
     "priceMonthly": 50000,
     "priceYearly": 480000,
@@ -720,7 +735,7 @@ const plans = [
   },
   {
     "id": "INVENTORY_SEKOLAH_SMALL_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Inventory Sekolah (Small) - Tahunan",
     "priceMonthly": 40000,
     "priceYearly": 480000,
@@ -739,7 +754,7 @@ const plans = [
   },
   {
     "id": "INVENTORY_SEKOLAH_MEDIUM_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Inventory Sekolah (Medium) - Bulanan",
     "priceMonthly": 100000,
     "priceYearly": 960000,
@@ -758,7 +773,7 @@ const plans = [
   },
   {
     "id": "INVENTORY_SEKOLAH_MEDIUM_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Inventory Sekolah (Medium) - Tahunan",
     "priceMonthly": 80000,
     "priceYearly": 960000,
@@ -777,7 +792,7 @@ const plans = [
   },
   {
     "id": "WHATSAPP_SERVICE_LARGE_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "WhatsApp Service (Large) - Bulanan",
     "priceMonthly": 150000,
     "priceYearly": 1440000,
@@ -797,7 +812,7 @@ const plans = [
   },
   {
     "id": "ABSENSI_MULTI_SESI_ENTERPRISE_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Absensi Multi Sesi (Enterprise) - Tahunan",
     "priceMonthly": 2000000,
     "priceYearly": 24000000,
@@ -817,7 +832,7 @@ const plans = [
   },
   {
     "id": "ABSENSI_SIMPLE_SMALL_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Absensi Simple (Small) - Bulanan",
     "priceMonthly": 250000,
     "priceYearly": 2400000,
@@ -836,7 +851,7 @@ const plans = [
   },
   {
     "id": "ABSENSI_SIMPLE_SMALL_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Absensi Simple (Small) - Tahunan",
     "priceMonthly": 200000,
     "priceYearly": 2400000,
@@ -855,7 +870,7 @@ const plans = [
   },
   {
     "id": "ABSENSI_SIMPLE_MEDIUM_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Absensi Simple (Medium) - Bulanan",
     "priceMonthly": 450000,
     "priceYearly": 4320000,
@@ -874,7 +889,7 @@ const plans = [
   },
   {
     "id": "ABSENSI_SIMPLE_MEDIUM_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Absensi Simple (Medium) - Tahunan",
     "priceMonthly": 360000,
     "priceYearly": 4320000,
@@ -893,7 +908,7 @@ const plans = [
   },
   {
     "id": "ABSENSI_SIMPLE_LARGE_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Absensi Simple (Large) - Bulanan",
     "priceMonthly": 750000,
     "priceYearly": 7200000,
@@ -912,7 +927,7 @@ const plans = [
   },
   {
     "id": "ABSENSI_SIMPLE_LARGE_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Absensi Simple (Large) - Tahunan",
     "priceMonthly": 600000,
     "priceYearly": 7200000,
@@ -931,7 +946,7 @@ const plans = [
   },
   {
     "id": "ABSENSI_SIMPLE_ENTERPRISE_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Absensi Simple (Enterprise) - Bulanan",
     "priceMonthly": 1500000,
     "priceYearly": 14400000,
@@ -950,7 +965,7 @@ const plans = [
   },
   {
     "id": "ABSENSI_SIMPLE_ENTERPRISE_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Absensi Simple (Enterprise) - Tahunan",
     "priceMonthly": 1200000,
     "priceYearly": 14400000,
@@ -969,7 +984,7 @@ const plans = [
   },
   {
     "id": "ABSENSI_MULTI_SESI_MICRO_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Absensi Multi Sesi (Micro) - Bulanan",
     "priceMonthly": 200000,
     "priceYearly": 1920000,
@@ -989,7 +1004,7 @@ const plans = [
   },
   {
     "id": "ABSENSI_MULTI_SESI_MICRO_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Absensi Multi Sesi (Micro) - Tahunan",
     "priceMonthly": 160000,
     "priceYearly": 1920000,
@@ -1009,7 +1024,7 @@ const plans = [
   },
   {
     "id": "ABSENSI_MULTI_SESI_SMALL_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Absensi Multi Sesi (Small) - Bulanan",
     "priceMonthly": 450000,
     "priceYearly": 4320000,
@@ -1029,7 +1044,7 @@ const plans = [
   },
   {
     "id": "ABSENSI_MULTI_SESI_SMALL_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Absensi Multi Sesi (Small) - Tahunan",
     "priceMonthly": 360000,
     "priceYearly": 4320000,
@@ -1049,7 +1064,7 @@ const plans = [
   },
   {
     "id": "ABSENSI_MULTI_SESI_MEDIUM_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Absensi Multi Sesi (Medium) - Bulanan",
     "priceMonthly": 750000,
     "priceYearly": 7200000,
@@ -1069,7 +1084,7 @@ const plans = [
   },
   {
     "id": "ABSENSI_MULTI_SESI_MEDIUM_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Absensi Multi Sesi (Medium) - Tahunan",
     "priceMonthly": 600000,
     "priceYearly": 7200000,
@@ -1089,7 +1104,7 @@ const plans = [
   },
   {
     "id": "ABSENSI_MULTI_SESI_LARGE_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Absensi Multi Sesi (Large) - Bulanan",
     "priceMonthly": 1250000,
     "priceYearly": 12000000,
@@ -1122,7 +1137,7 @@ const plans = [
   },
   {
     "id": "ABSENSI_SIMPLE_MICRO_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Absensi Simple (Micro) - Tahunan",
     "priceMonthly": 80000,
     "priceYearly": 960000,
@@ -1284,7 +1299,7 @@ const plans = [
   },
   {
     "id": "ABSENSI_MULTI_SESI_ENTERPRISE_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Absensi Multi Sesi (Enterprise) - Bulanan",
     "priceMonthly": 2500000,
     "priceYearly": 24000000,
@@ -1304,7 +1319,7 @@ const plans = [
   },
   {
     "id": "WHATSAPP_SERVICE_LARGE_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "WhatsApp Service (Large) - Tahunan",
     "priceMonthly": 120000,
     "priceYearly": 1440000,
@@ -1324,7 +1339,7 @@ const plans = [
   },
   {
     "id": "ABSENSI_MULTI_SESI_LARGE_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Absensi Multi Sesi (Large) - Tahunan",
     "priceMonthly": 1000000,
     "priceYearly": 12000000,
@@ -1344,7 +1359,7 @@ const plans = [
   },
   {
     "id": "WHATSAPP_SERVICE_ENTERPRISE_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "WhatsApp Service (Enterprise) - Bulanan",
     "priceMonthly": 250000,
     "priceYearly": 2400000,
@@ -1364,7 +1379,7 @@ const plans = [
   },
   {
     "id": "WHATSAPP_SERVICE_ENTERPRISE_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "WhatsApp Service (Enterprise) - Tahunan",
     "priceMonthly": 200000,
     "priceYearly": 2400000,
@@ -1384,7 +1399,7 @@ const plans = [
   },
   {
     "id": "PAKET_LENGKAP_SIMPLE_MICRO_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "PAKET LENGKAP SIMPLE (Micro) - Bulanan",
     "priceMonthly": 199000,
     "priceYearly": 1910400,
@@ -1408,7 +1423,7 @@ const plans = [
   },
   {
     "id": "PAKET_LENGKAP_SIMPLE_MICRO_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "PAKET LENGKAP SIMPLE (Micro) - Tahunan",
     "priceMonthly": 159200,
     "priceYearly": 1910400,
@@ -1432,7 +1447,7 @@ const plans = [
   },
   {
     "id": "PAKET_LENGKAP_SIMPLE_SMALL_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "PAKET LENGKAP SIMPLE (Small) - Bulanan",
     "priceMonthly": 499000,
     "priceYearly": 4790400,
@@ -1456,7 +1471,7 @@ const plans = [
   },
   {
     "id": "PAKET_LENGKAP_SIMPLE_SMALL_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "PAKET LENGKAP SIMPLE (Small) - Tahunan",
     "priceMonthly": 399200,
     "priceYearly": 4790400,
@@ -1480,7 +1495,7 @@ const plans = [
   },
   {
     "id": "PAKET_LENGKAP_SIMPLE_MEDIUM_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "PAKET LENGKAP SIMPLE (Medium) - Bulanan",
     "priceMonthly": 899000,
     "priceYearly": 8630400,
@@ -1504,7 +1519,7 @@ const plans = [
   },
   {
     "id": "PAKET_LENGKAP_SIMPLE_MEDIUM_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "PAKET LENGKAP SIMPLE (Medium) - Tahunan",
     "priceMonthly": 719200,
     "priceYearly": 8630400,
@@ -1528,7 +1543,7 @@ const plans = [
   },
   {
     "id": "PAKET_LENGKAP_SIMPLE_LARGE_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "PAKET LENGKAP SIMPLE (Large) - Bulanan",
     "priceMonthly": 1599000,
     "priceYearly": 15350400,
@@ -1552,7 +1567,7 @@ const plans = [
   },
   {
     "id": "PAKET_LENGKAP_SIMPLE_LARGE_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "PAKET LENGKAP SIMPLE (Large) - Tahunan",
     "priceMonthly": 1279200,
     "priceYearly": 15350400,
@@ -1576,7 +1591,7 @@ const plans = [
   },
   {
     "id": "PAKET_LENGKAP_SIMPLE_ENTERPRISE_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "PAKET LENGKAP SIMPLE (Enterprise) - Bulanan",
     "priceMonthly": 2999000,
     "priceYearly": 28790400,
@@ -1600,7 +1615,7 @@ const plans = [
   },
   {
     "id": "PAKET_LENGKAP_SIMPLE_ENTERPRISE_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "PAKET LENGKAP SIMPLE (Enterprise) - Tahunan",
     "priceMonthly": 2399200,
     "priceYearly": 28790400,
@@ -1624,7 +1639,7 @@ const plans = [
   },
   {
     "id": "PAKET_LENGKAP_MULTI_MICRO_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "PAKET LENGKAP MULTI (Micro) - Bulanan",
     "priceMonthly": 299000,
     "priceYearly": 2870400,
@@ -1648,7 +1663,7 @@ const plans = [
   },
   {
     "id": "ACADEMIC_MICRO_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Academic Core (Micro) - Tahunan",
     "priceMonthly": 0,
     "priceYearly": 0,
@@ -1661,7 +1676,7 @@ const plans = [
   },
   {
     "id": "ABSENSI_SIMPLE_MICRO_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Absensi Simple (Micro) - Bulanan",
     "priceMonthly": 100000,
     "priceYearly": 960000,
@@ -1680,7 +1695,7 @@ const plans = [
   },
   {
     "id": "WHATSAPP_SERVICE_MEDIUM_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "WhatsApp Service (Medium) - Tahunan",
     "priceMonthly": 60000,
     "priceYearly": 720000,
@@ -1700,7 +1715,7 @@ const plans = [
   },
   {
     "id": "PAKET_LENGKAP_MULTI_MICRO_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "PAKET LENGKAP MULTI (Micro) - Tahunan",
     "priceMonthly": 239200,
     "priceYearly": 2870400,
@@ -1724,7 +1739,7 @@ const plans = [
   },
   {
     "id": "PAKET_LENGKAP_MULTI_SMALL_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "PAKET LENGKAP MULTI (Small) - Bulanan",
     "priceMonthly": 599000,
     "priceYearly": 5750400,
@@ -1748,7 +1763,7 @@ const plans = [
   },
   {
     "id": "PAKET_LENGKAP_MULTI_SMALL_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "PAKET LENGKAP MULTI (Small) - Tahunan",
     "priceMonthly": 479200,
     "priceYearly": 5750400,
@@ -1772,7 +1787,7 @@ const plans = [
   },
   {
     "id": "PAKET_LENGKAP_MULTI_MEDIUM_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "PAKET LENGKAP MULTI (Medium) - Bulanan",
     "priceMonthly": 1099000,
     "priceYearly": 10550400,
@@ -1796,7 +1811,7 @@ const plans = [
   },
   {
     "id": "PAKET_LENGKAP_MULTI_MEDIUM_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "PAKET LENGKAP MULTI (Medium) - Tahunan",
     "priceMonthly": 879200,
     "priceYearly": 10550400,
@@ -1820,7 +1835,7 @@ const plans = [
   },
   {
     "id": "PAKET_LENGKAP_MULTI_LARGE_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "PAKET LENGKAP MULTI (Large) - Bulanan",
     "priceMonthly": 1999000,
     "priceYearly": 19190400,
@@ -1844,7 +1859,7 @@ const plans = [
   },
   {
     "id": "PAKET_LENGKAP_MULTI_LARGE_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "PAKET LENGKAP MULTI (Large) - Tahunan",
     "priceMonthly": 1599200,
     "priceYearly": 19190400,
@@ -1868,7 +1883,7 @@ const plans = [
   },
   {
     "id": "PAKET_LENGKAP_MULTI_ENTERPRISE_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "PAKET LENGKAP MULTI (Enterprise) - Bulanan",
     "priceMonthly": 3999000,
     "priceYearly": 38390400,
@@ -1892,7 +1907,7 @@ const plans = [
   },
   {
     "id": "PAKET_LENGKAP_MULTI_ENTERPRISE_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "PAKET LENGKAP MULTI (Enterprise) - Tahunan",
     "priceMonthly": 3199200,
     "priceYearly": 38390400,
@@ -1916,7 +1931,7 @@ const plans = [
   },
   {
     "id": "BIMBINGAN_KONSELING_MICRO_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Bimbingan Konseling (Micro) - Bulanan",
     "priceMonthly": 25000,
     "priceYearly": 240000,
@@ -1936,7 +1951,7 @@ const plans = [
   },
   {
     "id": "BIMBINGAN_KONSELING_MICRO_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Bimbingan Konseling (Micro) - Tahunan",
     "priceMonthly": 20000,
     "priceYearly": 240000,
@@ -1956,7 +1971,7 @@ const plans = [
   },
   {
     "id": "BIMBINGAN_KONSELING_SMALL_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Bimbingan Konseling (Small) - Bulanan",
     "priceMonthly": 50000,
     "priceYearly": 480000,
@@ -1976,7 +1991,7 @@ const plans = [
   },
   {
     "id": "BIMBINGAN_KONSELING_SMALL_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Bimbingan Konseling (Small) - Tahunan",
     "priceMonthly": 40000,
     "priceYearly": 480000,
@@ -1996,7 +2011,7 @@ const plans = [
   },
   {
     "id": "BIMBINGAN_KONSELING_MEDIUM_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Bimbingan Konseling (Medium) - Bulanan",
     "priceMonthly": 100000,
     "priceYearly": 960000,
@@ -2016,7 +2031,7 @@ const plans = [
   },
   {
     "id": "BIMBINGAN_KONSELING_MEDIUM_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Bimbingan Konseling (Medium) - Tahunan",
     "priceMonthly": 80000,
     "priceYearly": 960000,
@@ -2036,7 +2051,7 @@ const plans = [
   },
   {
     "id": "BIMBINGAN_KONSELING_LARGE_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Bimbingan Konseling (Large) - Bulanan",
     "priceMonthly": 200000,
     "priceYearly": 1920000,
@@ -2056,7 +2071,7 @@ const plans = [
   },
   {
     "id": "BIMBINGAN_KONSELING_LARGE_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Bimbingan Konseling (Large) - Tahunan",
     "priceMonthly": 160000,
     "priceYearly": 1920000,
@@ -2076,7 +2091,7 @@ const plans = [
   },
   {
     "id": "BIMBINGAN_KONSELING_ENTERPRISE_BULANAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Bimbingan Konseling (Enterprise) - Bulanan",
     "priceMonthly": 350000,
     "priceYearly": 3360000,
@@ -2096,7 +2111,7 @@ const plans = [
   },
   {
     "id": "BIMBINGAN_KONSELING_ENTERPRISE_TAHUNAN",
-    "productId": "absenta",
+    "productId": "cakola",
     "name": "Bimbingan Konseling (Enterprise) - Tahunan",
     "priceMonthly": 280000,
     "priceYearly": 3360000,
@@ -2113,6 +2128,121 @@ const plans = [
     "isActive": true,
     "moduleId": "BPBK",
     "serviceCode": "BPBK"
+  },
+  // --- SOFTWARE SAAS CLOUD SUBSCRIPTION TIERS ---
+  {
+    "id": "SW_SAAS_MICRO",
+    "productId": "cakola",
+    "name": "Absenta SaaS Cloud Micro (300 Siswa)",
+    "type": "SOFTWARE_SUBSCRIPTION",
+    "priceMonthly": 350000,
+    "priceYearly": 3500000,
+    "deviceLimit": 300,
+    "featuresJson": [
+      "Layanan SaaS Cloud Managed (Data Center Jakarta / Singapura)",
+      "Kapasitas Maksimal: 300 Siswa & Guru",
+      "Support WA Gateway Bot & Automatic Daily Backup",
+      "Bebas Mati Lampu & Bebas Maintenance Server Mandiri"
+    ],
+    "billingPeriod": "YEAR",
+    "isActive": true,
+    "moduleId": "ABSENSI",
+    "serviceCode": "cakola"
+  },
+  {
+    "id": "SW_SAAS_SMALL",
+    "productId": "cakola",
+    "name": "Absenta SaaS Cloud Small (600 Siswa)",
+    "type": "SOFTWARE_SUBSCRIPTION",
+    "priceMonthly": 580000,
+    "priceYearly": 5800000,
+    "deviceLimit": 600,
+    "featuresJson": [
+      "Layanan SaaS Cloud Managed (Data Center Jakarta / Singapura)",
+      "Kapasitas Maksimal: 600 Siswa & Guru",
+      "Support WA Gateway Bot & Automatic Daily Backup",
+      "High-Speed Engine Response (< 100ms)"
+    ],
+    "billingPeriod": "YEAR",
+    "isActive": true,
+    "moduleId": "ABSENSI",
+    "serviceCode": "cakola"
+  },
+  {
+    "id": "SW_SAAS_LARGE",
+    "productId": "cakola",
+    "name": "Absenta SaaS Cloud Large (1.200 Siswa)",
+    "type": "SOFTWARE_SUBSCRIPTION",
+    "priceMonthly": 950000,
+    "priceYearly": 9500000,
+    "deviceLimit": 1200,
+    "featuresJson": [
+      "Layanan SaaS Cloud Managed High-Capacity",
+      "Kapasitas Maksimal: 1.200 Siswa & Guru",
+      "Support Multi-Tap Machine Parallel Sync",
+      "Dedicated Database Instance Backup & Recovery"
+    ],
+    "billingPeriod": "YEAR",
+    "isActive": true,
+    "moduleId": "ABSENSI",
+    "serviceCode": "cakola"
+  },
+  {
+    "id": "SW_SAAS_ENTERPRISE",
+    "productId": "cakola",
+    "name": "Absenta SaaS Cloud Enterprise (2.500 Siswa)",
+    "type": "SOFTWARE_SUBSCRIPTION",
+    "priceMonthly": 1850000,
+    "priceYearly": 18500000,
+    "deviceLimit": 2500,
+    "featuresJson": [
+      "Layanan SaaS Cloud Dedicated Performance (Biznet GIO / Hetzner)",
+      "Kapasitas Maksimal: 2.500 Siswa & Guru",
+      "High-Concurrency Peak Surge Engine (Bebas Macet Jam 06.30 WIB)",
+      "Priority 24/7 Technical SLA Support"
+    ],
+    "billingPeriod": "YEAR",
+    "isActive": true,
+    "moduleId": "ABSENSI",
+    "serviceCode": "cakola"
+  },
+  {
+    "id": "SW_SAAS_ULTRA",
+    "productId": "cakola",
+    "name": "Absenta SaaS Cloud Ultra / Campus (> 2.500 Siswa)",
+    "type": "SOFTWARE_SUBSCRIPTION",
+    "priceMonthly": 2450000,
+    "priceYearly": 24500000,
+    "deviceLimit": 5000,
+    "featuresJson": [
+      "Layanan SaaS Cloud Cluster Enterprise Dedicated",
+      "Kapasitas Unlimited (> 2.500 Siswa & Multi-Kampus)",
+      "Dedicated Multi-Core VPS Cluster Allocation",
+      "Custom Feature Request & Direct On-Call Engineering SLA"
+    ],
+    "billingPeriod": "YEAR",
+    "isActive": true,
+    "moduleId": "ABSENSI",
+    "serviceCode": "cakola"
+  },
+  {
+    "id": "SW_ONPREM_ENTERPRISE",
+    "productId": "cakola",
+    "name": "Lisensi Perpanjangan On-Premise Enterprise (2.500 Siswa)",
+    "type": "SOFTWARE_SUBSCRIPTION",
+    "priceMonthly": 850000,
+    "priceYearly": 8500000,
+    "deviceLimit": 2500,
+    "featuresJson": [
+      "Perpanjangan Lisensi Server Lokal On-Premise (1 Tahun)",
+      "Dukungan Update Engine Security & Patching 24/7",
+      "Akses Easy-Tunnel Remote Access Cloud",
+      "Offsite Automatic Encrypted Cloud Backup"
+    ],
+    "billingPeriod": "YEAR",
+    "isActive": true,
+    "moduleId": "ABSENSI",
+    "serviceCode": "cakola"
   }
 ];
 
@@ -2136,6 +2266,7 @@ async function main() {
   // 2. Seed Plans
   console.log('🎫 Seeding Plans...');
   for (const plan of plans) {
+    console.log(`  Attempting plan: ${plan.id} (productId: ${plan.productId})`);
     await prisma.plan.upsert({
       where: { id: plan.id },
       update: {

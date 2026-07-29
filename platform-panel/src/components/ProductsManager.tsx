@@ -44,12 +44,16 @@ export default function ProductsManager() {
   const [planName, setPlanName] = useState('');
   const [planPriceMonthly, setPlanPriceMonthly] = useState<number>(0);
   const [planPriceYearly, setPlanPriceYearly] = useState<number>(0);
+  const [planPriceOnetime, setPlanPriceOnetime] = useState<number>(0);
+  const [planWeightGrams, setPlanWeightGrams] = useState<number>(0);
+  const [planImageUrl, setPlanImageUrl] = useState<string>('');
   const [planDeviceLimit, setPlanDeviceLimit] = useState<number>(0);
   const [planBillingPeriod, setPlanBillingPeriod] = useState<string>('MONTH');
   const [planIsActive, setPlanIsActive] = useState<boolean>(true);
   const [planModuleId, setPlanModuleId] = useState<string>('');
   const [planServiceCode, setPlanServiceCode] = useState<string>('');
   const [planFeatures, setPlanFeatures] = useState<string>('');
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -68,6 +72,43 @@ export default function ProductsManager() {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Upload handler for product image
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Ukuran file maksimal 5MB');
+      return;
+    }
+
+    setIsUploadingImage(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64Data = reader.result as string;
+        const res = await apiClient.post('/api/admin/upload-product-image', {
+          fileName: file.name,
+          base64Data
+        });
+        if (res.data?.success && res.data?.imageUrl) {
+          setPlanImageUrl(res.data.imageUrl);
+        } else {
+          alert(res.data?.message || 'Gagal mengunggah gambar');
+        }
+        setIsUploadingImage(false);
+      };
+      reader.onerror = () => {
+        alert('Gagal membaca file gambar');
+        setIsUploadingImage(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Gagal mengunggah gambar');
+      setIsUploadingImage(false);
+    }
+  };
 
   // Product Actions
   const handleOpenNewProduct = () => {
@@ -128,6 +169,9 @@ export default function ProductsManager() {
     setPlanName('');
     setPlanPriceMonthly(0);
     setPlanPriceYearly(0);
+    setPlanPriceOnetime(0);
+    setPlanWeightGrams(0);
+    setPlanImageUrl('');
     setPlanDeviceLimit(100);
     setPlanBillingPeriod('MONTH');
     setPlanIsActive(true);
@@ -142,11 +186,14 @@ export default function ProductsManager() {
     setPlanId(plan.id);
     setPlanProductId(plan.productId);
     setPlanName(plan.name);
-    setPlanPriceMonthly(plan.priceMonthly);
-    setPlanPriceYearly(plan.priceYearly);
-    setPlanDeviceLimit(plan.deviceLimit);
-    setPlanBillingPeriod(plan.billingPeriod);
-    setPlanIsActive(plan.isActive);
+    setPlanPriceMonthly(plan.priceMonthly || 0);
+    setPlanPriceYearly(plan.priceYearly || 0);
+    setPlanPriceOnetime(plan.priceOnetime || 0);
+    setPlanWeightGrams(plan.weightGrams || 0);
+    setPlanImageUrl(plan.imageUrl || '');
+    setPlanDeviceLimit(plan.deviceLimit || 0);
+    setPlanBillingPeriod(plan.billingPeriod || 'MONTH');
+    setPlanIsActive(plan.isActive !== false);
     setPlanModuleId(plan.moduleId || '');
     setPlanServiceCode(plan.serviceCode || '');
     
@@ -174,6 +221,9 @@ export default function ProductsManager() {
       name: planName,
       priceMonthly: Number(planPriceMonthly),
       priceYearly: Number(planPriceYearly),
+      priceOnetime: Number(planPriceOnetime),
+      weightGrams: Number(planWeightGrams),
+      imageUrl: planImageUrl || null,
       deviceLimit: Number(planDeviceLimit),
       featuresJson: featuresList,
       billingPeriod: planBillingPeriod,
@@ -248,185 +298,165 @@ export default function ProductsManager() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Side: Products list card */}
           <div className="lg:col-span-4 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl h-fit">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-white text-sm font-bold flex items-center gap-2">
-                <Layers className="w-4 h-4 text-indigo-400" />
-                Daftar Produk ({products.length})
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold text-sm text-white uppercase tracking-wider flex items-center gap-2">
+                <Layers className="w-4 h-4 text-indigo-400" /> Produk Master ({products.length})
               </h3>
             </div>
-            
             <div className="space-y-2">
-              {products.length === 0 ? (
-                <p className="text-slate-500 text-xs py-8 text-center">Belum ada produk terdaftar.</p>
-              ) : (
-                products.map((prod) => (
-                  <div 
-                    key={prod.id} 
-                    className="p-3 bg-slate-950 border border-slate-800/80 hover:border-slate-700 rounded-xl flex items-center justify-between group transition-all"
-                  >
-                    <div>
-                      <div className="font-bold text-xs text-white">{prod.name}</div>
-                      <div className="text-[10px] text-slate-500 font-mono mt-0.5">ID: {prod.id} | Prefix: {prod.prefix}</div>
-                    </div>
-                    <div className="flex gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => handleOpenEditProduct(prod)}
-                        className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition"
-                        title="Edit Produk"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteProduct(prod.id)}
-                        className="p-1.5 bg-rose-650/10 hover:bg-rose-600 text-rose-450 hover:text-white rounded-lg transition"
-                        title="Hapus Produk"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+              {products.map((p) => (
+                <div
+                  key={p.id}
+                  className="p-3 bg-slate-950/60 border border-slate-800/80 rounded-xl flex justify-between items-center group hover:border-slate-700 transition"
+                >
+                  <div>
+                    <div className="font-bold text-xs text-white">{p.name}</div>
+                    <div className="text-[10px] text-slate-500 font-mono mt-0.5">ID: {p.id} | Prefix: {p.prefix}</div>
                   </div>
-                ))
-              )}
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                    <button
+                      onClick={() => handleOpenEditProduct(p)}
+                      className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition"
+                      title="Edit Produk"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteProduct(p.id)}
+                      className="p-1.5 hover:bg-rose-950/40 text-slate-400 hover:text-rose-400 rounded-lg transition"
+                      title="Hapus Produk"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Right Side: Plans list card */}
-          <div className="lg:col-span-8 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-              <h3 className="text-white text-sm font-bold flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-indigo-400" />
-                Daftar Paket Plan ({filteredPlans.length})
+          {/* Right Side: Plans Table */}
+          <div className="lg:col-span-8 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <h3 className="font-bold text-sm text-white uppercase tracking-wider flex items-center gap-2">
+                <FileText className="w-4 h-4 text-indigo-400" /> Katalog Paket (Plan) ({filteredPlans.length})
               </h3>
-              
-              {/* Product Filter dropdown */}
-              <div className="relative w-full sm:w-48">
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <span className="text-[11px] text-slate-400 font-bold whitespace-nowrap">Filter Produk:</span>
                 <select
                   value={filterProductId}
                   onChange={(e) => setFilterProductId(e.target.value)}
-                  className="w-full pl-3 pr-8 py-1.5 bg-slate-950 border border-slate-800 text-slate-300 rounded-xl text-xs focus:outline-none cursor-pointer appearance-none font-semibold"
+                  className="px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-indigo-500 cursor-pointer"
                 >
                   <option value="all">Semua Produk</option>
                   {products.map(p => (
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
                 </select>
-                <ChevronDown className="w-3.5 h-3.5 absolute right-3 top-2.5 text-slate-500 pointer-events-none" />
               </div>
             </div>
 
-            {loading ? (
-              <div className="py-20 text-center text-slate-500 font-bold uppercase tracking-widest text-xs animate-pulse">
-                Memuat paket plan...
-              </div>
-            ) : filteredPlans.length === 0 ? (
-              <p className="text-slate-500 text-xs py-20 text-center italic">Tidak ada paket plan terdaftar untuk filter ini.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs text-left">
-                  <thead className="bg-slate-950/80 text-[10px] font-bold uppercase text-slate-500 tracking-wider">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-300">
+                <thead className="bg-slate-950/80 text-slate-400 uppercase tracking-wider font-bold border-b border-slate-800">
+                  <tr>
+                    <th className="py-3 px-4">Info Paket</th>
+                    <th className="py-3 px-4">Harga Unit / Bulanan / Tahunan</th>
+                    <th className="py-3 px-4">Siklus</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4 text-right">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 font-medium">
+                  {filteredPlans.length === 0 ? (
                     <tr>
-                      <th className="px-4 py-3">Nama Paket / ID</th>
-                      <th className="px-4 py-3">Produk</th>
-                      <th className="px-4 py-3">Harga (Bln/Thn)</th>
-                      <th className="px-4 py-3">Limit Device</th>
-                      <th className="px-4 py-3">Siklus</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3 text-right">Aksi</th>
+                      <td colSpan={5} className="py-8 text-center text-slate-500">Belum ada paket plan terdaftar.</td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800">
-                    {filteredPlans.map((plan) => (
-                      <tr key={plan.id} className="hover:bg-slate-950/40 transition-colors">
-                        <td className="px-4 py-3.5">
-                          <div className="font-bold text-white">{plan.name}</div>
-                          <div className="text-[10px] text-slate-550 font-mono mt-0.5">{plan.id}</div>
+                  ) : (
+                    filteredPlans.map(p => (
+                      <tr key={p.id} className="hover:bg-slate-800/40 transition">
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-3">
+                            {p.imageUrl ? (
+                              <img src={p.imageUrl} alt={p.name} className="w-10 h-10 object-contain rounded-lg bg-slate-950 border border-slate-800 p-1" />
+                            ) : (
+                              <div className="w-10 h-10 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-center text-slate-600 font-bold text-[10px]">NO IMG</div>
+                            )}
+                            <div>
+                              <div className="font-bold text-white text-xs">{p.name}</div>
+                              <div className="text-[10px] text-slate-500 font-mono">ID: {p.id} | Module: {p.moduleId || '-'}</div>
+                            </div>
+                          </div>
                         </td>
-                        <td className="px-4 py-3.5">
-                          <span className="px-2 py-0.5 bg-slate-950 border border-slate-800 rounded-md text-[10px] font-bold text-slate-400 uppercase tracking-tight">
-                            {plan.product?.name || plan.productId}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3.5 font-bold text-slate-200">
-                          <div>Rp {plan.priceMonthly.toLocaleString('id-ID')} / bln</div>
-                          <div className="text-[10px] text-slate-500 mt-0.5">Rp {plan.priceYearly.toLocaleString('id-ID')} / thn</div>
-                        </td>
-                        <td className="px-4 py-3.5 text-slate-300 font-medium">
-                          {plan.deviceLimit === 0 || plan.deviceLimit === 9999 ? (
-                            <span className="text-indigo-400 font-bold">Unlimited</span>
+                        <td className="py-3 px-4">
+                          {p.priceOnetime > 0 ? (
+                            <div className="font-bold text-indigo-400">Rp {p.priceOnetime.toLocaleString('id-ID')} (Unit)</div>
                           ) : (
-                            `${plan.deviceLimit} Device`
+                            <div>
+                              <span className="font-bold text-emerald-400">Rp {p.priceMonthly.toLocaleString('id-ID')}</span> <span className="text-[10px] text-slate-500">/bln</span>
+                              <br />
+                              <span className="text-[10px] text-slate-400">Rp {p.priceYearly.toLocaleString('id-ID')} /thn</span>
+                            </div>
                           )}
                         </td>
-                        <td className="px-4 py-3.5">
-                          <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${
-                            plan.billingPeriod === 'YEAR' 
-                              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' 
-                              : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                          }`}>
-                            {plan.billingPeriod === 'YEAR' ? 'Tahunan' : 'Bulanan'}
-                          </span>
+                        <td className="py-3 px-4 font-mono text-[11px]">{p.billingPeriod || 'MONTH'}</td>
+                        <td className="py-3 px-4">
+                          {p.isActive ? (
+                            <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-md text-[10px] font-bold">Aktif</span>
+                          ) : (
+                            <span className="px-2 py-0.5 bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-md text-[10px] font-bold">Nonaktif</span>
+                          )}
                         </td>
-                        <td className="px-4 py-3.5">
-                          <span className={`w-2 h-2 rounded-full inline-block mr-1.5 ${plan.isActive ? 'bg-green-500' : 'bg-slate-600'}`} />
-                          <span className={plan.isActive ? 'text-green-550 font-semibold' : 'text-slate-500'}>
-                            {plan.isActive ? 'Aktif' : 'Nonaktif'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3.5 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1">
                             <button
-                              onClick={() => handleOpenEditPlan(plan)}
-                              className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition"
-                              title="Edit Paket"
+                              onClick={() => handleOpenEditPlan(p)}
+                              className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition"
+                              title="Edit Plan"
                             >
                               <Edit3 className="w-3.5 h-3.5" />
                             </button>
                             <button
-                              onClick={() => handleDeletePlan(plan.id)}
-                              className="p-1.5 bg-rose-650/10 hover:bg-rose-600 text-rose-450 hover:text-white rounded-lg transition"
-                              title="Hapus Paket"
+                              onClick={() => handleDeletePlan(p.id)}
+                              className="p-1.5 hover:bg-rose-950/40 text-slate-400 hover:text-rose-400 rounded-lg transition"
+                              title="Hapus Plan"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
 
       {/* ── PRODUCT FORM VIEW ── */}
       {view === 'product-form' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl max-w-xl mx-auto">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-6">
-            <h3 className="text-white text-sm font-bold flex items-center gap-2">
-              <FolderPlus className="w-4 h-4 text-indigo-400" />
-              {isEditingProduct ? 'Edit Data Produk' : 'Tambah Produk Baru'}
-            </h3>
-            <button 
-              onClick={() => setView('list')}
-              className="p-1.5 text-slate-500 hover:text-white hover:bg-slate-850 rounded-lg transition"
-            >
-              <X className="w-4 h-4" />
+        <div className="max-w-xl mx-auto bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-6">
+          <div className="flex justify-between items-center border-b border-slate-800 pb-4">
+            <h2 className="text-base font-bold text-white uppercase tracking-wider">
+              {isEditingProduct ? 'Edit Produk' : 'Tambah Produk Baru'}
+            </h2>
+            <button onClick={() => setView('list')} className="text-slate-500 hover:text-slate-300">
+              <X className="w-5 h-5" />
             </button>
           </div>
 
-          <form onSubmit={handleSaveProduct} className="space-y-5">
+          <form onSubmit={handleSaveProduct} className="space-y-4">
             <div>
-              <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">ID Produk (Unique Code)</label>
+              <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">ID Produk (Kode Unik)</label>
               <input
                 type="text"
                 required
                 disabled={isEditingProduct}
-                placeholder="misal: cakola, easy-tunnel"
+                placeholder="misal: cakola, absenta"
                 value={productId}
                 onChange={(e) => setProductId(e.target.value)}
-                className="w-full h-11 px-4 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:border-indigo-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full h-11 px-4 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:border-indigo-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed font-mono"
               />
             </div>
 
@@ -435,7 +465,7 @@ export default function ProductsManager() {
               <input
                 type="text"
                 required
-                placeholder="misal: Platform Cakola, Easy Tunnel"
+                placeholder="misal: Cakola SaaS Platform"
                 value={productName}
                 onChange={(e) => setProductName(e.target.value)}
                 className="w-full h-11 px-4 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:border-indigo-500 focus:outline-none"
@@ -443,13 +473,13 @@ export default function ProductsManager() {
             </div>
 
             <div>
-              <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Prefix Lisensi</label>
+              <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Prefix Lisensi (2-3 Karakter)</label>
               <input
                 type="text"
                 required
-                placeholder="misal: ABS, EST, VPN"
+                placeholder="misal: CKL, ABS"
                 value={productPrefix}
-                onChange={(e) => setProductPrefix(e.target.value)}
+                onChange={(e) => setProductPrefix(e.target.value.toUpperCase())}
                 className="w-full h-11 px-4 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:border-indigo-500 focus:outline-none font-mono uppercase"
               />
             </div>
@@ -476,29 +506,25 @@ export default function ProductsManager() {
 
       {/* ── PLAN FORM VIEW ── */}
       {view === 'plan-form' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl max-w-2xl mx-auto">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-6">
-            <h3 className="text-white text-sm font-bold flex items-center gap-2">
-              <Plus className="w-4 h-4 text-indigo-400" />
-              {isEditingPlan ? 'Edit Paket Plan' : 'Tambah Paket Plan Baru'}
-            </h3>
-            <button 
-              onClick={() => setView('list')}
-              className="p-1.5 text-slate-500 hover:text-white hover:bg-slate-850 rounded-lg transition"
-            >
-              <X className="w-4 h-4" />
+        <div className="max-w-2xl mx-auto bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-6">
+          <div className="flex justify-between items-center border-b border-slate-800 pb-4">
+            <h2 className="text-base font-bold text-white uppercase tracking-wider">
+              {isEditingPlan ? 'Edit Paket (Plan)' : 'Tambah Paket Baru'}
+            </h2>
+            <button onClick={() => setView('list')} className="text-slate-500 hover:text-slate-300">
+              <X className="w-5 h-5" />
             </button>
           </div>
 
-          <form onSubmit={handleSavePlan} className="space-y-5">
+          <form onSubmit={handleSavePlan} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">ID Paket (Unique Code)</label>
+                <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">ID Paket (Kode Unik Plan)</label>
                 <input
                   type="text"
                   required
                   disabled={isEditingPlan}
-                  placeholder="misal: HUBIN_MEDIUM_BULANAN"
+                  placeholder="misal: HW_SERVER_NODE_SMALL"
                   value={planId}
                   onChange={(e) => setPlanId(e.target.value)}
                   className="w-full h-11 px-4 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:border-indigo-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed font-mono"
@@ -528,19 +554,81 @@ export default function ProductsManager() {
               <input
                 type="text"
                 required
-                placeholder="misal: Hubungan Industri (Medium) - Bulanan"
+                placeholder="misal: Absenta Node Server - Small (s/d 300 Siswa)"
                 value={planName}
                 onChange={(e) => setPlanName(e.target.value)}
                 className="w-full h-11 px-4 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:border-indigo-500 focus:outline-none"
               />
             </div>
 
+            {/* FOTO PRODUK UPLOAD / URL SECTION */}
+            <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-xl space-y-3">
+              <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider">Foto / Gambar Produk</label>
+              <div className="flex flex-col sm:flex-row items-center gap-4">
+                {planImageUrl ? (
+                  <div className="relative group w-20 h-20 bg-slate-900 border border-slate-700 rounded-xl overflow-hidden shrink-0 flex items-center justify-center">
+                    <img src={planImageUrl} alt="Preview" className="w-full h-full object-contain p-1" />
+                    <button
+                      type="button"
+                      onClick={() => setPlanImageUrl('')}
+                      className="absolute top-1 right-1 p-1 bg-rose-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition"
+                      title="Hapus Foto"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-20 h-20 bg-slate-900 border border-dashed border-slate-700 rounded-xl shrink-0 flex flex-col items-center justify-center text-slate-500 text-[10px]">
+                    <span>Belum ada</span>
+                    <span>foto</span>
+                  </div>
+                )}
+
+                <div className="flex-1 space-y-2 w-full">
+                  <div className="flex items-center gap-2">
+                    <label className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold cursor-pointer transition inline-flex items-center gap-2">
+                      <span>{isUploadingImage ? 'Mengunggah...' : '📷 Unggah Foto File'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageFileChange}
+                        disabled={isUploadingImage}
+                        className="hidden"
+                      />
+                    </label>
+                    <span className="text-[10px] text-slate-500">Disimpan lokal di VPS (max 5MB)</span>
+                  </div>
+
+                  <div>
+                    <input
+                      type="text"
+                      placeholder="Atau masukkan URL Foto (https://...)"
+                      value={planImageUrl}
+                      onChange={(e) => setPlanImageUrl(e.target.value)}
+                      className="w-full h-9 px-3 bg-slate-900 border border-slate-800 rounded-xl text-white text-xs focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Harga Sekali Beli (Rp)</label>
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="0 (isi untuk hardware)"
+                  value={planPriceOnetime}
+                  onChange={(e) => setPlanPriceOnetime(Number(e.target.value))}
+                  className="w-full h-11 px-4 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+
               <div>
                 <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Harga Bulanan (Rp)</label>
                 <input
                   type="number"
-                  required
                   min={0}
                   placeholder="0"
                   value={planPriceMonthly}
@@ -553,11 +641,24 @@ export default function ProductsManager() {
                 <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Harga Tahunan (Rp)</label>
                 <input
                   type="number"
-                  required
                   min={0}
                   placeholder="0"
                   value={planPriceYearly}
                   onChange={(e) => setPlanPriceYearly(Number(e.target.value))}
+                  className="w-full h-11 px-4 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Berat (Gram)</label>
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="0 (misal: 1500)"
+                  value={planWeightGrams}
+                  onChange={(e) => setPlanWeightGrams(Number(e.target.value))}
                   className="w-full h-11 px-4 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:border-indigo-500 focus:outline-none"
                 />
               </div>
@@ -575,9 +676,7 @@ export default function ProductsManager() {
                 />
                 <span className="text-[10px] text-slate-500 mt-1 block">Set 0 untuk Unlimited</span>
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Siklus Default</label>
                 <div className="relative">
@@ -588,16 +687,19 @@ export default function ProductsManager() {
                   >
                     <option value="MONTH">Bulanan (MONTH)</option>
                     <option value="YEAR">Tahunan (YEAR)</option>
+                    <option value="ONETIME">Sekali Beli (ONETIME)</option>
                   </select>
                   <ChevronDown className="w-4 h-4 absolute right-3 top-3.5 text-slate-500 pointer-events-none" />
                 </div>
               </div>
+            </div>
 
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Module ID Klien (Optional)</label>
                 <input
                   type="text"
-                  placeholder="misal: HUBIN, SARPRAS"
+                  placeholder="misal: SERVER_HARDWARE, ABSENSI"
                   value={planModuleId}
                   onChange={(e) => setPlanModuleId(e.target.value)}
                   className="w-full h-11 px-4 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:border-indigo-500 focus:outline-none"
@@ -608,7 +710,7 @@ export default function ProductsManager() {
                 <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Service Code Klien (Optional)</label>
                 <input
                   type="text"
-                  placeholder="misal: HUBIN, SARPRAS"
+                  placeholder="misal: SERVER_HARDWARE, ABSENSI"
                   value={planServiceCode}
                   onChange={(e) => setPlanServiceCode(e.target.value)}
                   className="w-full h-11 px-4 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:border-indigo-500 focus:outline-none"
@@ -617,10 +719,10 @@ export default function ProductsManager() {
             </div>
 
             <div>
-              <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Daftar Fitur (Satu fitur per baris)</label>
+              <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Daftar Fitur / Spesifikasi (Satu per baris)</label>
               <textarea
                 rows={5}
-                placeholder="misal:&#10;Manajemen Kemitraan DU/DI&#10;Jurnal Digital PKL&#10;Absensi PKL GPS Geofencing"
+                placeholder="misal:&#10;Mini PC Industrial High-Efficiency&#10;Memory 8GB RAM + 128GB SSD&#10;Dual Gigabit LAN 24/7"
                 value={planFeatures}
                 onChange={(e) => setPlanFeatures(e.target.value)}
                 className="w-full p-4 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:border-indigo-500 focus:outline-none font-medium leading-relaxed"

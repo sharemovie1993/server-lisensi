@@ -23,21 +23,28 @@ export const registerPaymentLicenseRoutes = (fastify: FastifyInstance) => {
       });
 
       // Map plans to match Express old response
-      const mappedPlans = plans.map(p => ({
-        id: p.id,
-        product_id: p.productId,
-        title: p.name,
-        price: `Rp ${p.priceMonthly.toLocaleString('id-ID')}`,
-        device_limit: p.deviceLimit,
-        is_unlimited: p.deviceLimit === 0 ? 1 : 0,
-        name: p.name,
-        features_json: JSON.stringify(p.featuresJson),
-        billing_period: p.billingPeriod,
-        price_monthly: p.priceMonthly,
-        price_yearly: p.priceYearly,
-        module_id: p.moduleId,
-        service_code: p.serviceCode
-      }));
+      const mappedPlans = plans.map(p => {
+        const effectivePrice = p.priceOnetime > 0 ? p.priceOnetime : p.priceMonthly;
+        return {
+          id: p.id,
+          product_id: p.productId,
+          title: p.name,
+          price: `Rp ${effectivePrice.toLocaleString('id-ID')}`,
+          device_limit: p.deviceLimit,
+          is_unlimited: p.deviceLimit === 0 ? 1 : 0,
+          name: p.name,
+          features_json: JSON.stringify(p.featuresJson),
+          tech_specs_json: p.techSpecsJson ? (typeof p.techSpecsJson === 'string' ? p.techSpecsJson : JSON.stringify(p.techSpecsJson)) : null,
+          billing_period: p.billingPeriod,
+          price_monthly: p.priceMonthly,
+          price_yearly: p.priceYearly,
+          price_onetime: p.priceOnetime,
+          weight_grams: p.weightGrams,
+          image_url: p.imageUrl,
+          module_id: p.moduleId,
+          service_code: p.serviceCode
+        };
+      });
 
       return reply.send({ success: true, data: mappedPlans });
     } catch (err: any) {

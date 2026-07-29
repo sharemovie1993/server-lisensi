@@ -67,6 +67,14 @@ interface InvoiceData {
   productId: string;
   planTitle: string;
   amount: number;
+  itemsJson?: any;
+  subtotalAmount?: number;
+  shippingCost?: number;
+  totalAmount?: number;
+  shippingAddress?: any;
+  courierName?: string | null;
+  trackingNumber?: string | null;
+  fulfillmentStatus?: string;
   status: string;
   paymentMethod: string;
   paymentInstructions: any;
@@ -83,6 +91,14 @@ export async function createInvoice(data: InvoiceData) {
       productId: data.productId,
       planTitle: data.planTitle,
       amount: data.amount,
+      itemsJson: data.itemsJson ?? null,
+      subtotalAmount: data.subtotalAmount ?? data.amount,
+      shippingCost: data.shippingCost ?? 0,
+      totalAmount: data.totalAmount ?? data.amount,
+      shippingAddress: data.shippingAddress ?? null,
+      courierName: data.courierName ?? null,
+      trackingNumber: data.trackingNumber ?? null,
+      fulfillmentStatus: data.fulfillmentStatus ?? 'NONE',
       status: data.status,
       paymentMethod: data.paymentMethod,
       paymentInstructions: data.paymentInstructions,

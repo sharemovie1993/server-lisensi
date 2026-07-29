@@ -5,7 +5,8 @@ import {
   prisma,
   RequestBody,
   getProductPrefix,
-  normalizeProductId
+  normalizeProductId,
+  formatWA
 } from './helpers';
 import { PRIVATE_KEY, PUBLIC_KEY } from '../../utils/keys';
 import { logLicenseActivity } from '../../utils/logger';
@@ -511,6 +512,208 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
     } catch (err: any) {
       console.error('[Request Billing Error]', err.message);
       return reply.status(500).send({ success: false, message: 'Gagal memproses request billing: ' + err.message });
+    }
+  });
+
+  // 1b. Multi-Product Checkout Endpoint (Digital Software + Hardware Peripherals + Services)
+  fastify.post('/api/public/checkout-multi', async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const {
+        school_name,
+        tenant_id,
+        items,
+        payment_method = 'QRIS',
+        shipping_address,
+        phone_number,
+        wa_number,
+        whatsapp
+      } = request.body as {
+        school_name?: string;
+        tenant_id?: string;
+        items: Array<{ plan_id: string; qty: number }>;
+        payment_method?: string;
+        shipping_address?: {
+          recipient: string;
+          phone: string;
+          address: string;
+          city: string;
+          postal_code?: string;
+        };
+        phone_number?: string;
+        wa_number?: string;
+        whatsapp?: string;
+      };
+
+      const targetPhone = formatWA(phone_number || wa_number || whatsapp || '');
+      const resolvedSchoolName = (school_name || tenant_id || 'Sekolah').trim();
+
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        return reply.status(400).send({ success: false, message: 'Keranjang belanja tidak boleh kosong.' });
+      }
+
+      // Resolve all items from database
+      const lineItems: any[] = [];
+      let subtotalAmount = 0;
+      let totalWeightGrams = 0;
+      let hasPhysicalGoods = false;
+
+      for (const item of items) {
+        const plan = await prisma.plan.findUnique({ where: { id: item.plan_id } });
+        if (!plan) {
+          return reply.status(400).send({ success: false, message: `Paket produk ${item.plan_id} tidak ditemukan.` });
+        }
+
+        const qty = Math.max(1, Number(item.qty) || 1);
+        let unitPrice = plan.priceMonthly;
+        if (plan.priceOnetime > 0) {
+          unitPrice = plan.priceOnetime;
+        } else if (plan.billingPeriod === 'YEAR') {
+          unitPrice = plan.priceYearly;
+        }
+
+        const lineSubtotal = unitPrice * qty;
+        subtotalAmount += lineSubtotal;
+        totalWeightGrams += (plan.weightGrams || 0) * qty;
+
+        if (plan.type === 'HARDWARE_PERIPHERAL' || plan.type === 'PHYSICAL_SERVICE') {
+          hasPhysicalGoods = true;
+        }
+
+        lineItems.push({
+          planId: plan.id,
+          name: plan.name,
+          qty,
+          unitPrice,
+          subtotal: lineSubtotal,
+          type: plan.type,
+          weightGrams: plan.weightGrams || 0
+        });
+      }
+
+      // Calculate flat rate shipping cost if physical items exist
+      let shippingCost = 0;
+      let fulfillmentStatus = 'NONE';
+      if (hasPhysicalGoods) {
+        const weightKg = Math.ceil(totalWeightGrams / 1000) || 1;
+        shippingCost = Math.max(45000, weightKg * 35000);
+        fulfillmentStatus = 'PENDING_SHIPMENT';
+      }
+
+      const totalAmount = subtotalAmount + shippingCost;
+      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      const randomCode = Math.floor(1000 + Math.random() * 9000);
+      const invoiceNumber = `INV-${dateStr}-${randomCode}`;
+
+      const primaryPlanItem = lineItems[0];
+      const newKey = 'HW-' + crypto.randomBytes(6).toString('hex').toUpperCase();
+
+      const { license } = await createLicenseAndSubscription(newKey, {
+        productId: 'hardware',
+        schoolName: resolvedSchoolName,
+        deviceLimit: 9999,
+        isUnlimited: 1,
+        expiresAt: '2099-12-31',
+        status: 'pending',
+        isActive: 0,
+        planId: primaryPlanItem.planId,
+        includeVpn: 0,
+        operatorPhone: targetPhone || null
+      });
+
+      const TRIPAY_API_KEY = process.env.TRIPAY_API_KEY || '';
+      const TRIPAY_PRIVATE_KEY = process.env.TRIPAY_PRIVATE_KEY || '';
+      const TRIPAY_MERCHANT_CODE = process.env.TRIPAY_MERCHANT_CODE || '';
+      const TRIPAY_API_URL = process.env.TRIPAY_API_URL || 'https://tripay.co.id/api-sandbox';
+
+      const signature = buildTripaySignature(TRIPAY_MERCHANT_CODE, invoiceNumber, totalAmount, TRIPAY_PRIVATE_KEY);
+      const settingsMap = await getSettingsMap(['billing_email', 'contact_phone']);
+
+      const tripayOrderItems = lineItems.map(item => ({
+        sku: item.planId,
+        name: item.name,
+        price: item.unitPrice,
+        quantity: item.qty
+      }));
+
+      if (shippingCost > 0) {
+        tripayOrderItems.push({
+          sku: 'SHIPPING_FEE',
+          name: 'Ongkos Kirim Logistik Hardware',
+          price: shippingCost,
+          quantity: 1
+        });
+      }
+
+      const tripayPayload = buildTripayPayload({
+        method: payment_method,
+        merchantRef: invoiceNumber,
+        amount: totalAmount,
+        customerName: resolvedSchoolName,
+        customerEmail: settingsMap.billing_email || 'billing@absenta.id',
+        customerPhone: targetPhone || settingsMap.contact_phone || '087779937341',
+        orderItems: tripayOrderItems,
+        expirySeconds: TRIPAY_EXPIRY_SECONDS,
+        signature
+      });
+
+      let tx: any = null;
+      try {
+        tx = await createTripayTransaction(tripayPayload, TRIPAY_API_URL, TRIPAY_API_KEY);
+      } catch (err: any) {
+        return reply.status(400).send({ success: false, message: err.message });
+      }
+
+      if (tx) {
+        const invoice = await createInvoice({
+          invoiceNumber,
+          licenseId: license.id,
+          schoolName: resolvedSchoolName,
+          productId: 'hardware',
+          planTitle: `Order Multi-Product (${lineItems.length} items)`,
+          amount: totalAmount,
+          itemsJson: lineItems,
+          subtotalAmount,
+          shippingCost,
+          totalAmount,
+          shippingAddress: shipping_address || null,
+          fulfillmentStatus,
+          status: 'unpaid',
+          paymentMethod: payment_method,
+          paymentInstructions: {
+            instructions: tx.instructions || [],
+            pay_code: tx.pay_code || '',
+            qr_url: tx.qr_url || '',
+            reference: tx.reference || ''
+          },
+          expiredTime: String(tx.expired_time),
+          planId: primaryPlanItem.planId
+        });
+
+        return reply.send({
+          success: true,
+          message: 'Invoice multi-product berhasil dibuat.',
+          data: {
+            invoice_id: invoice.id,
+            invoice_number: invoiceNumber,
+            items: lineItems,
+            subtotal: subtotalAmount,
+            shipping_cost: shippingCost,
+            total_amount: totalAmount,
+            payment_method,
+            payment_reference: tx.reference,
+            qr_url: tx.qr_url || null,
+            pay_code: tx.pay_code || null,
+            payment_instructions: tx.instructions || [],
+            expired_time: tx.expired_time,
+            fulfillment_status: fulfillmentStatus
+          }
+        });
+      } else {
+        return reply.status(400).send({ success: false, message: 'Gateway pembayaran Tripay sedang offline.' });
+      }
+    } catch (err: any) {
+      console.error('[Multi Checkout Error]', err.message);
+      return reply.status(500).send({ success: false, message: 'Gagal memproses checkout multi-product: ' + err.message });
     }
   });
 

@@ -177,13 +177,29 @@ export function generateMikrotikScript(account: {
 }) {
   const commentText = account.comment ? account.comment.replace(/[\r\n"']/g, ' ') : 'Klien MikroTik RouterOS v6';
   return `# ========================================================
-# SKRIP SETUP SSTP CLIENT MIKROTIK (ROUTEROS v6)
+# SKRIP SETUP L2TP CLIENT MIKROTIK (ROUTEROS v6 & v7)
 # Deskripsi / Instansi : ${commentText}
-# Target VPS Server    : ${MAIN_DOMAIN}:4443
+# Target VPS Server    : ${VPS_IP} (${MAIN_DOMAIN})
 # Username Client      : ${account.username}
 # ========================================================
 
-/interface sstp-client add connect-to=${MAIN_DOMAIN} port=4443 name=sstp-out-absenta user="${account.username}" password="${account.password}" profile=default-encryption verify-server-certificate=no add-default-route=no disabled=no comment="SSTP Tunnel Absenta HQ - ${commentText}"
+/interface l2tp-client remove [find name="l2tp-out-absenta"]
+/interface l2tp-client add name="l2tp-out-absenta" connect-to="${VPS_IP}" user="${account.username}" password="${account.password}" use-ipsec=yes ipsec-secret="absenta" allow=mschap2,mschap1 disabled=no comment="${commentText}"
 `;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

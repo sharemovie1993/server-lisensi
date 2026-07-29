@@ -16,6 +16,14 @@ export function buildTripaySignature(
     .digest('hex');
 }
 
+export interface TripayOrderItem {
+  sku?: string;
+  name: string;
+  price: number;
+  quantity: number;
+  subtotal?: number;
+}
+
 interface TripayPayloadConfig {
   method: string;
   merchantRef: string;
@@ -23,8 +31,9 @@ interface TripayPayloadConfig {
   customerName: string;
   customerEmail: string;
   customerPhone: string;
-  sku: string;
-  itemName: string;
+  sku?: string;
+  itemName?: string;
+  orderItems?: TripayOrderItem[];
   expirySeconds: number;
   signature: string;
 }
@@ -33,6 +42,22 @@ interface TripayPayloadConfig {
  * Construct standard Tripay request payload.
  */
 export function buildTripayPayload(cfg: TripayPayloadConfig) {
+  const items = cfg.orderItems && cfg.orderItems.length > 0
+    ? cfg.orderItems.map(item => ({
+        sku: item.sku || 'ITEM',
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity
+      }))
+    : [
+        {
+          sku: cfg.sku || 'SKU',
+          name: cfg.itemName || 'Layanan Absenta.id',
+          price: cfg.amount,
+          quantity: 1
+        }
+      ];
+
   return {
     method: cfg.method,
     merchant_ref: cfg.merchantRef,
@@ -40,14 +65,7 @@ export function buildTripayPayload(cfg: TripayPayloadConfig) {
     customer_name: cfg.customerName,
     customer_email: cfg.customerEmail,
     customer_phone: cfg.customerPhone,
-    order_items: [
-      {
-        sku: cfg.sku,
-        name: cfg.itemName,
-        price: cfg.amount,
-        quantity: 1
-      }
-    ],
+    order_items: items,
     expired_time: Math.floor(Date.now() / 1000) + cfg.expirySeconds,
     signature: cfg.signature
   };

@@ -21,6 +21,21 @@ function buildTripaySignature(merchantCode, merchantRef, amount, privateKey) {
  * Construct standard Tripay request payload.
  */
 function buildTripayPayload(cfg) {
+    const items = cfg.orderItems && cfg.orderItems.length > 0
+        ? cfg.orderItems.map(item => ({
+            sku: item.sku || 'ITEM',
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity
+        }))
+        : [
+            {
+                sku: cfg.sku || 'SKU',
+                name: cfg.itemName || 'Layanan Absenta.id',
+                price: cfg.amount,
+                quantity: 1
+            }
+        ];
     return {
         method: cfg.method,
         merchant_ref: cfg.merchantRef,
@@ -28,14 +43,7 @@ function buildTripayPayload(cfg) {
         customer_name: cfg.customerName,
         customer_email: cfg.customerEmail,
         customer_phone: cfg.customerPhone,
-        order_items: [
-            {
-                sku: cfg.sku,
-                name: cfg.itemName,
-                price: cfg.amount,
-                quantity: 1
-            }
-        ],
+        order_items: items,
         expired_time: Math.floor(Date.now() / 1000) + cfg.expirySeconds,
         signature: cfg.signature
     };

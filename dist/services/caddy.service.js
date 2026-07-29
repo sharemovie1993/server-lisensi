@@ -90,10 +90,15 @@ async function triggerCaddySync() {
 
 {
     email sharemovie1993@gmail.com
+    servers {
+        protocols h1 h2
+    }
     on_demand_tls {
         ask http://127.0.0.1:5001/api/public/validate-domain
     }
 }
+
+
 
 # --- STATIC CENTRAL ROUTES ---
 
@@ -113,6 +118,8 @@ api.${MAIN_DOMAIN} {
 pos.${MAIN_DOMAIN} {
     reverse_proxy 10.0.0.3:3002
 }
+
+
 
 
 

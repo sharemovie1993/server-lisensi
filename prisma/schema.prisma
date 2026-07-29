@@ -22,10 +22,15 @@ model Plan {
   id            String    @id
   productId     String    @map("product_id")
   name          String
+  type          String    @default("SOFTWARE_SUBSCRIPTION") // SOFTWARE_SUBSCRIPTION | SOFTWARE_ONETIME | HARDWARE_PERIPHERAL | PHYSICAL_SERVICE
   priceMonthly  Float     @map("price_monthly")
   priceYearly   Float     @map("price_yearly")
+  priceOnetime  Float     @default(0) @map("price_onetime")
+  weightGrams   Int       @default(0) @map("weight_grams")
+  imageUrl      String?   @map("image_url")
   deviceLimit   Int       @map("device_limit")
   featuresJson  Json      @map("features_json")
+  techSpecsJson Json?     @map("tech_specs_json")
   billingPeriod String    @map("billing_period")
   isActive      Boolean   @default(true) @map("is_active")
   createdAt     DateTime  @default(now()) @map("created_at")
@@ -116,6 +121,14 @@ model Invoice {
   productId           String    @map("product_id")
   planTitle           String    @map("plan_title")
   amount              Float
+  itemsJson           Json?     @map("items_json")
+  subtotalAmount      Float?    @map("subtotal_amount")
+  shippingCost        Float?    @default(0) @map("shipping_cost")
+  totalAmount         Float?    @map("total_amount")
+  shippingAddress     Json?     @map("shipping_address")
+  courierName         String?   @map("courier_name")
+  trackingNumber      String?   @map("tracking_number")
+  fulfillmentStatus   String    @default("NONE") @map("fulfillment_status") // NONE | PENDING_SHIPMENT | SHIPPED | DELIVERED
   status              String    @default("unpaid")
   paymentMethod       String    @map("payment_method")
   paymentInstructions Json?     @map("payment_instructions")
