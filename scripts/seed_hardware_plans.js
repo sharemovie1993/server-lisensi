@@ -114,6 +114,28 @@ async function seedHardware() {
       serviceCode: 'cakola'
     },
     {
+      id: 'HW_SERVER_DELL_T150_ENT',
+      productId: 'cakola',
+      name: 'Server Dell T150 Enterprise Solution (600 Siswa)',
+      type: 'HARDWARE_PERIPHERAL',
+      priceMonthly: 0,
+      priceYearly: 0,
+      priceOnetime: 23100000,
+      weightGrams: 11500,
+      deviceLimit: 600,
+      featuresJson: [
+        "Paket Solusi Terpadu: Perangkat Server Dell T150 + Dedicated Managed Support 3 Tahun",
+        "CPU: Intel Xeon E-2314 4-Core / 4-Thread (Socket LGA1200, 2.8GHz - 4.5GHz)",
+        "Memory: 16GB DDR4-3200MHz ECC Unbuffered Server RAM",
+        "Storage: 512GB Enterprise NVMe PCIe 4.0 SSD High-Speed",
+        "Dukungan Khusus: Pre-configured WireGuard VPN Node + Backup Vault Auto-Sync"
+      ],
+      billingPeriod: 'ONETIME',
+      isActive: true,
+      moduleId: 'SERVER_HARDWARE',
+      serviceCode: 'cakola'
+    },
+    {
       id: 'HW_SERVER_DELL_T150_PRO',
       productId: 'cakola',
       name: 'Server Dell T150 Pro 32GB (1.200 Siswa)',

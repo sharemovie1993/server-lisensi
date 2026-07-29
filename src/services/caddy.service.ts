@@ -126,9 +126,10 @@ api.${MAIN_DOMAIN} {
     reverse_proxy 127.0.0.1:5001
 }
 
-# Central SaaS App Onboarding & Portal Gateway (Registrasi & RAB Calculator)
+# Central SaaS App Onboarding & Portal Gateway (Registrasi & RAB Calculator via WireGuard Tunnel)
 app.${MAIN_DOMAIN} {
-    reverse_proxy 10.10.10.99:5174
+    tls ${caddySslBase}/wildcard_.${MAIN_DOMAIN}/wildcard_.${MAIN_DOMAIN}.crt ${caddySslBase}/wildcard_.${MAIN_DOMAIN}/wildcard_.${MAIN_DOMAIN}.key
+    reverse_proxy 10.0.0.25:5174
 }
 
 # Central POS System
