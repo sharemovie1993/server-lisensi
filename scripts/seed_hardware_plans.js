@@ -464,6 +464,447 @@ async function seedHardware() {
       serviceCode: 'cakola'
     },
 
+    {
+      id: 'HW_SERVER_DELL_T40_ENT',
+      productId: 'cakola',
+      name: 'Server Dell T40 16GB Enterprise Solution (300 Siswa)',
+      type: 'HARDWARE_PERIPHERAL',
+      priceMonthly: 0,
+      priceYearly: 0,
+      priceOnetime: 11900000,
+      weightGrams: 8500,
+      deviceLimit: 300,
+      featuresJson: [
+        "Paket Solusi Enterprise: Server Dell T40 16GB (300 Siswa) + Dedicated Managed Support & Setup 3 Tahun",
+        "Dukungan Khusus: Pre-configured WireGuard VPN Node + Backup Vault Auto-Sync",
+        "Prioritas Pemeliharaan Perangkat & Layanan Tanggap Darurat 24/7"
+      ],
+      billingPeriod: 'ONETIME',
+      isActive: true,
+      moduleId: 'SERVER_HARDWARE',
+      serviceCode: 'cakola'
+    },
+    {
+      id: 'HW_SERVER_DELL_T150_PRO_ENT',
+      productId: 'cakola',
+      name: 'Server Dell T150 Pro 32GB Enterprise Solution (1.200 Siswa)',
+      type: 'HARDWARE_PERIPHERAL',
+      priceMonthly: 0,
+      priceYearly: 0,
+      priceOnetime: 31500000,
+      weightGrams: 12000,
+      deviceLimit: 1200,
+      featuresJson: [
+        "Paket Solusi Enterprise: Server Dell T150 Pro 32GB (1.200 Siswa) + Dedicated Managed Support & Setup 3 Tahun",
+        "Dukungan Khusus: Pre-configured WireGuard VPN Node + Backup Vault Auto-Sync",
+        "Prioritas Pemeliharaan Perangkat & Layanan Tanggap Darurat 24/7"
+      ],
+      billingPeriod: 'ONETIME',
+      isActive: true,
+      moduleId: 'SERVER_HARDWARE',
+      serviceCode: 'cakola'
+    },
+    {
+      id: 'HW_SERVER_DELL_R730_ENT',
+      productId: 'cakola',
+      name: 'Server Dell R730 64GB Enterprise Solution (2.500 Siswa)',
+      type: 'HARDWARE_PERIPHERAL',
+      priceMonthly: 0,
+      priceYearly: 0,
+      priceOnetime: 25900000,
+      weightGrams: 22000,
+      deviceLimit: 2500,
+      featuresJson: [
+        "Paket Solusi Enterprise: Server Dell R730 64GB (2.500 Siswa) + Dedicated Managed Support & Setup 3 Tahun",
+        "Dukungan Khusus: Pre-configured WireGuard VPN Node + Backup Vault Auto-Sync",
+        "Prioritas Pemeliharaan Perangkat & Layanan Tanggap Darurat 24/7"
+      ],
+      billingPeriod: 'ONETIME',
+      isActive: true,
+      moduleId: 'SERVER_HARDWARE',
+      serviceCode: 'cakola'
+    },
+    {
+      id: 'HW_SERVER_DELL_R750_ENT',
+      productId: 'cakola',
+      name: 'Server Dell R750 Enterprise 64GB Enterprise Solution (5.000+ Siswa)',
+      type: 'HARDWARE_PERIPHERAL',
+      priceMonthly: 0,
+      priceYearly: 0,
+      priceOnetime: 67900000,
+      weightGrams: 25000,
+      deviceLimit: 4000,
+      featuresJson: [
+        "Paket Solusi Enterprise: Server Dell R750 Enterprise 64GB (5.000+ Siswa) + Dedicated Managed Support & Setup 3 Tahun",
+        "Dukungan Khusus: Pre-configured WireGuard VPN Node + Backup Vault Auto-Sync",
+        "Prioritas Pemeliharaan Perangkat & Layanan Tanggap Darurat 24/7"
+      ],
+      billingPeriod: 'ONETIME',
+      isActive: true,
+      moduleId: 'SERVER_HARDWARE',
+      serviceCode: 'cakola'
+    },
+    {
+      id: 'HW_SERVER_NODE_SMALL_ENT',
+      productId: 'cakola',
+      name: 'Absenta Mini PC Small 8GB Enterprise Solution (300 Siswa)',
+      type: 'HARDWARE_PERIPHERAL',
+      priceMonthly: 0,
+      priceYearly: 0,
+      priceOnetime: 3710000,
+      weightGrams: 1500,
+      deviceLimit: 300,
+      featuresJson: [
+        "Paket Solusi Enterprise: Absenta Mini PC Small 8GB (300 Siswa) + Dedicated Managed Support & Setup 3 Tahun",
+        "Dukungan Khusus: Pre-configured WireGuard VPN Node + Backup Vault Auto-Sync",
+        "Prioritas Pemeliharaan Perangkat & Layanan Tanggap Darurat 24/7"
+      ],
+      billingPeriod: 'ONETIME',
+      isActive: true,
+      moduleId: 'SERVER_HARDWARE',
+      serviceCode: 'cakola'
+    },
+    {
+      id: 'HW_SERVER_NODE_MEDIUM_ENT',
+      productId: 'cakola',
+      name: 'Absenta Mini PC Medium 8GB Enterprise Solution (600 Siswa)',
+      type: 'HARDWARE_PERIPHERAL',
+      priceMonthly: 0,
+      priceYearly: 0,
+      priceOnetime: 4830000,
+      weightGrams: 1800,
+      deviceLimit: 600,
+      featuresJson: [
+        "Paket Solusi Enterprise: Absenta Mini PC Medium 8GB (600 Siswa) + Dedicated Managed Support & Setup 3 Tahun",
+        "Dukungan Khusus: Pre-configured WireGuard VPN Node + Backup Vault Auto-Sync",
+        "Prioritas Pemeliharaan Perangkat & Layanan Tanggap Darurat 24/7"
+      ],
+      billingPeriod: 'ONETIME',
+      isActive: true,
+      moduleId: 'SERVER_HARDWARE',
+      serviceCode: 'cakola'
+    },
+    {
+      id: 'HW_SERVER_NODE_LARGE_ENT',
+      productId: 'cakola',
+      name: 'Absenta Mini PC Large 16GB Enterprise Solution (1.200 Siswa)',
+      type: 'HARDWARE_PERIPHERAL',
+      priceMonthly: 0,
+      priceYearly: 0,
+      priceOnetime: 7700000,
+      weightGrams: 2500,
+      deviceLimit: 1200,
+      featuresJson: [
+        "Paket Solusi Enterprise: Absenta Mini PC Large 16GB (1.200 Siswa) + Dedicated Managed Support & Setup 3 Tahun",
+        "Dukungan Khusus: Pre-configured WireGuard VPN Node + Backup Vault Auto-Sync",
+        "Prioritas Pemeliharaan Perangkat & Layanan Tanggap Darurat 24/7"
+      ],
+      billingPeriod: 'ONETIME',
+      isActive: true,
+      moduleId: 'SERVER_HARDWARE',
+      serviceCode: 'cakola'
+    },
+    {
+      id: 'HW_SERVER_NODE_ENTERPRISE_ENT',
+      productId: 'cakola',
+      name: 'Absenta Workstation Server 32GB Enterprise Solution (2.500 Siswa)',
+      type: 'HARDWARE_PERIPHERAL',
+      priceMonthly: 0,
+      priceYearly: 0,
+      priceOnetime: 17500000,
+      weightGrams: 3500,
+      deviceLimit: 2500,
+      featuresJson: [
+        "Paket Solusi Enterprise: Absenta Workstation Server 32GB (2.500 Siswa) + Dedicated Managed Support & Setup 3 Tahun",
+        "Dukungan Khusus: Pre-configured WireGuard VPN Node + Backup Vault Auto-Sync",
+        "Prioritas Pemeliharaan Perangkat & Layanan Tanggap Darurat 24/7"
+      ],
+      billingPeriod: 'ONETIME',
+      isActive: true,
+      moduleId: 'SERVER_HARDWARE',
+      serviceCode: 'cakola'
+    },
+    {
+      id: 'HW_SERVER_NODE_ULTRA_ENT',
+      productId: 'cakola',
+      name: 'Absenta Workstation Server Ultra 64GB Enterprise Solution (4.000+ Siswa)',
+      type: 'HARDWARE_PERIPHERAL',
+      priceMonthly: 0,
+      priceYearly: 0,
+      priceOnetime: 31500000,
+      weightGrams: 8500,
+      deviceLimit: 4000,
+      featuresJson: [
+        "Paket Solusi Enterprise: Absenta Workstation Server Ultra 64GB (4.000+ Siswa) + Dedicated Managed Support & Setup 3 Tahun",
+        "Dukungan Khusus: Pre-configured WireGuard VPN Node + Backup Vault Auto-Sync",
+        "Prioritas Pemeliharaan Perangkat & Layanan Tanggap Darurat 24/7"
+      ],
+      billingPeriod: 'ONETIME',
+      isActive: true,
+      moduleId: 'SERVER_HARDWARE',
+      serviceCode: 'cakola'
+    },
+    {
+      id: 'HW_AP_TPLINK_EAP610_ENT',
+      productId: 'cakola',
+      name: 'TP-Link Omada EAP610 Wi-Fi 6 Enterprise Solution',
+      type: 'HARDWARE_PERIPHERAL',
+      priceMonthly: 0,
+      priceYearly: 0,
+      priceOnetime: 3150000,
+      weightGrams: 800,
+      deviceLimit: 0,
+      featuresJson: [
+        "Paket Solusi Enterprise: TP-Link Omada EAP610 Wi-Fi 6 + Dedicated Managed Support & Setup 3 Tahun",
+        "Dukungan Khusus: Pre-configured WireGuard VPN Node + Backup Vault Auto-Sync",
+        "Prioritas Pemeliharaan Perangkat & Layanan Tanggap Darurat 24/7"
+      ],
+      billingPeriod: 'ONETIME',
+      isActive: true,
+      moduleId: 'NETWORK_HARDWARE',
+      serviceCode: 'cakola'
+    },
+    {
+      id: 'HW_AP_RUIJIE_AX3000_ENT',
+      productId: 'cakola',
+      name: 'Ruijie RG-RAP2260(G) Wi-Fi 6 Enterprise Solution',
+      type: 'HARDWARE_PERIPHERAL',
+      priceMonthly: 0,
+      priceYearly: 0,
+      priceOnetime: 4550000,
+      weightGrams: 900,
+      deviceLimit: 0,
+      featuresJson: [
+        "Paket Solusi Enterprise: Ruijie RG-RAP2260(G) Wi-Fi 6 + Dedicated Managed Support & Setup 3 Tahun",
+        "Dukungan Khusus: Pre-configured WireGuard VPN Node + Backup Vault Auto-Sync",
+        "Prioritas Pemeliharaan Perangkat & Layanan Tanggap Darurat 24/7"
+      ],
+      billingPeriod: 'ONETIME',
+      isActive: true,
+      moduleId: 'NETWORK_HARDWARE',
+      serviceCode: 'cakola'
+    },
+    {
+      id: 'HW_AP_UNIFI_U6_PRO_ENT',
+      productId: 'cakola',
+      name: 'Ubiquiti UniFi U6 Pro Wi-Fi 6 Enterprise Solution',
+      type: 'HARDWARE_PERIPHERAL',
+      priceMonthly: 0,
+      priceYearly: 0,
+      priceOnetime: 6300000,
+      weightGrams: 1000,
+      deviceLimit: 0,
+      featuresJson: [
+        "Paket Solusi Enterprise: Ubiquiti UniFi U6 Pro Wi-Fi 6 + Dedicated Managed Support & Setup 3 Tahun",
+        "Dukungan Khusus: Pre-configured WireGuard VPN Node + Backup Vault Auto-Sync",
+        "Prioritas Pemeliharaan Perangkat & Layanan Tanggap Darurat 24/7"
+      ],
+      billingPeriod: 'ONETIME',
+      isActive: true,
+      moduleId: 'NETWORK_HARDWARE',
+      serviceCode: 'cakola'
+    },
+    {
+      id: 'HW_AP_OUTDOOR_WIFI6_ENT',
+      productId: 'cakola',
+      name: 'Outdoor Wi-Fi 6 AP Enterprise Solution (IP68)',
+      type: 'HARDWARE_PERIPHERAL',
+      priceMonthly: 0,
+      priceYearly: 0,
+      priceOnetime: 5390000,
+      weightGrams: 1400,
+      deviceLimit: 0,
+      featuresJson: [
+        "Paket Solusi Enterprise: Outdoor Wi-Fi 6 AP (IP68) + Dedicated Managed Support & Setup 3 Tahun",
+        "Dukungan Khusus: Pre-configured WireGuard VPN Node + Backup Vault Auto-Sync",
+        "Prioritas Pemeliharaan Perangkat & Layanan Tanggap Darurat 24/7"
+      ],
+      billingPeriod: 'ONETIME',
+      isActive: true,
+      moduleId: 'NETWORK_HARDWARE',
+      serviceCode: 'cakola'
+    },
+    {
+      id: 'HW_SWITCH_POE_8PORT_ENT',
+      productId: 'cakola',
+      name: 'Managed Switch PoE+ 8-Port 120W Enterprise Solution',
+      type: 'HARDWARE_PERIPHERAL',
+      priceMonthly: 0,
+      priceYearly: 0,
+      priceOnetime: 2310000,
+      weightGrams: 1200,
+      deviceLimit: 0,
+      featuresJson: [
+        "Paket Solusi Enterprise: Managed Switch PoE+ 8-Port 120W + Dedicated Managed Support & Setup 3 Tahun",
+        "Dukungan Khusus: Pre-configured WireGuard VPN Node + Backup Vault Auto-Sync",
+        "Prioritas Pemeliharaan Perangkat & Layanan Tanggap Darurat 24/7"
+      ],
+      billingPeriod: 'ONETIME',
+      isActive: true,
+      moduleId: 'NETWORK_HARDWARE',
+      serviceCode: 'cakola'
+    },
+    {
+      id: 'HW_RFID_MINI_OTG_ANDRO_ENT',
+      productId: 'cakola',
+      name: 'Mini OTG RFID Reader Enterprise Solution (Android)',
+      type: 'HARDWARE_PERIPHERAL',
+      priceMonthly: 0,
+      priceYearly: 0,
+      priceOnetime: 490000,
+      weightGrams: 150,
+      deviceLimit: 0,
+      featuresJson: [
+        "Paket Solusi Enterprise: Mini OTG RFID Reader (Android) + Dedicated Managed Support & Setup 3 Tahun",
+        "Dukungan Khusus: Pre-configured WireGuard VPN Node + Backup Vault Auto-Sync",
+        "Prioritas Pemeliharaan Perangkat & Layanan Tanggap Darurat 24/7"
+      ],
+      billingPeriod: 'ONETIME',
+      isActive: true,
+      moduleId: 'ABSENSI_HARDWARE',
+      serviceCode: 'cakola'
+    },
+    {
+      id: 'HW_RFID_DESKTOP_USB_ENT',
+      productId: 'cakola',
+      name: 'Desktop USB RFID Reader Enterprise Solution',
+      type: 'HARDWARE_PERIPHERAL',
+      priceMonthly: 0,
+      priceYearly: 0,
+      priceOnetime: 350000,
+      weightGrams: 200,
+      deviceLimit: 0,
+      featuresJson: [
+        "Paket Solusi Enterprise: Desktop USB RFID Reader + Dedicated Managed Support & Setup 3 Tahun",
+        "Dukungan Khusus: Pre-configured WireGuard VPN Node + Backup Vault Auto-Sync",
+        "Prioritas Pemeliharaan Perangkat & Layanan Tanggap Darurat 24/7"
+      ],
+      billingPeriod: 'ONETIME',
+      isActive: true,
+      moduleId: 'ABSENSI_HARDWARE',
+      serviceCode: 'cakola'
+    },
+    {
+      id: 'HW_FP_HIKVISION_8003MF_ENT',
+      productId: 'cakola',
+      name: 'Hikvision DS-K1T8003MF Enterprise Solution (1.000 FP / 1.000 Card)',
+      type: 'HARDWARE_PERIPHERAL',
+      priceMonthly: 0,
+      priceYearly: 0,
+      priceOnetime: 1190000,
+      weightGrams: 650,
+      deviceLimit: 0,
+      featuresJson: [
+        "Paket Solusi Enterprise: Hikvision DS-K1T8003MF (1.000 FP / 1.000 Card) + Dedicated Managed Support & Setup 3 Tahun",
+        "Dukungan Khusus: Pre-configured WireGuard VPN Node + Backup Vault Auto-Sync",
+        "Prioritas Pemeliharaan Perangkat & Layanan Tanggap Darurat 24/7"
+      ],
+      billingPeriod: 'ONETIME',
+      isActive: true,
+      moduleId: 'ABSENSI_HARDWARE',
+      serviceCode: 'cakola'
+    },
+    {
+      id: 'HW_FACE_HIKVISION_320MFX_ENT',
+      productId: 'cakola',
+      name: 'Hikvision DS-K1T320MFX Enterprise Solution (500 Face / 1.000 FP)',
+      type: 'HARDWARE_PERIPHERAL',
+      priceMonthly: 0,
+      priceYearly: 0,
+      priceOnetime: 1750000,
+      weightGrams: 800,
+      deviceLimit: 0,
+      featuresJson: [
+        "Paket Solusi Enterprise: Hikvision DS-K1T320MFX (500 Face / 1.000 FP) + Dedicated Managed Support & Setup 3 Tahun",
+        "Dukungan Khusus: Pre-configured WireGuard VPN Node + Backup Vault Auto-Sync",
+        "Prioritas Pemeliharaan Perangkat & Layanan Tanggap Darurat 24/7"
+      ],
+      billingPeriod: 'ONETIME',
+      isActive: true,
+      moduleId: 'ABSENSI_HARDWARE',
+      serviceCode: 'cakola'
+    },
+    {
+      id: 'HW_RFID_ZKTECO_SCR100_ENT',
+      productId: 'cakola',
+      name: 'ZKTeco SCR100 RFID LAN Enterprise Solution (30.000 Card)',
+      type: 'HARDWARE_PERIPHERAL',
+      priceMonthly: 0,
+      priceYearly: 0,
+      priceOnetime: 2170000,
+      weightGrams: 600,
+      deviceLimit: 0,
+      featuresJson: [
+        "Paket Solusi Enterprise: ZKTeco SCR100 RFID LAN (30.000 Card) + Dedicated Managed Support & Setup 3 Tahun",
+        "Dukungan Khusus: Pre-configured WireGuard VPN Node + Backup Vault Auto-Sync",
+        "Prioritas Pemeliharaan Perangkat & Layanan Tanggap Darurat 24/7"
+      ],
+      billingPeriod: 'ONETIME',
+      isActive: true,
+      moduleId: 'ABSENSI_HARDWARE',
+      serviceCode: 'cakola'
+    },
+    {
+      id: 'HW_FP_ZKTECO_K40_ENT',
+      productId: 'cakola',
+      name: 'ZKTeco K40 Fingerprint Enterprise Solution (1.000 FP / 1.000 Card)',
+      type: 'HARDWARE_PERIPHERAL',
+      priceMonthly: 0,
+      priceYearly: 0,
+      priceOnetime: 2450000,
+      weightGrams: 850,
+      deviceLimit: 0,
+      featuresJson: [
+        "Paket Solusi Enterprise: ZKTeco K40 Fingerprint (1.000 FP / 1.000 Card) + Dedicated Managed Support & Setup 3 Tahun",
+        "Dukungan Khusus: Pre-configured WireGuard VPN Node + Backup Vault Auto-Sync",
+        "Prioritas Pemeliharaan Perangkat & Layanan Tanggap Darurat 24/7"
+      ],
+      billingPeriod: 'ONETIME',
+      isActive: true,
+      moduleId: 'ABSENSI_HARDWARE',
+      serviceCode: 'cakola'
+    },
+    {
+      id: 'HW_FP_SOLUTION_X100C_ENT',
+      productId: 'cakola',
+      name: 'Solution X100-C Enterprise Solution (10.000 FP / 10.000 Card)',
+      type: 'HARDWARE_PERIPHERAL',
+      priceMonthly: 0,
+      priceYearly: 0,
+      priceOnetime: 3570000,
+      weightGrams: 1100,
+      deviceLimit: 0,
+      featuresJson: [
+        "Paket Solusi Enterprise: Solution X100-C (10.000 FP / 10.000 Card) + Dedicated Managed Support & Setup 3 Tahun",
+        "Dukungan Khusus: Pre-configured WireGuard VPN Node + Backup Vault Auto-Sync",
+        "Prioritas Pemeliharaan Perangkat & Layanan Tanggap Darurat 24/7"
+      ],
+      billingPeriod: 'ONETIME',
+      isActive: true,
+      moduleId: 'ABSENSI_HARDWARE',
+      serviceCode: 'cakola'
+    },
+    {
+      id: 'HW_FP_HIKVISION_804_ENT',
+      productId: 'cakola',
+      name: 'Hikvision DS-K1T804 PoE Enterprise Solution (3.000 FP / 3.000 Card)',
+      type: 'HARDWARE_PERIPHERAL',
+      priceMonthly: 0,
+      priceYearly: 0,
+      priceOnetime: 3990000,
+      weightGrams: 750,
+      deviceLimit: 0,
+      featuresJson: [
+        "Paket Solusi Enterprise: Hikvision DS-K1T804 PoE (3.000 FP / 3.000 Card) + Dedicated Managed Support & Setup 3 Tahun",
+        "Dukungan Khusus: Pre-configured WireGuard VPN Node + Backup Vault Auto-Sync",
+        "Prioritas Pemeliharaan Perangkat & Layanan Tanggap Darurat 24/7"
+      ],
+      billingPeriod: 'ONETIME',
+      isActive: true,
+      moduleId: 'ABSENSI_HARDWARE',
+      serviceCode: 'cakola'
+    },
+
     // --- ACCESS POINT WI-FI 6 & NETWORK ---
     {
       id: 'HW_AP_TPLINK_EAP610',
