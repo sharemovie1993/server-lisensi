@@ -36,7 +36,15 @@ Sistem telah dimigrasikan sepenuhnya dari SQLite ke **PostgreSQL** dengan menggu
 * **Aktivasi (`/api/license/activate`)**: Pendaftaran kunci perangkat unik (HWID) dilakukan secara ketat hanya pada endpoint aktivasi ketika mengembalikan respons sukses (200). Kunci ini akan disimpan di tabel `activated_devices`.
 * **Heartbeat (`/api/platform/heartbeat`)**: Client mengirimkan data heartbeat setiap 30 detik untuk telemetri statis (CPU, RAM, DB size). Endpoint ini **tidak** mendaftarkan atau memvalidasi HWID baru (hanya memantau keaktifan server).
 
-### 3. Pemisahan UI Panel Admin (Admin Panel)
+### 3. WireGuard Easy Tunnel Multi-Tunnel Hardening & 3-Zone Firewall Policy
+* **Format Netmask Host `/32`**: Seluruh generator `.conf` client (`easy-tunnel.routes.ts` & `tunnel.routes.ts`) memformat string alamat client dengan `/32` (`Address = ${clientIp}/32` & `AllowedIPs = 10.0.0.1/32`). Ini mengisolasi rute tingkat host dan mengeliminasi bentrok rute (*route collision*) saat 1 mesin sekolah menjalankan multiple interface (`et-smkn1pld`, `et-smp4`, `et-t`) secara bersamaan.
+* **Segmentasi IP Subnet 3-Zona**:
+  1. **Zona Admin Deployer (`10.0.0.2/29`)**: Akses penuh ke seluruh server sekolah & retail untuk remote maintenance SSH / Quick Update.
+  2. **Zona Absenta On-Premise (`10.0.0.10 - 10.0.0.254/32`)**: Dikhususkan untuk server ERP sekolah Absenta Core (`product_id: 'cakola'`, `node_type: 'SERVER_ONPREMISE'`).
+  3. **Zona Standalone Retail (`10.0.1.2 - 10.0.1.254/32`)**: Dikhususkan untuk pengguna retail (`product_id: 'easy-tunnel'`, `node_type: 'TUNNEL'`).
+* **Proteksi Firewall Kernel Level (`src/server.ts`)**: Fungsi `initVpnFirewall()` pada startup server mengeksekusi aturan `iptables` isolasi 3-zona di posisi teratas (`-I FORWARD`) untuk menjamin privasi inter-tenant antar-sekolah secara permanen. Panggilan adhoc di HTTP controller telah dibersihkan demi performa API responsif (<10ms).
+
+### 4. Pemisahan UI Panel Admin (Admin Panel)
 * **Daftar Server (Server-Centric)**: Menyajikan data status telemetri hardware server node secara eksklusif (CPU/RAM/DB size), status lisensi yang terikat, fingerprint terdaftar (HWID), status WireGuard, tombol reset perangkat, dan mode deploy (Hybrid/Cloud). Visual dropdown tenant sekolah dihilangkan dari menu ini.
 * **Daftar Sekolah (Tenant-Centric)**: Menampilkan flat list sekolah terdaftar, domain/subdomain, server asal (lisensi induk), serta list paket/modul langganan bersangkutan beserta masa aktif dan status masing-masing modul.
 

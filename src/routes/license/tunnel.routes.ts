@@ -117,13 +117,13 @@ export const registerTunnelLicenseRoutes = (fastify: FastifyInstance) => {
       const serverEndpoint = process.env.VPS_IP || `api.${mainDomain}`;
       const clientConfig = `[Interface]
 PrivateKey = ${privateKey}
-Address = ${clientIp}/24
+Address = ${clientIp}/32
 DNS = 1.1.1.1
 
 [Peer]
 PublicKey = ${serverPublicKey}
 Endpoint = ${serverEndpoint}:51820
-AllowedIPs = 10.0.0.0/24
+AllowedIPs = 10.0.0.1/32
 PersistentKeepalive = 25
 `;
 

@@ -137,23 +137,27 @@ export const registerEasyTunnelRoutes = (fastify: FastifyInstance) => {
         });
       }
 
-      // 3. Assign IP
+      // 3. Assign IP Pool (10.0.0.X/32 for Absenta Builtin vs 10.0.1.X/32 for Standalone Retail)
       let clientIp = license.wireguardIp;
       if (!clientIp) {
+        const isRetail = license.productId === 'easy-tunnel' || license.nodeType === 'TUNNEL';
+        const prefix = isRetail ? '10.0.1.' : '10.0.0.';
         const activeLicenses = await prisma.license.findMany({
           where: { wireguardIp: { not: null } },
           select: { wireguardIp: true }
         });
 
-        let maxOctet = 9;
+        let maxOctet = isRetail ? 1 : 9;
         activeLicenses.forEach(l => {
-          const parts = l.wireguardIp!.split('.');
-          if (parts.length === 4) {
-            const octet = parseInt(parts[3], 10);
-            if (!isNaN(octet) && octet > maxOctet) maxOctet = octet;
+          if (l.wireguardIp && l.wireguardIp.startsWith(prefix)) {
+            const parts = l.wireguardIp.split('.');
+            if (parts.length === 4) {
+              const octet = parseInt(parts[3], 10);
+              if (!isNaN(octet) && octet > maxOctet) maxOctet = octet;
+            }
           }
         });
-        clientIp = `10.0.0.${maxOctet + 1}`;
+        clientIp = `${prefix}${maxOctet + 1}`;
       }
 
       // 4. Generate WireGuard keypair
@@ -178,24 +182,6 @@ export const registerEasyTunnelRoutes = (fastify: FastifyInstance) => {
       console.log(`[Easy Tunnel] Running system command: ${execCmd}`);
       execSync(execCmd);
 
-      // Firewall rule check
-      try {
-        execSync(
-          'sudo iptables -C FORWARD -i wg0 -o wg0 -m iprange --src-range 10.0.0.10-10.0.0.254 -j REJECT --reject-with icmp-port-unreachable',
-          { stdio: 'ignore' }
-        );
-      } catch (checkErr) {
-        try {
-          execSync(
-            'sudo iptables -A FORWARD -i wg0 -o wg0 -m iprange --src-range 10.0.0.10-10.0.0.254 -j REJECT --reject-with icmp-port-unreachable && ' +
-            'sudo iptables -A FORWARD -i wg0 -o wg0 -m iprange --dst-range 10.0.0.10-10.0.0.254 -j REJECT --reject-with icmp-port-unreachable'
-          );
-          execSync("if [ -d /etc/iptables ]; then sudo sh -c 'iptables-save > /etc/iptables/rules.v4'; fi", { stdio: 'ignore' });
-        } catch (applyErr: any) {
-          console.warn('[Easy Tunnel WARNING] Failed to apply iptables rules:', applyErr.message);
-        }
-      }
-
       // 6. Save to DB
       await prisma.license.update({
         where: { id: license.id },
@@ -211,7 +197,7 @@ export const registerEasyTunnelRoutes = (fastify: FastifyInstance) => {
 
       await triggerCaddySync();
 
-      // 7. Generate client WireGuard config
+      // 7. Generate client WireGuard config with /32 host mask to prevent local interface route collisions
       let serverPublicKey = 'SP47bTGqXxN4Qqe2DewpONtYEOh2qcXPTj7dt1g1x2o=';
       try {
         const fs = require('fs');
@@ -224,13 +210,13 @@ export const registerEasyTunnelRoutes = (fastify: FastifyInstance) => {
       const serverEndpoint = process.env.VPS_IP || `api.${mainDomain}`;
       const clientConfig = `[Interface]
 PrivateKey = ${privateKey}
-Address = ${clientIp}/24
+Address = ${clientIp}/32
 DNS = 1.1.1.1
 
 [Peer]
 PublicKey = ${serverPublicKey}
 Endpoint = ${serverEndpoint}:51820
-AllowedIPs = 10.0.0.0/24
+AllowedIPs = 10.0.0.1/32
 PersistentKeepalive = 25
 `;
 

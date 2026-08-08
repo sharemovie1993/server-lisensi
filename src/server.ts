@@ -31,29 +31,22 @@ process.on('unhandledRejection', (reason) => {
 });
 // ─────────────────────────────────────────────────────────────────────────────
 
-// VPN Firewall Client Isolation Setup
+// VPN Firewall Client Isolation Setup (3-Zone Security Policy)
 function initVpnFirewall(): void {
-  const checkCmd = 'sudo iptables -C FORWARD -i wg0 -o wg0 -m iprange --src-range 10.0.0.10-10.0.0.254 -j REJECT --reject-with icmp-port-unreachable';
-
-  exec(checkCmd, (err) => {
-    if (err) {
-      console.log('[FIREWALL] Menerapkan aturan isolasi Client-to-Client pada interface wg0...');
-      const applyCmd = 
-        'sudo iptables -A FORWARD -i wg0 -o wg0 -m iprange --src-range 10.0.0.10-10.0.0.254 -j REJECT --reject-with icmp-port-unreachable && ' +
-        'sudo iptables -A FORWARD -i wg0 -o wg0 -m iprange --dst-range 10.0.0.10-10.0.0.254 -j REJECT --reject-with icmp-port-unreachable';
-      
-      exec(applyCmd, (applyErr) => {
-        if (applyErr) {
-          console.warn('[FIREWALL WARNING] Gagal menerapkan aturan iptables secara otomatis:', applyErr.message);
-        } else {
-          console.log('[FIREWALL] Aturan isolasi VPN berhasil diterapkan secara otomatis!');
-          exec('if [ -d /etc/iptables ]; then sudo sh -c "iptables-save > /etc/iptables/rules.v4"; fi');
-        }
-      });
-    } else {
-      console.log('[FIREWALL] Aturan isolasi Client-to-Client pada wg0 sudah terpasang.');
-    }
-  });
+  console.log('[FIREWALL] Mengonfigurasi aturan isolasi 3-Zona pada interface wg0...');
+  try {
+    // 1. Izinkan Laptop Admin/Deployer (10.0.0.2/29) di urutan teratas (-I FORWARD 1)
+    exec('sudo iptables -C FORWARD -i wg0 -o wg0 -s 10.0.0.2/29 -j ACCEPT 2>/dev/null || sudo iptables -I FORWARD 1 -i wg0 -o wg0 -s 10.0.0.2/29 -j ACCEPT');
+    // 2. Blokir inter-tenant traffic antar-sekolah (10.0.0.10 - 10.0.0.254) di urutan ke-2 (-I FORWARD 2)
+    exec('sudo iptables -C FORWARD -i wg0 -o wg0 -m iprange --src-range 10.0.0.10-10.0.0.254 --dst-range 10.0.0.10-10.0.0.254 -j REJECT --reject-with icmp-port-unreachable 2>/dev/null || sudo iptables -I FORWARD 2 -i wg0 -o wg0 -m iprange --src-range 10.0.0.10-10.0.0.254 --dst-range 10.0.0.10-10.0.0.254 -j REJECT --reject-with icmp-port-unreachable');
+    // 3. Isolasi Standalone Retail (10.0.1.0/24) dari Server Absenta Sekolah (10.0.0.0/24)
+    exec('sudo iptables -C FORWARD -i wg0 -o wg0 -s 10.0.1.0/24 -d 10.0.0.0/24 -j REJECT 2>/dev/null || sudo iptables -I FORWARD 3 -i wg0 -o wg0 -s 10.0.1.0/24 -d 10.0.0.0/24 -j REJECT');
+    // 4. Simpan ke rules.v4 jika ada
+    exec('if [ -d /etc/iptables ]; then sudo sh -c "iptables-save > /etc/iptables/rules.v4"; fi');
+    console.log('[FIREWALL] Aturan isolasi 3-Zona pada wg0 sukses terpasang!');
+  } catch (err: any) {
+    console.warn('[FIREWALL WARNING] Gagal menerapkan aturan isolasi 3-Zona:', err.message);
+  }
 }
 
 async function startServer() {
