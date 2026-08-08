@@ -187,7 +187,7 @@ export default function WhatsAppChatCenter() {
                       <span className="text-[10px] text-slate-500 shrink-0">{formatTime(conv.lastCreatedAt)}</span>
                     </div>
                     <p className="text-slate-400 text-[11px] truncate leading-tight mb-1">
-                      {conv.lastMessage || '_Pesan Kosong_'}
+                      {conv.lastMessage.startsWith('[IMAGE:') ? '📷 Gambar' : (conv.lastMessage || '_Pesan Kosong_')}
                     </p>
                     <div className="flex items-center justify-between text-[10px]">
                       <span className="text-slate-500 font-mono">{conv.recipient}</span>
@@ -247,7 +247,8 @@ export default function WhatsAppChatCenter() {
               ) : (
                 messages.map((msg, index) => {
                   const isIncoming = msg.status === 'RECEIVED' || msg.triggerType === 'INCOMING_CHAT' || msg.triggerType === 'INCOMING_MEDIA';
-                  const isMedia = msg.triggerType === 'INCOMING_MEDIA' || msg.message.startsWith('[Media');
+                  const isMedia = msg.triggerType === 'INCOMING_MEDIA' || msg.message.startsWith('[Media') || msg.message.startsWith('[IMAGE:');
+                  const imageMatch = msg.message.match(/^\[IMAGE:(.*?)\](.*)$/);
                   const dateLabel = formatDateLabel(msg.createdAt);
                   const showDate = index === 0 || formatDateLabel(messages[index - 1].createdAt) !== dateLabel;
 
@@ -278,7 +279,20 @@ export default function WhatsAppChatCenter() {
 
                           {/* Message Content */}
                           <div className="whitespace-pre-wrap break-words font-sans">
-                            {isMedia ? (
+                            {imageMatch ? (
+                              <div className="space-y-1.5">
+                                <img
+                                  src={imageMatch[1]}
+                                  alt="WhatsApp Media"
+                                  className="max-w-xs md:max-w-sm max-h-72 object-cover rounded-xl border border-slate-700/80 shadow-md cursor-pointer hover:opacity-90 transition"
+                                  onClick={() => window.open(imageMatch[1], '_blank')}
+                                  title="Klik untuk memperbesar gambar"
+                                />
+                                {imageMatch[2] && imageMatch[2].trim() && (
+                                  <p className="text-slate-100 text-xs pt-1">{imageMatch[2].trim()}</p>
+                                )}
+                              </div>
+                            ) : isMedia ? (
                               <div className="flex items-center gap-2 p-2 bg-black/20 rounded-lg mb-1">
                                 <ImageIcon className="w-4 h-4 text-emerald-300" />
                                 <span className="italic">{msg.message}</span>

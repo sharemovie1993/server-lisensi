@@ -193,12 +193,32 @@ class WhatsappService extends EventEmitter {
             }
 
             const cleanSenderMedia = altJid.replace(/@.*$/, '').replace(/[^0-9]/g, '');
+
+            // Simpan file gambar ke disk public agar bisa ditampilkan visual di frontend WA Chat Center
+            let mediaPublicUrl = '';
+            try {
+              const uploadDir = path.join(__dirname, '../../public/uploads/wa-media');
+              if (!fs.existsSync(uploadDir)) {
+                fs.mkdirSync(uploadDir, { recursive: true });
+              }
+              const mediaFileName = `wa-${Date.now()}-${cleanSenderMedia}.jpg`;
+              const mediaFilePath = path.join(uploadDir, mediaFileName);
+              fs.writeFileSync(mediaFilePath, mediaBuffer);
+              mediaPublicUrl = `/uploads/wa-media/${mediaFileName}`;
+            } catch (fsErr: any) {
+              console.warn('[WA-BOT] Gagal menyimpan file gambar ke disk:', fsErr.message);
+            }
+
+            const formattedMsg = mediaPublicUrl 
+              ? `[IMAGE:${mediaPublicUrl}]${caption ? ' ' + caption : ''}`
+              : '[Media Gambar]' + (caption ? `: ${caption}` : '');
+
             // Log incoming media to DB
             try {
               await prisma.whatsAppLog.create({
                 data: {
                   recipient: cleanSenderMedia,
-                  message: '[Media Gambar]' + (caption ? `: ${caption}` : ''),
+                  message: formattedMsg,
                   status: 'RECEIVED',
                   triggerType: 'INCOMING_MEDIA'
                 }
