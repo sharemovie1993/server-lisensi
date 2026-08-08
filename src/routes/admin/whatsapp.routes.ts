@@ -4,6 +4,122 @@ import { verifyAdmin } from './middleware';
 import { waGateway } from '../../services/whatsapp.service';
 
 export const registerWhatsAppRoutes = (fastify: FastifyInstance) => {
+  // GET /api/admin/whatsapp/conversations (Grouped WhatsApp Chat List)
+  fastify.get('/api/admin/whatsapp/conversations', async (request: FastifyRequest, reply: FastifyReply) => {
+    await verifyAdmin(request, reply);
+    if (reply.sent) return;
+
+    try {
+      // 1. Ambil 1000 log WhatsApp terbaru
+      const logs = await prisma.whatsAppLog.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 1000
+      });
+
+      // 2. Ambil referensi lisensi untuk pencocokan nomor HP -> Nama Sekolah
+      const licenses = await prisma.license.findMany({
+        select: { schoolName: true, operatorPhone: true, licenseKey: true }
+      });
+
+      // Map nomor HP bersih -> Nama Sekolah
+      const phoneToSchool = new Map<string, string>();
+      licenses.forEach(l => {
+        if (l.operatorPhone) {
+          const cleanPh = l.operatorPhone.replace(/[^0-9]/g, '');
+          phoneToSchool.set(cleanPh, l.schoolName);
+          if (cleanPh.startsWith('08')) {
+            phoneToSchool.set('62' + cleanPh.slice(1), l.schoolName);
+          }
+        }
+      });
+
+      // 3. Kelompokkan log berdasarkan recipient (nomor HP)
+      const convMap = new Map<string, {
+        recipient: string;
+        schoolName: string;
+        lastMessage: string;
+        lastStatus: string;
+        lastTriggerType: string;
+        lastCreatedAt: Date;
+        totalMessages: number;
+      }>();
+
+      for (const log of logs) {
+        const cleanRecip = log.recipient.replace(/[^0-9]/g, '');
+        const recipientKey = cleanRecip || log.recipient;
+
+        if (!convMap.has(recipientKey)) {
+          const matchedSchool = phoneToSchool.get(recipientKey) || 'Klien WA / Operator';
+          convMap.set(recipientKey, {
+            recipient: recipientKey,
+            schoolName: matchedSchool,
+            lastMessage: log.message,
+            lastStatus: log.status,
+            lastTriggerType: log.triggerType,
+            lastCreatedAt: log.createdAt,
+            totalMessages: 1
+          });
+        } else {
+          const existing = convMap.get(recipientKey)!;
+          existing.totalMessages += 1;
+        }
+      }
+
+      const conversations = Array.from(convMap.values()).sort(
+        (a, b) => b.lastCreatedAt.getTime() - a.lastCreatedAt.getTime()
+      );
+
+      return reply.send({ success: true, count: conversations.length, data: conversations });
+    } catch (err: any) {
+      console.error('[Admin WhatsApp Conversations Error]', err.message);
+      return reply.status(500).send({ success: false, message: 'Gagal mengambil daftar percakapan WA: ' + err.message });
+    }
+  });
+
+  // GET /api/admin/whatsapp/conversations/:recipient (Thread Percakapan WA Kronologis)
+  fastify.get('/api/admin/whatsapp/conversations/:recipient', async (request: FastifyRequest, reply: FastifyReply) => {
+    await verifyAdmin(request, reply);
+    if (reply.sent) return;
+
+    const { recipient } = request.params as { recipient: string };
+    const cleanRecip = recipient.replace(/[^0-9]/g, '');
+
+    try {
+      const logs = await prisma.whatsAppLog.findMany({
+        where: {
+          OR: [
+            { recipient: recipient },
+            { recipient: cleanRecip },
+            { recipient: { contains: cleanRecip } }
+          ]
+        },
+        orderBy: { createdAt: 'asc' }
+      });
+
+      // Cari metadata nama sekolah dari License
+      const license = await prisma.license.findFirst({
+        where: {
+          OR: [
+            { operatorPhone: { contains: cleanRecip } },
+            { operatorPhone: { contains: recipient } }
+          ]
+        },
+        select: { schoolName: true, licenseKey: true, status: true }
+      });
+
+      return reply.send({
+        success: true,
+        recipient: cleanRecip || recipient,
+        schoolName: license ? license.schoolName : 'Klien WA / Operator',
+        licenseKey: license ? license.licenseKey : null,
+        data: logs
+      });
+    } catch (err: any) {
+      console.error('[Admin WhatsApp Thread Error]', err.message);
+      return reply.status(500).send({ success: false, message: 'Gagal mengambil thread percakapan WA: ' + err.message });
+    }
+  });
+
   // GET /api/admin/whatsapp/logs (Get WhatsApp Outbox/Log list)
   fastify.get('/api/admin/whatsapp/logs', async (request: FastifyRequest, reply: FastifyReply) => {
     await verifyAdmin(request, reply);
