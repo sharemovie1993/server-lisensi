@@ -16,6 +16,7 @@ interface HeartbeatPayload {
   hostname?: string;
   osType?: string;
   tenants?: Array<{ name: string; subdomain: string | null }>;
+  easyTunnelTelemetry?: any[];
 }
 
 export const heartbeatRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
@@ -25,7 +26,7 @@ export const heartbeatRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
     async (request: FastifyRequest, reply: FastifyReply) => {
       try {
         const license = (request as any).license;
-        const { activeUsers, dbSize, memoryUsage, lastTapped, deployMode, schoolName, appDomain, hostname, osType, tenants, easyTunnelTelemetry } = request.body as any;
+        const { activeUsers, dbSize, memoryUsage, lastTapped, deployMode, schoolName, appDomain, hostname, osType, tenants, easyTunnelTelemetry } = request.body as HeartbeatPayload;
 
       if (typeof activeUsers === 'undefined' || typeof dbSize === 'undefined' || typeof memoryUsage === 'undefined') {
         return reply.status(400).send({ success: false, message: 'Invalid payload metrics.' });
