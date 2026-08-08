@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '../api/apiClient';
-import { Smartphone, RefreshCw, Send, CheckCircle, XCircle } from 'lucide-react';
+import WhatsAppChatCenter from './WhatsAppChatCenter';
+import { Smartphone, RefreshCw, Send, CheckCircle, XCircle, MessageSquare, Settings as SettingsIcon } from 'lucide-react';
+
 
 export default function WhatsAppGateway() {
+  const [activeTab, setActiveTab] = useState<'chat' | 'settings'>('chat');
   const [status, setStatus] = useState<any>(null);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -132,9 +135,50 @@ export default function WhatsAppGateway() {
   const isConnected = status?.state === 'connected' || status?.state === 'READY' || status?.status === 'connected';
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Status Panel */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-6 text-left">
+    <div className="space-y-6">
+      {/* ── SUB-HEADER TAB NAVIGATION ───────────────────────────────────────── */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-2 flex items-center justify-between shadow-xl">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setActiveTab('chat')}
+            className={`px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2.5 transition ${
+              activeTab === 'chat'
+                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+          >
+            <MessageSquare className="w-4 h-4" />
+            Riwayat Percakapan WA (Chat Center)
+          </button>
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2.5 transition ${
+              activeTab === 'settings'
+                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+          >
+            <SettingsIcon className="w-4 h-4" />
+            Koneksi & Outbox Log
+          </button>
+        </div>
+
+        {/* Live Status Indicator Pill */}
+        <div className="px-4 py-1.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center gap-2 text-xs">
+          <span className={`w-2.5 h-2.5 rounded-full ${isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-red-500'}`} />
+          <span className="text-slate-300 font-semibold">{isConnected ? 'WA Online' : 'WA Offline'}</span>
+        </div>
+      </div>
+
+      {/* ── TAB CONTENT ─────────────────────────────────────────────────────── */}
+      {activeTab === 'chat' ? (
+        <WhatsAppChatCenter />
+      ) : (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Status Panel */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-6 text-left">
+
         <div className="flex justify-between items-center pb-4 border-b border-slate-800">
           <div>
             <h3 className="text-white text-lg font-bold">WhatsApp Connection Status</h3>
@@ -245,9 +289,10 @@ export default function WhatsAppGateway() {
           </form>
         </div>
       </div>
+      </div>
 
       {/* Outbox Monitoring Section */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4 text-left lg:col-span-2 mt-6">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4 text-left border-t border-slate-800">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-4 border-b border-slate-800 gap-4">
           <div>
             <h3 className="text-white text-lg font-bold">WhatsApp Outbox Logs</h3>
@@ -365,6 +410,9 @@ export default function WhatsAppGateway() {
           </table>
         </div>
       </div>
+        </div>
+      )}
     </div>
   );
 }
+
