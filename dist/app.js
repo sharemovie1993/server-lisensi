@@ -18,8 +18,24 @@ const revenue_admin_routes_1 = require("./modules/revenue/routes/revenue-admin.r
 const upgrade_intelligence_admin_routes_1 = require("./modules/upgrade-intelligence/routes/upgrade-intelligence-admin.routes");
 function buildApp() {
     const app = (0, fastify_1.default)({
-        logger: true,
+        logger: false,
         trustProxy: true
+    });
+    // Custom Human-Readable Logger (Format Rapi seperti Absenta)
+    app.addHook('onResponse', async (req, reply) => {
+        // Filter polling status otomatis agar log tetap bersih & tidak penuh spam
+        if (req.url.includes('/api/admin/wa/status') || req.url.includes('/api/admin/system/telemetry')) {
+            return;
+        }
+        const responseTime = reply.elapsedTime ? reply.elapsedTime.toFixed(1) : '0.0';
+        const d = new Date();
+        const dateStr = d.getFullYear() + '-' +
+            String(d.getMonth() + 1).padStart(2, '0') + '-' +
+            String(d.getDate()).padStart(2, '0') + ' ' +
+            String(d.getHours()).padStart(2, '0') + ':' +
+            String(d.getMinutes()).padStart(2, '0') + ':' +
+            String(d.getSeconds()).padStart(2, '0');
+        console.log(`[${dateStr}] [HTTP] ${req.method} ${req.url} -> ${reply.statusCode} (${responseTime}ms)`);
     });
     // 1. Register CORS
     app.register(cors_1.default, {
