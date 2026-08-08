@@ -76,6 +76,11 @@ model License {
   dbSize                   Float?            @map("db_size")
   memoryUsage              Float?            @map("memory_usage")
   lastTapped               DateTime?         @map("last_tapped")
+  networkMode              String?           @default("HYBRID_SPLIT_DNS") @map("network_mode")
+  localRequestsToday       Int?              @default(0) @map("local_requests_today")
+  publicRequestsToday      Int?              @default(0) @map("public_requests_today")
+  localAvgResponseTimeMs   Float?            @default(0) @map("local_avg_response_time_ms")
+  publicAvgResponseTimeMs  Float?            @default(0) @map("public_avg_response_time_ms")
   activatedDevices         ActivatedDevice[]
   logs                     ActivityLog[]
   invoices                 Invoice[]

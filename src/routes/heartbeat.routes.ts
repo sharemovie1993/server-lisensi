@@ -25,7 +25,7 @@ export const heartbeatRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
     async (request: FastifyRequest, reply: FastifyReply) => {
       try {
         const license = (request as any).license;
-        const { activeUsers, dbSize, memoryUsage, lastTapped, deployMode, schoolName, appDomain, hostname, osType, tenants } = request.body as HeartbeatPayload;
+        const { activeUsers, dbSize, memoryUsage, lastTapped, deployMode, schoolName, appDomain, hostname, osType, tenants, easyTunnelTelemetry } = request.body as any;
 
       if (typeof activeUsers === 'undefined' || typeof dbSize === 'undefined' || typeof memoryUsage === 'undefined') {
         return reply.status(400).send({ success: false, message: 'Invalid payload metrics.' });
@@ -40,6 +40,15 @@ export const heartbeatRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
         memoryUsage: Number(memoryUsage),
         lastTapped: new Date(lastTapped)
       };
+
+      if (easyTunnelTelemetry && Array.isArray(easyTunnelTelemetry) && easyTunnelTelemetry.length > 0) {
+        const item = easyTunnelTelemetry[0];
+        updateData.networkMode = item.networkMode || 'HYBRID_SPLIT_DNS';
+        updateData.localRequestsToday = item.localRequestsToday || 0;
+        updateData.publicRequestsToday = item.publicRequestsToday || 0;
+        updateData.localAvgResponseTimeMs = item.localAvgResponseTimeMs || 0;
+        updateData.publicAvgResponseTimeMs = item.publicAvgResponseTimeMs || 0;
+      }
 
       if (schoolName && schoolName.trim()) {
         updateData.schoolName = schoolName.trim();
