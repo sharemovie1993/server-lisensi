@@ -125,8 +125,8 @@ const registerSystemRoutes = (fastify) => {
                 }
             });
             const servers = licenses.map(l => {
-                const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-                const isOnline = l.lastHeartbeatAt ? new Date(l.lastHeartbeatAt) > fiveMinutesAgo : false;
+                const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+                const isOnline = l.lastHeartbeatAt ? new Date(l.lastHeartbeatAt) > fifteenMinutesAgo : false;
                 const rawMem = l.memoryUsage || 0;
                 const memoryUsageVal = rawMem <= 1 ? Math.round(rawMem * 100) : rawMem;
                 return {
