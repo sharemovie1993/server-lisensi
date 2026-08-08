@@ -127,23 +127,27 @@ const registerEasyTunnelRoutes = (fastify) => {
                     message: `Subdomain '${slugLower}' sudah digunakan oleh instansi lain. Silakan pilih subdomain yang berbeda.`
                 });
             }
-            // 3. Assign IP
+            // 3. Assign IP Pool (10.0.0.X/32 for Absenta Builtin, 10.0.1.X for SoftEther SSTP, 10.0.2.X for Easy Tunnel Standalone Retail)
             let clientIp = license.wireguardIp;
             if (!clientIp) {
+                const isRetail = license.productId === 'easy-tunnel' || license.nodeType === 'TUNNEL';
+                const prefix = isRetail ? '10.0.2.' : '10.0.0.';
                 const activeLicenses = await helpers_1.prisma.license.findMany({
                     where: { wireguardIp: { not: null } },
                     select: { wireguardIp: true }
                 });
-                let maxOctet = 9;
+                let maxOctet = isRetail ? 1 : 9;
                 activeLicenses.forEach(l => {
-                    const parts = l.wireguardIp.split('.');
-                    if (parts.length === 4) {
-                        const octet = parseInt(parts[3], 10);
-                        if (!isNaN(octet) && octet > maxOctet)
-                            maxOctet = octet;
+                    if (l.wireguardIp && l.wireguardIp.startsWith(prefix)) {
+                        const parts = l.wireguardIp.split('.');
+                        if (parts.length === 4) {
+                            const octet = parseInt(parts[3], 10);
+                            if (!isNaN(octet) && octet > maxOctet)
+                                maxOctet = octet;
+                        }
                     }
                 });
-                clientIp = `10.0.0.${maxOctet + 1}`;
+                clientIp = `${prefix}${maxOctet + 1}`;
             }
             // 4. Generate WireGuard keypair
             const { execSync } = require('child_process');
@@ -164,20 +168,6 @@ const registerEasyTunnelRoutes = (fastify) => {
             const execCmd = `sudo /usr/local/bin/add-wg-peer.sh "${safeSchoolName} - ${safeAppName}" "${publicKey}" "${clientIp}" "${slugLower}" "${portNum}" "${portNum}"`;
             console.log(`[Easy Tunnel] Running system command: ${execCmd}`);
             execSync(execCmd);
-            // Firewall rule check
-            try {
-                execSync('sudo iptables -C FORWARD -i wg0 -o wg0 -m iprange --src-range 10.0.0.10-10.0.0.254 -j REJECT --reject-with icmp-port-unreachable', { stdio: 'ignore' });
-            }
-            catch (checkErr) {
-                try {
-                    execSync('sudo iptables -A FORWARD -i wg0 -o wg0 -m iprange --src-range 10.0.0.10-10.0.0.254 -j REJECT --reject-with icmp-port-unreachable && ' +
-                        'sudo iptables -A FORWARD -i wg0 -o wg0 -m iprange --dst-range 10.0.0.10-10.0.0.254 -j REJECT --reject-with icmp-port-unreachable');
-                    execSync("if [ -d /etc/iptables ]; then sudo sh -c 'iptables-save > /etc/iptables/rules.v4'; fi", { stdio: 'ignore' });
-                }
-                catch (applyErr) {
-                    console.warn('[Easy Tunnel WARNING] Failed to apply iptables rules:', applyErr.message);
-                }
-            }
             // 6. Save to DB
             await helpers_1.prisma.license.update({
                 where: { id: license.id },
@@ -191,7 +181,7 @@ const registerEasyTunnelRoutes = (fastify) => {
                 }
             });
             await (0, caddy_service_1.triggerCaddySync)();
-            // 7. Generate client WireGuard config
+            // 7. Generate client WireGuard config with /32 host mask to prevent local interface route collisions
             let serverPublicKey = 'SP47bTGqXxN4Qqe2DewpONtYEOh2qcXPTj7dt1g1x2o=';
             try {
                 const fs = require('fs');
@@ -204,13 +194,13 @@ const registerEasyTunnelRoutes = (fastify) => {
             const serverEndpoint = process.env.VPS_IP || `api.${mainDomain}`;
             const clientConfig = `[Interface]
 PrivateKey = ${privateKey}
-Address = ${clientIp}/24
+Address = ${clientIp}/32
 DNS = 1.1.1.1
 
 [Peer]
 PublicKey = ${serverPublicKey}
 Endpoint = ${serverEndpoint}:51820
-AllowedIPs = 10.0.0.0/24
+AllowedIPs = 10.0.0.1/32
 PersistentKeepalive = 25
 `;
             return reply.send({

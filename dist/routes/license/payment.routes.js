@@ -35,6 +35,7 @@ const registerPaymentLicenseRoutes = (fastify) => {
                     is_unlimited: p.deviceLimit === 0 ? 1 : 0,
                     name: p.name,
                     features_json: JSON.stringify(p.featuresJson),
+                    tech_specs_json: p.techSpecsJson ? (typeof p.techSpecsJson === 'string' ? p.techSpecsJson : JSON.stringify(p.techSpecsJson)) : null,
                     billing_period: p.billingPeriod,
                     price_monthly: p.priceMonthly,
                     price_yearly: p.priceYearly,

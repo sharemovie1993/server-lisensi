@@ -137,11 +137,11 @@ export const registerEasyTunnelRoutes = (fastify: FastifyInstance) => {
         });
       }
 
-      // 3. Assign IP Pool (10.0.0.X/32 for Absenta Builtin vs 10.0.1.X/32 for Standalone Retail)
+      // 3. Assign IP Pool (10.0.0.X/32 for Absenta Builtin, 10.0.1.X for SoftEther SSTP, 10.0.2.X for Easy Tunnel Standalone Retail)
       let clientIp = license.wireguardIp;
       if (!clientIp) {
         const isRetail = license.productId === 'easy-tunnel' || license.nodeType === 'TUNNEL';
-        const prefix = isRetail ? '10.0.1.' : '10.0.0.';
+        const prefix = isRetail ? '10.0.2.' : '10.0.0.';
         const activeLicenses = await prisma.license.findMany({
           where: { wireguardIp: { not: null } },
           select: { wireguardIp: true }

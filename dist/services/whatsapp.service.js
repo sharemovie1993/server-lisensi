@@ -177,10 +177,33 @@ class WhatsappService extends events_1.EventEmitter {
                             console.warn('[WA-BOT] Gagal membaca OWNER_WA_NUMBER dari DB saat incoming media:', dbErr.message);
                             ownerPhone = process.env.OWNER_WA_NUMBER || ownerPhone;
                         }
+                        const cleanSenderMedia = altJid.replace(/@.*$/, '').replace(/[^0-9]/g, '');
+                        // Log incoming media to DB
+                        try {
+                            await prisma.whatsAppLog.create({
+                                data: {
+                                    recipient: cleanSenderMedia,
+                                    message: '[Media Gambar]' + (caption ? `: ${caption}` : ''),
+                                    status: 'RECEIVED',
+                                    triggerType: 'INCOMING_MEDIA'
+                                }
+                            });
+                        }
+                        catch (e) {
+                            console.error('[WA LOG DB ERROR]', e.message);
+                        }
                         await (0, wa_bot_service_1.handleIncomingMedia)(fromJid, altJid, mediaBuffer, caption, ownerPhone, async (_toJid, pesan) => {
                             try {
                                 await this.sock.sendMessage(fromJid, { text: pesan });
                                 this.messagesSentToday++;
+                                await prisma.whatsAppLog.create({
+                                    data: {
+                                        recipient: cleanSenderMedia,
+                                        message: pesan,
+                                        status: 'SENT',
+                                        triggerType: 'BOT_REPLY'
+                                    }
+                                }).catch(() => { });
                             }
                             catch (e) {
                                 this.messagesFailedToday++;
@@ -190,6 +213,15 @@ class WhatsappService extends events_1.EventEmitter {
                             try {
                                 await this.sock.sendMessage(toJid, { image: buffer, caption: imgCaption });
                                 this.messagesSentToday++;
+                                const cleanOwner = toJid.replace(/@.*$/, '').replace(/[^0-9]/g, '');
+                                await prisma.whatsAppLog.create({
+                                    data: {
+                                        recipient: cleanOwner,
+                                        message: '[Forward Bukti Transfer] ' + (imgCaption || ''),
+                                        status: 'SENT',
+                                        triggerType: 'FORWARD_OWNER'
+                                    }
+                                }).catch(() => { });
                             }
                             catch (e) {
                                 this.messagesFailedToday++;
@@ -205,13 +237,36 @@ class WhatsappService extends events_1.EventEmitter {
                 // ── Handle pesan teks ───────────────────────────────────────────────
                 if (!text.trim())
                     continue;
+                const cleanSender = altJid.replace(/@.*$/, '').replace(/[^0-9]/g, '');
                 console.log(`[WA-BOT] Pesan masuk dari ${fromJid} (Alt: ${altJid}): "${text.trim()}"`);
-                console.log(`[WA-BOT] Debug MSG:`, JSON.stringify({ key: msg.key, participant: msg.participant, pushName: msg.pushName }));
+                // Log incoming text message to DB
+                try {
+                    await prisma.whatsAppLog.create({
+                        data: {
+                            recipient: cleanSender,
+                            message: text.trim(),
+                            status: 'RECEIVED',
+                            triggerType: 'INCOMING_CHAT'
+                        }
+                    });
+                }
+                catch (e) {
+                    console.error('[WA LOG DB ERROR - INCOMING]', e.message);
+                }
                 // Delegate to bot engine - use altJid for session resolution, but reply to fromJid
                 await (0, wa_bot_service_1.handleIncomingMessage)(altJid, text, async (_toJid, pesan) => {
                     try {
                         await this.sock.sendMessage(fromJid, { text: pesan });
                         this.messagesSentToday++;
+                        // Log bot response to DB
+                        await prisma.whatsAppLog.create({
+                            data: {
+                                recipient: cleanSender,
+                                message: pesan,
+                                status: 'SENT',
+                                triggerType: 'BOT_REPLY'
+                            }
+                        }).catch(() => { });
                     }
                     catch (e) {
                         this.messagesFailedToday++;

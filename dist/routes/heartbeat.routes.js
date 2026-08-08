@@ -9,7 +9,7 @@ const heartbeatRoutes = async (fastify) => {
     fastify.post('/api/platform/heartbeat', { preHandler: api_key_handshake_middleware_1.apiKeyHandshakeMiddleware }, async (request, reply) => {
         try {
             const license = request.license;
-            const { activeUsers, dbSize, memoryUsage, lastTapped, deployMode, schoolName, appDomain, hostname, osType, tenants } = request.body;
+            const { activeUsers, dbSize, memoryUsage, lastTapped, deployMode, schoolName, appDomain, hostname, osType, tenants, easyTunnelTelemetry } = request.body;
             if (typeof activeUsers === 'undefined' || typeof dbSize === 'undefined' || typeof memoryUsage === 'undefined') {
                 return reply.status(400).send({ success: false, message: 'Invalid payload metrics.' });
             }
@@ -22,6 +22,14 @@ const heartbeatRoutes = async (fastify) => {
                 memoryUsage: Number(memoryUsage),
                 lastTapped: new Date(lastTapped)
             };
+            if (easyTunnelTelemetry && Array.isArray(easyTunnelTelemetry) && easyTunnelTelemetry.length > 0) {
+                const item = easyTunnelTelemetry[0];
+                updateData.networkMode = item.networkMode || 'HYBRID_SPLIT_DNS';
+                updateData.localRequestsToday = item.localRequestsToday || 0;
+                updateData.publicRequestsToday = item.publicRequestsToday || 0;
+                updateData.localAvgResponseTimeMs = item.localAvgResponseTimeMs || 0;
+                updateData.publicAvgResponseTimeMs = item.publicAvgResponseTimeMs || 0;
+            }
             if (schoolName && schoolName.trim()) {
                 updateData.schoolName = schoolName.trim();
             }
