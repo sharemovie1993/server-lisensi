@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '../api/apiClient';
-import { Search, RefreshCw, MessageSquare, CheckCheck, Smartphone, User, AlertCircle, Image as ImageIcon } from 'lucide-react';
+import { Search, RefreshCw, MessageSquare, CheckCheck, Smartphone, User, AlertCircle, Image as ImageIcon, Trash2, HardDrive, X } from 'lucide-react';
 
 interface Conversation {
   recipient: string;
@@ -33,6 +33,48 @@ export default function WhatsAppChatCenter() {
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [selectedSchoolName, setSelectedSchoolName] = useState<string>('');
 
+  // Cleanup media modal state
+  const [showCleanupModal, setShowCleanupModal] = useState(false);
+  const [mediaStats, setMediaStats] = useState<{ fileCount: number; totalSizeMB: string } | null>(null);
+  const [cleanupMode, setCleanupMode] = useState<'all' | '7days' | '30days'>('all');
+  const [cleanupLoading, setCleanupLoading] = useState(false);
+  const [cleanupResult, setCleanupResult] = useState<string | null>(null);
+
+  const fetchMediaStats = async () => {
+    try {
+      const res = await apiClient.get('/api/admin/whatsapp/media-stats');
+      if (res.data?.success) {
+        setMediaStats({ fileCount: res.data.fileCount, totalSizeMB: res.data.totalSizeMB });
+      }
+    } catch (e: any) {
+      console.error('Fetch media stats error:', e);
+    }
+  };
+
+  const handleOpenCleanupModal = () => {
+    setShowCleanupModal(true);
+    setCleanupResult(null);
+    fetchMediaStats();
+  };
+
+  const handleRunCleanup = async () => {
+    setCleanupLoading(true);
+    setCleanupResult(null);
+    try {
+      const res = await apiClient.post('/api/admin/whatsapp/media-cleanup', { mode: cleanupMode });
+      if (res.data?.success) {
+        setCleanupResult(`✅ ${res.data.message}`);
+        fetchMediaStats();
+      } else {
+        setCleanupResult(`❌ ${res.data?.message || 'Gagal membersihkan media.'}`);
+      }
+    } catch (e: any) {
+      setCleanupResult(`❌ Gagal: ${e.response?.data?.message || e.message}`);
+    } finally {
+      setCleanupLoading(false);
+    }
+  };
+
   const loadConversations = async () => {
     setLoading(true);
     try {
@@ -45,8 +87,8 @@ export default function WhatsAppChatCenter() {
           setSelectedSchoolName(convs[0].schoolName);
         }
       }
-    } catch (e) {
-      console.error('Failed to load WA conversations', e);
+    } catch (err: any) {
+      console.error('[WhatsApp Conversations Error]', err);
     } finally {
       setLoading(false);
     }
@@ -58,12 +100,9 @@ export default function WhatsAppChatCenter() {
       const res = await apiClient.get(`/api/admin/whatsapp/conversations/${recipient}`);
       if (res.data?.success) {
         setMessages(res.data.data || []);
-        if (res.data.schoolName) {
-          setSelectedSchoolName(res.data.schoolName);
-        }
       }
-    } catch (e) {
-      console.error('Failed to load thread for recipient:', recipient, e);
+    } catch (err: any) {
+      console.error('[WhatsApp Thread Error]', err);
     } finally {
       setMessagesLoading(false);
     }
@@ -79,12 +118,11 @@ export default function WhatsAppChatCenter() {
     }
   }, [selectedRecipient]);
 
-  const filteredConversations = conversations.filter(c => {
-    const query = searchQuery.toLowerCase();
-    return c.recipient.toLowerCase().includes(query) || c.schoolName.toLowerCase().includes(query) || c.lastMessage.toLowerCase().includes(query);
-  });
-
-  const activeConv = conversations.find(c => c.recipient === selectedRecipient);
+  const filteredConversations = conversations.filter(c => 
+    c.schoolName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    c.recipient.includes(searchQuery) ||
+    c.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const formatTime = (isoString: string) => {
     try {
@@ -107,7 +145,7 @@ export default function WhatsAppChatCenter() {
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row h-[750px] text-left">
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row h-[750px] text-left relative">
       
       {/* ── PANEL KIRI: DAFTAR PERCAKAPAN ────────────────────────────────── */}
       <div className="w-full md:w-80 lg:w-96 border-r border-slate-800 flex flex-col bg-slate-950/60">
@@ -123,14 +161,24 @@ export default function WhatsAppChatCenter() {
               <p className="text-slate-400 text-xs">{conversations.length} Percakapan</p>
             </div>
           </div>
-          <button
-            onClick={loadConversations}
-            disabled={loading}
-            className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition"
-            title="Refresh Percakapan"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={handleOpenCleanupModal}
+              className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-400 hover:text-amber-300 rounded-lg transition flex items-center gap-1 text-xs font-semibold border border-amber-500/20"
+              title="Bersihkan File Gambar Media di VPS"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Cleanup</span>
+            </button>
+            <button
+              onClick={loadConversations}
+              disabled={loading}
+              className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition"
+              title="Refresh Percakapan"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
         </div>
 
         {/* Search Bar */}
@@ -334,6 +382,134 @@ export default function WhatsAppChatCenter() {
         )}
 
       </div>
+
+      {/* ── MODAL CLEANUP MEDIA VPS ────────────────────────────────────────── */}
+      {showCleanupModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5 text-left animate-in fade-in zoom-in duration-200">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-amber-500/10 text-amber-400 rounded-xl">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-white font-bold text-base leading-tight">Cleanup Media WA VPS</h3>
+                  <p className="text-slate-400 text-xs">Pembersihan Cache File Foto Gambar</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCleanupModal(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Storage Info Card */}
+            <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-3">
+                <HardDrive className="w-6 h-6 text-indigo-400" />
+                <div>
+                  <div className="text-slate-400 text-[11px]">Penggunaan Disk Media:</div>
+                  <div className="text-white font-bold text-sm font-mono mt-0.5">
+                    {mediaStats ? mediaStats.totalSizeMB : 'Memuat...'}
+                  </div>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-slate-400 text-[11px]">Total File Foto:</div>
+                <div className="text-emerald-400 font-bold text-sm font-mono mt-0.5">
+                  {mediaStats ? `${mediaStats.fileCount} File` : '...'}
+                </div>
+              </div>
+            </div>
+
+            {/* Options */}
+            <div className="space-y-2.5">
+              <label className="text-slate-300 font-semibold text-xs block">Pilih Mode Pembersihan:</label>
+              
+              <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${
+                cleanupMode === '30days' ? 'bg-indigo-500/10 border-indigo-500/40 text-white' : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800/50'
+              }`}>
+                <input
+                  type="radio"
+                  name="cleanupMode"
+                  checked={cleanupMode === '30days'}
+                  onChange={() => setCleanupMode('30days')}
+                  className="mt-0.5 accent-indigo-500"
+                />
+                <div className="text-xs">
+                  <div className="font-bold">Hapus Foto Lebih Tua dari 30 Hari</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">Aman — Menyimpan foto 30 hari terakhir untuk riwayat.</div>
+                </div>
+              </label>
+
+              <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${
+                cleanupMode === '7days' ? 'bg-amber-500/10 border-amber-500/40 text-white' : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800/50'
+              }`}>
+                <input
+                  type="radio"
+                  name="cleanupMode"
+                  checked={cleanupMode === '7days'}
+                  onChange={() => setCleanupMode('7days')}
+                  className="mt-0.5 accent-amber-500"
+                />
+                <div className="text-xs">
+                  <div className="font-bold">Hapus Foto Lebih Tua dari 7 Hari</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">Hapus foto seminggu yang lalu untuk menghemat disk.</div>
+                </div>
+              </label>
+
+              <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${
+                cleanupMode === 'all' ? 'bg-red-500/10 border-red-500/40 text-white' : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800/50'
+              }`}>
+                <input
+                  type="radio"
+                  name="cleanupMode"
+                  checked={cleanupMode === 'all'}
+                  onChange={() => setCleanupMode('all')}
+                  className="mt-0.5 accent-red-500"
+                />
+                <div className="text-xs">
+                  <div className="font-bold text-red-400">Bersihkan Semua File Foto Media (100%)</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">Menghapus seluruh cache gambar media di VPS saat ini.</div>
+                </div>
+              </label>
+            </div>
+
+            {/* Notification Result */}
+            {cleanupResult && (
+              <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs font-mono font-medium leading-relaxed">
+                {cleanupResult}
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowCleanupModal(false)}
+                className="flex-1 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleRunCleanup}
+                disabled={cleanupLoading}
+                className="flex-1 px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-lg"
+              >
+                {cleanupLoading ? (
+                  <><RefreshCw className="w-4 h-4 animate-spin" /> Membersihkan...</>
+                ) : (
+                  <><Trash2 className="w-4 h-4" /> Jalankan Cleanup</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

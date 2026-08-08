@@ -1,3 +1,5 @@
+import path from 'path';
+import fs from 'fs';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { prisma } from '../license/helpers';
 import { verifyAdmin } from './middleware';
@@ -185,7 +187,7 @@ export const registerWhatsAppRoutes = (fastify: FastifyInstance) => {
     return reply.send({ success: true, message: 'WhatsApp sedang di-reset dan menghubungkan kembali...' });
   });
 
-  // POST /api/admin/wa/send-test (WhatsApp Send Test Message)
+  // GET /api/admin/wa/send-test (WhatsApp Send Test Message)
   fastify.post('/api/admin/wa/send-test', async (request: FastifyRequest, reply: FastifyReply) => {
     await verifyAdmin(request, reply);
     if (reply.sent) return;
@@ -200,6 +202,107 @@ export const registerWhatsAppRoutes = (fastify: FastifyInstance) => {
       return reply.send({ success: true, message: 'Pesan test berhasil dikirim.' });
     } catch (err: any) {
       return reply.status(500).send({ success: false, message: 'Gagal mengirim pesan test: ' + err.message });
+    }
+  });
+
+  // GET /api/admin/whatsapp/media-stats (Hitung statistik file media gambar di VPS)
+  fastify.get('/api/admin/whatsapp/media-stats', async (request: FastifyRequest, reply: FastifyReply) => {
+    await verifyAdmin(request, reply);
+    if (reply.sent) return;
+
+    try {
+      const uploadDir = path.join(__dirname, '../../../public/uploads/wa-media');
+      if (!fs.existsSync(uploadDir)) {
+        return reply.send({ success: true, fileCount: 0, totalSizeBytes: 0, totalSizeMB: '0.0 MB', files: [] });
+      }
+
+      const files = fs.readdirSync(uploadDir);
+      let totalSizeBytes = 0;
+      let fileList: any[] = [];
+
+      for (const file of files) {
+        const filePath = path.join(uploadDir, file);
+        const stat = fs.statSync(filePath);
+        if (stat.isFile()) {
+          totalSizeBytes += stat.size;
+          fileList.push({
+            name: file,
+            sizeBytes: stat.size,
+            sizeMB: (stat.size / (1024 * 1024)).toFixed(2),
+            createdAt: stat.birthtime || stat.mtime
+          });
+        }
+      }
+
+      const totalSizeMB = (totalSizeBytes / (1024 * 1024)).toFixed(2) + ' MB';
+      return reply.send({
+        success: true,
+        fileCount: fileList.length,
+        totalSizeBytes,
+        totalSizeMB,
+        files: fileList
+      });
+    } catch (err: any) {
+      console.error('[WA Media Stats Error]', err.message);
+      return reply.status(500).send({ success: false, message: 'Gagal mengambil statistik media WA: ' + err.message });
+    }
+  });
+
+  // POST /api/admin/whatsapp/media-cleanup (Bersihkan file gambar media di VPS)
+  fastify.post('/api/admin/whatsapp/media-cleanup', async (request: FastifyRequest, reply: FastifyReply) => {
+    await verifyAdmin(request, reply);
+    if (reply.sent) return;
+
+    const { mode } = (request.body || {}) as { mode?: 'all' | '7days' | '30days' };
+    const cleanupMode = mode || 'all';
+
+    try {
+      const uploadDir = path.join(__dirname, '../../../public/uploads/wa-media');
+      if (!fs.existsSync(uploadDir)) {
+        return reply.send({ success: true, deletedCount: 0, freedBytes: 0, freedMB: '0.0 MB', message: 'Folder media kosong.' });
+      }
+
+      const files = fs.readdirSync(uploadDir);
+      let deletedCount = 0;
+      let freedBytes = 0;
+      const now = Date.now();
+      const cutoff7 = now - (7 * 24 * 60 * 60 * 1000);
+      const cutoff30 = now - (30 * 24 * 60 * 60 * 1000);
+
+      for (const file of files) {
+        const filePath = path.join(uploadDir, file);
+        const stat = fs.statSync(filePath);
+        if (stat.isFile()) {
+          const fileTime = stat.mtimeMs || stat.birthtimeMs || 0;
+          let shouldDelete = false;
+
+          if (cleanupMode === 'all') {
+            shouldDelete = true;
+          } else if (cleanupMode === '7days' && fileTime < cutoff7) {
+            shouldDelete = true;
+          } else if (cleanupMode === '30days' && fileTime < cutoff30) {
+            shouldDelete = true;
+          }
+
+          if (shouldDelete) {
+            freedBytes += stat.size;
+            fs.unlinkSync(filePath);
+            deletedCount++;
+          }
+        }
+      }
+
+      const freedMB = (freedBytes / (1024 * 1024)).toFixed(2) + ' MB';
+      return reply.send({
+        success: true,
+        deletedCount,
+        freedBytes,
+        freedMB,
+        message: `Berhasil menghapus ${deletedCount} file gambar (${freedMB} ruang disk dibebaskan).`
+      });
+    } catch (err: any) {
+      console.error('[WA Media Cleanup Error]', err.message);
+      return reply.status(500).send({ success: false, message: 'Gagal membersihkan media WA: ' + err.message });
     }
   });
 };
