@@ -104,6 +104,7 @@ export async function triggerCaddySync(): Promise<void> {
     email sharemovie1993@gmail.com
     servers {
         protocols h1 h2
+        trusted_proxies cloudflare
     }
     on_demand_tls {
         ask http://127.0.0.1:5001/api/public/validate-domain
