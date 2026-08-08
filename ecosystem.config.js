@@ -17,7 +17,11 @@ module.exports = {
       max_restarts: 10,
       // Beri waktu 8 detik untuk proses lama menutup port sebelum force-kill
       kill_timeout: 8000,
+      // EXIT CODE 78 = EX_CONFIG (port conflict) → JANGAN restart otomatis
+      // EXIT CODE 1  = crash biasa → boleh restart (autorestart: true)
+      stop_exit_codes: [78],
       // ─────────────────────────────────────────────────────────────────────
+
 
       max_memory_restart: '400M',
       env: {

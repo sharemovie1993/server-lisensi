@@ -107,15 +107,19 @@ async function startServer() {
     await app.listen({ port: PORT, host: HOST });
     console.log(`[LICENSE SERVER] SaaS Engine running securely on http://${HOST}:${PORT}`);
   } catch (err: any) {
-    // ── Port conflict → exit(1) agar PM2 tidak loop restart tanpa batas ──
+    // ── Port conflict → exit(78) agar PM2 tidak loop restart ──────────────
+    // exit code 78 = EX_CONFIG (standard UNIX: environment/config error)
+    // Dikonfigurasi di ecosystem.config.js: stop_exit_codes: [78]
+    // Sehingga PM2 TIDAK akan restart saat terjadi port conflict
     if (err.code === 'EADDRINUSE') {
       console.error(`[FATAL] Port ${PORT} sudah dipakai proses lain! Jalankan: sudo fuser -k ${PORT}/tcp`);
       console.error('[FATAL] Server tidak dapat start — menghentikan proses tanpa restart otomatis.');
-      process.exit(1);
+      process.exit(78);
     }
     app.log.error(err);
     process.exit(1);
   }
+
 }
 
 startServer();
