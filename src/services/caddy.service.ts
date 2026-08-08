@@ -160,23 +160,27 @@ pos.${MAIN_DOMAIN} {
           wildcardTlsBlock = `\n    tls ${caddySslBase}/wildcard_.${MAIN_DOMAIN}/wildcard_.${MAIN_DOMAIN}.crt ${caddySslBase}/wildcard_.${MAIN_DOMAIN}/wildcard_.${MAIN_DOMAIN}.key`;
         }
 
-        if (up.product_id === 'easy-tunnel') {
+        if (up.product_id === 'easy-tunnel' || up.product_id === 'cakola') {
           const port = up.local_port || 5002;
           const isDevVitePort = port >= 5173 && port <= 5179;
-          const isHttpsPort = port === 443;
-          const upstreamProtocol = (isDevVitePort || isHttpsPort) ? 'https' : 'http';
-          const tlsConfig = (isDevVitePort || isHttpsPort) ? ` {
+          const isSplitDnsCaddyPort = port === 443 || port === 80;
+          
+          const targetPort = isSplitDnsCaddyPort ? 80 : port;
+          const upstreamProtocol = isDevVitePort ? 'https' : 'http';
+          const tlsConfig = isDevVitePort ? ` {
         header_up Host ${domainClean}
         transport http {
             tls_insecure_skip_verify
             tls_server_name ${domainClean}
         }
-    }` : '';
+    }` : ` {
+        header_up Host ${domainClean}
+    }`;
 
           caddyfile += `
 # Tenant: ${up.slug} (Easy Tunnel - ${domainClean})
 ${domainClean} {${wildcardTlsBlock}
-    reverse_proxy * ${upstreamProtocol}://${up.wireguard_ip}:${port}${tlsConfig}
+    reverse_proxy * ${upstreamProtocol}://${up.wireguard_ip}:${targetPort}${tlsConfig}
 }
 `;
         } else {
