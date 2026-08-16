@@ -22,11 +22,12 @@ export const registerProductRoutes = (fastify: FastifyInstance) => {
   fastify.post('/api/admin/products', async (request: FastifyRequest, reply: FastifyReply) => {
     await verifyAdmin(request, reply);
     if (reply.sent) return;
-    const { id, name, prefix } = request.body as { id: string; name: string; prefix: string };
+    const { id, name, prefix, paymentMode } = request.body as { id: string; name: string; prefix: string; paymentMode?: string };
     if (!id || !name || !prefix) return reply.status(400).send({ success: false, message: 'ID, Nama, dan Prefix produk wajib diisi.' });
     try {
+      const mode = (paymentMode || 'SANDBOX').toUpperCase() === 'PRODUCTION' ? 'PRODUCTION' : 'SANDBOX';
       const newProduct = await prisma.product.create({
-        data: { id: id.trim(), name: name.trim(), prefix: prefix.trim().toUpperCase() }
+        data: { id: id.trim(), name: name.trim(), prefix: prefix.trim().toUpperCase(), paymentMode: mode }
       });
       return reply.send({ success: true, data: newProduct });
     } catch (err: any) {
@@ -39,11 +40,17 @@ export const registerProductRoutes = (fastify: FastifyInstance) => {
     await verifyAdmin(request, reply);
     if (reply.sent) return;
     const { id } = request.params as { id: string };
-    const { name, prefix } = request.body as { name: string; prefix: string };
+    const { name, prefix, paymentMode } = request.body as { name?: string; prefix?: string; paymentMode?: string };
     try {
+      const updateData: any = {};
+      if (name !== undefined) updateData.name = name.trim();
+      if (prefix !== undefined) updateData.prefix = prefix.trim().toUpperCase();
+      if (paymentMode !== undefined) {
+        updateData.paymentMode = paymentMode.toUpperCase() === 'PRODUCTION' ? 'PRODUCTION' : 'SANDBOX';
+      }
       const updated = await prisma.product.update({
         where: { id },
-        data: { name: name?.trim(), prefix: prefix?.trim().toUpperCase() }
+        data: updateData
       });
       return reply.send({ success: true, data: updated });
     } catch (err: any) {
@@ -61,6 +68,35 @@ export const registerProductRoutes = (fastify: FastifyInstance) => {
       return reply.send({ success: true, message: 'Produk berhasil dihapus.' });
     } catch (err: any) {
       return reply.status(500).send({ success: false, message: 'Gagal menghapus produk: ' + err.message });
+    }
+  });
+
+  // PATCH /api/admin/products/:id/payment-mode (Toggle Product Payment Mode: PRODUCTION vs SANDBOX)
+  fastify.patch('/api/admin/products/:id/payment-mode', async (request: FastifyRequest, reply: FastifyReply) => {
+    await verifyAdmin(request, reply);
+    if (reply.sent) return;
+
+    const { id } = request.params as { id: string };
+    const { paymentMode } = request.body as { paymentMode: string };
+
+    const targetMode = (paymentMode || '').toUpperCase();
+    if (targetMode !== 'PRODUCTION' && targetMode !== 'SANDBOX') {
+      return reply.status(400).send({ success: false, message: 'Nilai paymentMode harus PRODUCTION atau SANDBOX.' });
+    }
+
+    try {
+      const updated = await prisma.product.update({
+        where: { id },
+        data: { paymentMode: targetMode }
+      });
+
+      return reply.send({
+        success: true,
+        message: `Mode pembayaran produk ${updated.name} berhasil diubah menjadi ${targetMode}!`,
+        data: updated
+      });
+    } catch (err: any) {
+      return reply.status(500).send({ success: false, message: 'Gagal memperbarui mode pembayaran: ' + err.message });
     }
   });
 

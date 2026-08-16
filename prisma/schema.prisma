@@ -8,12 +8,13 @@ datasource db {
 }
 
 model Product {
-  id        String    @id
-  name      String
-  prefix    String    @unique
-  createdAt DateTime  @default(now()) @map("created_at")
-  licenses  License[]
-  plans     Plan[]
+  id          String    @id
+  name        String
+  prefix      String    @unique
+  paymentMode String    @default("SANDBOX") @map("payment_mode") // "SANDBOX" | "PRODUCTION"
+  createdAt   DateTime  @default(now()) @map("created_at")
+  licenses    License[]
+  plans       Plan[]
 
   @@map("products")
 }

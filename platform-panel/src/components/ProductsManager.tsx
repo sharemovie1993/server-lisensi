@@ -15,7 +15,10 @@ import {
   FileText,
   DollarSign,
   Smartphone,
-  ChevronDown
+  ChevronDown,
+  ShieldCheck,
+  FlaskConical,
+  RefreshCw
 } from 'lucide-react';
 
 export default function ProductsManager() {
@@ -36,6 +39,8 @@ export default function ProductsManager() {
   const [productId, setProductId] = useState('');
   const [productName, setProductName] = useState('');
   const [productPrefix, setProductPrefix] = useState('');
+  const [productPaymentMode, setProductPaymentMode] = useState<'PRODUCTION' | 'SANDBOX'>('SANDBOX');
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   // Plan Form states
   const [isEditingPlan, setIsEditingPlan] = useState(false);
@@ -116,6 +121,7 @@ export default function ProductsManager() {
     setProductId('');
     setProductName('');
     setProductPrefix('');
+    setProductPaymentMode('SANDBOX');
     setView('product-form');
   };
 
@@ -124,7 +130,30 @@ export default function ProductsManager() {
     setProductId(prod.id);
     setProductName(prod.name);
     setProductPrefix(prod.prefix);
+    setProductPaymentMode((prod.paymentMode as any) || 'SANDBOX');
     setView('product-form');
+  };
+
+  const handleTogglePaymentMode = async (prod: any) => {
+    const nextMode = prod.paymentMode === 'PRODUCTION' ? 'SANDBOX' : 'PRODUCTION';
+    const isTargetProd = nextMode === 'PRODUCTION';
+    const confirmMsg = isTargetProd
+      ? `Aktifkan mode LIVE PRODUCTION untuk ${prod.name}?\n\nSemua transaksi checkout lisensi/order untuk produk ini akan menggunakan uang asli dan diteruskan langsung ke Tripay Live (Merchant T35097).`
+      : `Kembalikan mode SANDBOX untuk ${prod.name}?\n\nTransaksi checkout untuk produk ini akan kembali ke simulasi testing (Tripay Sandbox).`;
+
+    if (!confirm(confirmMsg)) return;
+
+    setTogglingId(prod.id);
+    try {
+      await apiClient.patch(`/api/admin/products/${prod.id}/payment-mode`, {
+        paymentMode: nextMode
+      });
+      await queryClient.invalidateQueries({ queryKey: ['products'] });
+    } catch (e: any) {
+      alert(e.response?.data?.message || 'Gagal mengubah mode pembayaran.');
+    } finally {
+      setTogglingId(null);
+    }
   };
 
   const handleSaveProduct = async (e: React.FormEvent) => {
@@ -135,13 +164,15 @@ export default function ProductsManager() {
       if (isEditingProduct) {
         await apiClient.put(`/api/admin/products/${productId}`, {
           name: productName,
-          prefix: productPrefix
+          prefix: productPrefix,
+          paymentMode: productPaymentMode
         });
       } else {
         await apiClient.post('/api/admin/products', {
           id: productId,
           name: productName,
-          prefix: productPrefix
+          prefix: productPrefix,
+          paymentMode: productPaymentMode
         });
       }
       setView('list');
@@ -303,30 +334,57 @@ export default function ProductsManager() {
                 <Layers className="w-4 h-4 text-indigo-400" /> Produk Master ({products.length})
               </h3>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {products.map((p) => (
                 <div
                   key={p.id}
-                  className="p-3 bg-slate-950/60 border border-slate-800/80 rounded-xl flex justify-between items-center group hover:border-slate-700 transition"
+                  className="p-3.5 bg-slate-950/60 border border-slate-800/80 rounded-xl space-y-2.5 hover:border-slate-700 transition"
                 >
-                  <div>
-                    <div className="font-bold text-xs text-white">{p.name}</div>
-                    <div className="text-[10px] text-slate-500 font-mono mt-0.5">ID: {p.id} | Prefix: {p.prefix}</div>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="font-bold text-xs text-white">{p.name}</div>
+                      <div className="text-[10px] text-slate-500 font-mono mt-0.5">ID: {p.id} | Prefix: {p.prefix}</div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleOpenEditProduct(p)}
+                        className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition"
+                        title="Edit Produk"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteProduct(p.id)}
+                        className="p-1.5 hover:bg-rose-950/40 text-slate-400 hover:text-rose-400 rounded-lg transition"
+                        title="Hapus Produk"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+
+                  {/* Payment Gateway Mode Toggle */}
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-800/60">
+                    <span className="text-[10px] text-slate-400 font-medium">Gateway Mode:</span>
                     <button
-                      onClick={() => handleOpenEditProduct(p)}
-                      className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition"
-                      title="Edit Produk"
+                      type="button"
+                      onClick={() => handleTogglePaymentMode(p)}
+                      disabled={togglingId === p.id}
+                      title="Klik untuk switch antara Live Production dan Sandbox"
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1.5 transition ${
+                        p.paymentMode === 'PRODUCTION'
+                          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 shadow-sm shadow-emerald-500/10'
+                          : 'bg-amber-500/15 text-amber-400 border border-amber-500/30 hover:bg-amber-500/25'
+                      }`}
                     >
-                      <Edit3 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteProduct(p.id)}
-                      className="p-1.5 hover:bg-rose-950/40 text-slate-400 hover:text-rose-400 rounded-lg transition"
-                      title="Hapus Produk"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      {togglingId === p.id ? (
+                        <RefreshCw className="w-3 h-3 animate-spin" />
+                      ) : p.paymentMode === 'PRODUCTION' ? (
+                        <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                      ) : (
+                        <FlaskConical className="w-3 h-3 text-amber-400" />
+                      )}
+                      {p.paymentMode === 'PRODUCTION' ? 'LIVE PROD' : 'SANDBOX'}
                     </button>
                   </div>
                 </div>
@@ -482,6 +540,43 @@ export default function ProductsManager() {
                 onChange={(e) => setProductPrefix(e.target.value.toUpperCase())}
                 className="w-full h-11 px-4 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:border-indigo-500 focus:outline-none font-mono uppercase"
               />
+            </div>
+
+            <div>
+              <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Payment Gateway Environment (Tripay)</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setProductPaymentMode('SANDBOX')}
+                  className={`p-3 rounded-xl border text-left flex items-start gap-2.5 transition ${
+                    productPaymentMode === 'SANDBOX'
+                      ? 'bg-amber-500/10 border-amber-500/50 text-amber-300'
+                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                  }`}
+                >
+                  <FlaskConical className="w-4 h-4 mt-0.5 text-amber-400 flex-shrink-0" />
+                  <div>
+                    <div className="text-xs font-bold text-white">SANDBOX (Test)</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">Simulasi pembayaran uji coba via Tripay Sandbox (Merchant T35062)</div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setProductPaymentMode('PRODUCTION')}
+                  className={`p-3 rounded-xl border text-left flex items-start gap-2.5 transition ${
+                    productPaymentMode === 'PRODUCTION'
+                      ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-300'
+                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                  }`}
+                >
+                  <ShieldCheck className="w-4 h-4 mt-0.5 text-emerald-400 flex-shrink-0" />
+                  <div>
+                    <div className="text-xs font-bold text-white">LIVE PRODUCTION</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">Transaksi pembayaran uang asli via Tripay Live (Merchant T35097)</div>
+                  </div>
+                </button>
+              </div>
             </div>
 
             <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">

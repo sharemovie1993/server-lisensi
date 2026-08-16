@@ -14,6 +14,7 @@ const client_1 = require("@prisma/client");
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const whatsapp_service_1 = require("../../services/whatsapp.service");
 const keys_1 = require("../../utils/keys");
+const tripay_resolver_1 = require("../../services/tripay-resolver");
 exports.prisma = new client_1.PrismaClient();
 /**
  * Normalisasi alias product ID yang tidak konsisten.
@@ -219,6 +220,10 @@ const sendOwnerOrderNotification = async (schoolName, slug, prodId, planName, ke
         const amountFormatted = amount === 0 ? 'Rp 0 (Gratis)' : `Rp ${amount.toLocaleString('id-ID')}`;
         const normalizedId = normalizeProductId(prodId);
         const productLabel = normalizedId === 'cakola' ? 'Platform Cakola' : (normalizedId === 'easy-tunnel' ? 'Easy Tunnel' : (normalizedId === 'privateer' ? 'Privateer' : prodId.toUpperCase()));
+        const tripayConfig = await (0, tripay_resolver_1.getTripayConfigByProductId)(normalizedId);
+        const modeNote = tripayConfig.mode === 'PRODUCTION'
+            ? `_Status: 🟢 Transaksi Mode PRODUCTION (Tripay Live / Real Money)_`
+            : `_Catatan: Karena produk ini dalam mode sandbox, Anda dapat membuka dashboard Sandbox Tripay untuk mengubah status invoice *${invoiceNum}* secara manual agar terkonfirmasi otomatis oleh sistem._`;
         const message = `*📢 [NOTIFIKASI OWNER] ORDER LISENSI BARU*
 
 Halo Owner! Ada transaksi/pengajuan lisensi baru masuk pada sistem.
@@ -235,7 +240,7 @@ Halo Owner! Ada transaksi/pengajuan lisensi baru masuk pada sistem.
 - *Total Biaya*: *${amountFormatted}*
 - *Metode Pembayaran*: *${paymentMethod}*
 
-_Catatan: Karena sistem dalam mode sandbox, Anda dapat membuka dashboard Sandbox Tripay/Payment Gateway untuk mengubah status invoice *${invoiceNum}* secara manual agar terkonfirmasi otomatis oleh sistem._`;
+${modeNote}`;
         await whatsapp_service_1.waGateway.sendMessage(ownerWA, message, 'ADMIN_NOTIFICATION', normalizedId);
         console.log(`[WA Owner Notify] Berhasil mengirim notifikasi order baru ke Owner (${ownerWA})`);
     }

@@ -2,6 +2,7 @@ export interface Product {
   id: string;
   name: string;
   prefix: string;
+  paymentMode?: 'PRODUCTION' | 'SANDBOX' | string;
   createdAt?: string;
 }
 

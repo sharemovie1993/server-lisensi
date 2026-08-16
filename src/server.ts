@@ -86,17 +86,6 @@ async function startServer() {
     console.log(`[WA] ✅ WA Gateway terhubung ke ${num}.`);
   });
 
-  // Start cron checks and Caddy configuration sync
-  await triggerCaddySync().catch(err => console.error('[CADDY SYNC ERROR]', err));
-  await checkExpirations();
-
-  // Setup daily cron job using node-cron (run at 01:00 AM every day)
-  cron.schedule('0 1 * * *', async () => {
-    console.log('[CRON-TRIGGER] Running scheduled daily checkExpirations at 01:00 AM...');
-    await checkExpirations();
-  });
-
-
   // Initialize Firewall rules
   if (process.platform === 'linux') {
     initVpnFirewall();
@@ -106,19 +95,24 @@ async function startServer() {
     await app.listen({ port: PORT, host: HOST });
     console.log(`[LICENSE SERVER] SaaS Engine running securely on http://${HOST}:${PORT}`);
   } catch (err: any) {
-    // ── Port conflict → exit(78) agar PM2 tidak loop restart ──────────────
-    // exit code 78 = EX_CONFIG (standard UNIX: environment/config error)
-    // Dikonfigurasi di ecosystem.config.js: stop_exit_codes: [78]
-    // Sehingga PM2 TIDAK akan restart saat terjadi port conflict
+    console.error('[LISTEN ERROR]', err);
     if (err.code === 'EADDRINUSE') {
       console.error(`[FATAL] Port ${PORT} sudah dipakai proses lain! Jalankan: sudo fuser -k ${PORT}/tcp`);
       console.error('[FATAL] Server tidak dapat start — menghentikan proses tanpa restart otomatis.');
       process.exit(78);
     }
-    app.log.error(err);
     process.exit(1);
   }
 
+  // Start cron checks and Caddy configuration sync in background
+  triggerCaddySync().catch(err => console.error('[CADDY SYNC ERROR]', err));
+  checkExpirations().catch(err => console.error('[STARTUP CRON ERROR]', err));
+
+  // Setup daily cron job using node-cron (run at 01:00 AM every day)
+  cron.schedule('0 1 * * *', async () => {
+    console.log('[CRON-TRIGGER] Running scheduled daily checkExpirations at 01:00 AM...');
+    await checkExpirations();
+  });
 }
 
 startServer();

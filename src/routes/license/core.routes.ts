@@ -30,6 +30,7 @@ import {
   buildTripayPayload,
   createTripayTransaction
 } from './services/tripay.service';
+import { getTripayConfigByProductId } from '../../services/tripay-resolver';
 import { sendError } from '../../utils/format';
 
 export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
@@ -401,11 +402,12 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
         });
       }
 
-      // ──────── 3. TRIPAY GATEWAY ────────
-      const TRIPAY_API_KEY = process.env.TRIPAY_API_KEY || '';
-      const TRIPAY_PRIVATE_KEY = process.env.TRIPAY_PRIVATE_KEY || '';
-      const TRIPAY_MERCHANT_CODE = process.env.TRIPAY_MERCHANT_CODE || '';
-      const TRIPAY_API_URL = process.env.TRIPAY_API_URL || 'https://tripay.co.id/api-sandbox';
+      // ──────── 3. TRIPAY GATEWAY (DYNAMIC RESOLVER) ────────
+      const tripayConfig = await getTripayConfigByProductId(prodId);
+      const TRIPAY_API_KEY = tripayConfig.apiKey;
+      const TRIPAY_PRIVATE_KEY = tripayConfig.privateKey;
+      const TRIPAY_MERCHANT_CODE = tripayConfig.merchantCode;
+      const TRIPAY_API_URL = tripayConfig.apiUrl;
 
       const signature = buildTripaySignature(TRIPAY_MERCHANT_CODE, invoiceNumber, basePrice, TRIPAY_PRIVATE_KEY);
       const settingsMap = await getSettingsMap(['billing_email', 'contact_phone']);
@@ -620,10 +622,13 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
         operatorPhone: targetPhone || null
       });
 
-      const TRIPAY_API_KEY = process.env.TRIPAY_API_KEY || '';
-      const TRIPAY_PRIVATE_KEY = process.env.TRIPAY_PRIVATE_KEY || '';
-      const TRIPAY_MERCHANT_CODE = process.env.TRIPAY_MERCHANT_CODE || '';
-      const TRIPAY_API_URL = process.env.TRIPAY_API_URL || 'https://tripay.co.id/api-sandbox';
+      const primaryPlanObj = await prisma.plan.findUnique({ where: { id: primaryPlanItem.planId }, select: { productId: true } });
+      const targetProdId = primaryPlanObj?.productId || 'hardware';
+      const tripayConfig = await getTripayConfigByProductId(targetProdId);
+      const TRIPAY_API_KEY = tripayConfig.apiKey;
+      const TRIPAY_PRIVATE_KEY = tripayConfig.privateKey;
+      const TRIPAY_MERCHANT_CODE = tripayConfig.merchantCode;
+      const TRIPAY_API_URL = tripayConfig.apiUrl;
 
       const signature = buildTripaySignature(TRIPAY_MERCHANT_CODE, invoiceNumber, totalAmount, TRIPAY_PRIVATE_KEY);
       const settingsMap = await getSettingsMap(['billing_email', 'contact_phone']);

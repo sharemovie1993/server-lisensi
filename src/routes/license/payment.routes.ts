@@ -5,6 +5,7 @@ import { httpPost } from '../../utils/http';
 import { renderInvoiceTemplate, formatIndonesianDate } from '../../utils/invoice-template';
 import { triggerCaddySync } from '../../services/caddy.service';
 import { logLicenseActivity } from '../../utils/logger';
+import { getTripayConfigByProductId, getAllTripayPrivateKeys } from '../../services/tripay-resolver';
 
 export const registerPaymentLicenseRoutes = (fastify: FastifyInstance) => {
 
@@ -101,19 +102,22 @@ export const registerPaymentLicenseRoutes = (fastify: FastifyInstance) => {
   // 3. Tripay callback webhook receiver
   fastify.post('/api/license/tripay-callback', async (request: FastifyRequest, reply: FastifyReply) => {
     const callbackSignature = request.headers['x-callback-signature'] as string;
-    const TRIPAY_PRIVATE_KEY = process.env.TRIPAY_PRIVATE_KEY || '';
 
     if (!callbackSignature) {
       return reply.status(400).send({ success: false, message: 'Missing callback signature.' });
     }
 
     const rawPayload = JSON.stringify(request.body);
-    const calculatedSignature = crypto
-      .createHmac('sha256', TRIPAY_PRIVATE_KEY)
-      .update(rawPayload)
-      .digest('hex');
+    const validPrivateKeys = getAllTripayPrivateKeys();
+    const isValidSignature = validPrivateKeys.some(key => {
+      const calculatedSignature = crypto
+        .createHmac('sha256', key)
+        .update(rawPayload)
+        .digest('hex');
+      return callbackSignature === calculatedSignature;
+    });
 
-    if (callbackSignature !== calculatedSignature) {
+    if (!isValidSignature) {
       return reply.status(403).send({ success: false, message: 'Invalid callback signature.' });
     }
 
@@ -560,9 +564,8 @@ Pembayaran untuk invoice *${invoice.invoiceNumber}* telah berhasil diterima!
     }
   });
 
-  // In-memory cache for payment channels
-  let paymentChannelsCache: any = null;
-  let cacheExpirationTime = 0;
+  // In-memory cache for payment channels per mode
+  const paymentChannelsCache: Record<string, { data: any[]; expiration: number }> = {};
 
   const FALLBACK_PAYMENT_CHANNELS = [
     { group: "Virtual Account", code: "BCAVA", name: "BCA Virtual Account", type: "direct", active: true, fee_flat: 5500, fee_percent: 0, icon_url: "https://assets.tripay.co.id/upload/payment-icon/ytBKvaleGy1605201833.png" },
@@ -574,8 +577,63 @@ Pembayaran untuk invoice *${invoice.invoiceNumber}* telah berhasil diterima!
   ];
 
   // 6. Payment Channels list
-  fastify.get('/api/license/payment-channels', async (_request: FastifyRequest, reply: FastifyReply) => {
+  fastify.get('/api/license/payment-channels', async (request: FastifyRequest, reply: FastifyReply) => {
     const currentTime = Date.now();
+    const query = request.query as any;
+    let targetProductId = query?.productId || query?.product_id;
+
+    // 1. Check custom header if present
+    if (!targetProductId && request.headers['x-product-id']) {
+      targetProductId = String(request.headers['x-product-id']);
+    }
+
+    // 2. Check planId in query
+    if (!targetProductId && (query?.planId || query?.plan_id)) {
+      try {
+        const plan = await prisma.plan.findUnique({
+          where: { id: String(query.planId || query.plan_id) },
+          select: { productId: true }
+        });
+        if (plan?.productId) targetProductId = plan.productId;
+      } catch (err) {}
+    }
+
+    // 3. Check licenseKey in query
+    if (!targetProductId && (query?.key || query?.licenseKey || query?.license_key)) {
+      try {
+        const lic = await prisma.license.findFirst({
+          where: { licenseKey: String(query.key || query.licenseKey || query.license_key) },
+          select: { productId: true }
+        });
+        if (lic?.productId) targetProductId = lic.productId;
+      } catch (err) {}
+    }
+
+    // 4. Dynamic database lookup from domain / referer (supports any custom domain in DB)
+    if (!targetProductId) {
+      const rawOrigin = String(request.headers.origin || request.headers.referer || '').trim();
+      if (rawOrigin) {
+        try {
+          const urlObj = new URL(rawOrigin.startsWith('http') ? rawOrigin : `http://${rawOrigin}`);
+          const hostname = urlObj.hostname.toLowerCase();
+          const subdomain = hostname.split('.')[0];
+
+          const lic = await prisma.license.findFirst({
+            where: {
+              OR: [
+                { customDomain: hostname },
+                { requestedSlug: subdomain }
+              ]
+            },
+            select: { productId: true }
+          });
+          if (lic?.productId) targetProductId = lic.productId;
+        } catch (err) {}
+      }
+    }
+
+    const tripayConfig = await getTripayConfigByProductId(targetProductId);
+    const cacheKey = tripayConfig.mode;
     let manualChannel: any = null;
 
     try {
@@ -599,18 +657,18 @@ Pembayaran untuk invoice *${invoice.invoiceNumber}* telah berhasil diterima!
       console.error('[payment-channels] Failed to read manual payment settings:', err.message);
     }
 
-    if (paymentChannelsCache && currentTime < cacheExpirationTime) {
-      const resultData = [...paymentChannelsCache];
+    if (paymentChannelsCache[cacheKey] && currentTime < paymentChannelsCache[cacheKey].expiration) {
+      const resultData = [...paymentChannelsCache[cacheKey].data];
       if (manualChannel) {
         resultData.unshift(manualChannel);
       }
-      return reply.send({ success: true, gateway_online: true, message: 'Success', data: resultData });
+      return reply.send({ success: true, gateway_online: true, payment_mode: tripayConfig.mode, message: 'Success', data: resultData });
     }
 
     try {
       const fetch = require('node-fetch');
-      const tripayApiUrl = process.env.TRIPAY_API_URL || 'https://tripay.co.id/api-sandbox';
-      const tripayApiKey = process.env.TRIPAY_API_KEY;
+      const tripayApiUrl = tripayConfig.apiUrl;
+      const tripayApiKey = tripayConfig.apiKey;
 
       if (!tripayApiUrl || !tripayApiKey) {
         throw new Error('Tripay credentials are not properly configured.');
@@ -618,7 +676,7 @@ Pembayaran untuk invoice *${invoice.invoiceNumber}* telah berhasil diterima!
 
       const response = await fetch(`${tripayApiUrl}/merchant/payment-channel`, {
         headers: { 'Authorization': `Bearer ${tripayApiKey}` },
-        timeout: 2000
+        timeout: 3000
       });
       const data = await response.json();
 
@@ -637,37 +695,34 @@ Pembayaran untuk invoice *${invoice.invoiceNumber}* telah berhasil diterima!
           };
         });
 
-        paymentChannelsCache = mappedData;
-        cacheExpirationTime = currentTime + (5 * 60 * 1000);
+        paymentChannelsCache[cacheKey] = {
+          data: mappedData,
+          expiration: currentTime + (5 * 60 * 1000)
+        };
 
         const resultData = [...mappedData];
         if (manualChannel) {
           resultData.unshift(manualChannel);
         }
-        return reply.send({ success: true, gateway_online: true, message: 'Success', data: resultData });
+        return reply.send({ success: true, gateway_online: true, payment_mode: tripayConfig.mode, message: 'Success', data: resultData });
       }
 
       throw new Error(data.message || 'API responded with success=false');
     } catch (err: any) {
       console.error('[payment-channels API Error] Fetching Tripay failed:', err.message);
-      if (paymentChannelsCache) {
-        const resultData = [...paymentChannelsCache];
+      if (paymentChannelsCache[cacheKey]) {
+        const resultData = [...paymentChannelsCache[cacheKey].data];
         if (manualChannel) {
           resultData.unshift(manualChannel);
         }
-        return reply.send({ success: true, gateway_online: false, message: 'Serving from stale cache due to gateway error', data: resultData });
+        return reply.send({ success: true, gateway_online: false, payment_mode: tripayConfig.mode, message: 'Cached data', data: resultData });
       }
 
       const resultData = [...FALLBACK_PAYMENT_CHANNELS];
       if (manualChannel) {
         resultData.unshift(manualChannel);
       }
-      return reply.send({
-        success: true,
-        gateway_online: false,
-        message: 'Serving offline fallback payment methods',
-        data: resultData
-      });
+      return reply.send({ success: true, gateway_online: false, payment_mode: tripayConfig.mode, message: 'Fallback data', data: resultData });
     }
   });
 

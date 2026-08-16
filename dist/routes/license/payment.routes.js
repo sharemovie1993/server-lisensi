@@ -10,6 +10,7 @@ const http_1 = require("../../utils/http");
 const invoice_template_1 = require("../../utils/invoice-template");
 const caddy_service_1 = require("../../services/caddy.service");
 const logger_1 = require("../../utils/logger");
+const tripay_resolver_1 = require("../../services/tripay-resolver");
 const registerPaymentLicenseRoutes = (fastify) => {
     // 1. Get packages / plans list
     fastify.get('/api/license/packages', async (request, reply) => {
@@ -96,16 +97,19 @@ const registerPaymentLicenseRoutes = (fastify) => {
     // 3. Tripay callback webhook receiver
     fastify.post('/api/license/tripay-callback', async (request, reply) => {
         const callbackSignature = request.headers['x-callback-signature'];
-        const TRIPAY_PRIVATE_KEY = process.env.TRIPAY_PRIVATE_KEY || '';
         if (!callbackSignature) {
             return reply.status(400).send({ success: false, message: 'Missing callback signature.' });
         }
         const rawPayload = JSON.stringify(request.body);
-        const calculatedSignature = crypto_1.default
-            .createHmac('sha256', TRIPAY_PRIVATE_KEY)
-            .update(rawPayload)
-            .digest('hex');
-        if (callbackSignature !== calculatedSignature) {
+        const validPrivateKeys = (0, tripay_resolver_1.getAllTripayPrivateKeys)();
+        const isValidSignature = validPrivateKeys.some(key => {
+            const calculatedSignature = crypto_1.default
+                .createHmac('sha256', key)
+                .update(rawPayload)
+                .digest('hex');
+            return callbackSignature === calculatedSignature;
+        });
+        if (!isValidSignature) {
             return reply.status(403).send({ success: false, message: 'Invalid callback signature.' });
         }
         const body = request.body;
@@ -515,9 +519,8 @@ Pembayaran untuk invoice *${invoice.invoiceNumber}* telah berhasil diterima!
             return reply.status(500).type('text/html').send('<h1>Error 500: Gagal merender invoice</h1>');
         }
     });
-    // In-memory cache for payment channels
-    let paymentChannelsCache = null;
-    let cacheExpirationTime = 0;
+    // In-memory cache for payment channels per mode
+    const paymentChannelsCache = {};
     const FALLBACK_PAYMENT_CHANNELS = [
         { group: "Virtual Account", code: "BCAVA", name: "BCA Virtual Account", type: "direct", active: true, fee_flat: 5500, fee_percent: 0, icon_url: "https://assets.tripay.co.id/upload/payment-icon/ytBKvaleGy1605201833.png" },
         { group: "Virtual Account", code: "BNIVA", name: "BNI Virtual Account", type: "direct", active: true, fee_flat: 4250, fee_percent: 0, icon_url: "https://assets.tripay.co.id/upload/payment-icon/n22Qsh8jMa1583433577.png" },
@@ -527,8 +530,63 @@ Pembayaran untuk invoice *${invoice.invoiceNumber}* telah berhasil diterima!
         { group: "E-Wallet", code: "QRIS", name: "QRIS by ShopeePay", type: "direct", active: true, fee_flat: 750, fee_percent: 0.7, icon_url: "https://assets.tripay.co.id/upload/payment-icon/BpE4BPVyIw1605597490.png" }
     ];
     // 6. Payment Channels list
-    fastify.get('/api/license/payment-channels', async (_request, reply) => {
+    fastify.get('/api/license/payment-channels', async (request, reply) => {
         const currentTime = Date.now();
+        const query = request.query;
+        let targetProductId = query?.productId || query?.product_id;
+        // 1. Check custom header if present
+        if (!targetProductId && request.headers['x-product-id']) {
+            targetProductId = String(request.headers['x-product-id']);
+        }
+        // 2. Check planId in query
+        if (!targetProductId && (query?.planId || query?.plan_id)) {
+            try {
+                const plan = await helpers_1.prisma.plan.findUnique({
+                    where: { id: String(query.planId || query.plan_id) },
+                    select: { productId: true }
+                });
+                if (plan?.productId)
+                    targetProductId = plan.productId;
+            }
+            catch (err) { }
+        }
+        // 3. Check licenseKey in query
+        if (!targetProductId && (query?.key || query?.licenseKey || query?.license_key)) {
+            try {
+                const lic = await helpers_1.prisma.license.findFirst({
+                    where: { licenseKey: String(query.key || query.licenseKey || query.license_key) },
+                    select: { productId: true }
+                });
+                if (lic?.productId)
+                    targetProductId = lic.productId;
+            }
+            catch (err) { }
+        }
+        // 4. Dynamic database lookup from domain / referer (supports any custom domain in DB)
+        if (!targetProductId) {
+            const rawOrigin = String(request.headers.origin || request.headers.referer || '').trim();
+            if (rawOrigin) {
+                try {
+                    const urlObj = new URL(rawOrigin.startsWith('http') ? rawOrigin : `http://${rawOrigin}`);
+                    const hostname = urlObj.hostname.toLowerCase();
+                    const subdomain = hostname.split('.')[0];
+                    const lic = await helpers_1.prisma.license.findFirst({
+                        where: {
+                            OR: [
+                                { customDomain: hostname },
+                                { requestedSlug: subdomain }
+                            ]
+                        },
+                        select: { productId: true }
+                    });
+                    if (lic?.productId)
+                        targetProductId = lic.productId;
+                }
+                catch (err) { }
+            }
+        }
+        const tripayConfig = await (0, tripay_resolver_1.getTripayConfigByProductId)(targetProductId);
+        const cacheKey = tripayConfig.mode;
         let manualChannel = null;
         try {
             const manualEnabledRow = await helpers_1.prisma.systemSetting.findUnique({ where: { key: 'manual_payment_enabled' } }) || { value: '1' };
@@ -551,23 +609,23 @@ Pembayaran untuk invoice *${invoice.invoiceNumber}* telah berhasil diterima!
         catch (err) {
             console.error('[payment-channels] Failed to read manual payment settings:', err.message);
         }
-        if (paymentChannelsCache && currentTime < cacheExpirationTime) {
-            const resultData = [...paymentChannelsCache];
+        if (paymentChannelsCache[cacheKey] && currentTime < paymentChannelsCache[cacheKey].expiration) {
+            const resultData = [...paymentChannelsCache[cacheKey].data];
             if (manualChannel) {
                 resultData.unshift(manualChannel);
             }
-            return reply.send({ success: true, gateway_online: true, message: 'Success', data: resultData });
+            return reply.send({ success: true, gateway_online: true, payment_mode: tripayConfig.mode, message: 'Success', data: resultData });
         }
         try {
             const fetch = require('node-fetch');
-            const tripayApiUrl = process.env.TRIPAY_API_URL || 'https://tripay.co.id/api-sandbox';
-            const tripayApiKey = process.env.TRIPAY_API_KEY;
+            const tripayApiUrl = tripayConfig.apiUrl;
+            const tripayApiKey = tripayConfig.apiKey;
             if (!tripayApiUrl || !tripayApiKey) {
                 throw new Error('Tripay credentials are not properly configured.');
             }
             const response = await fetch(`${tripayApiUrl}/merchant/payment-channel`, {
                 headers: { 'Authorization': `Bearer ${tripayApiKey}` },
-                timeout: 2000
+                timeout: 3000
             });
             const data = await response.json();
             if (data.success && Array.isArray(data.data)) {
@@ -584,35 +642,32 @@ Pembayaran untuk invoice *${invoice.invoiceNumber}* telah berhasil diterima!
                         fee_percent: feePercent
                     };
                 });
-                paymentChannelsCache = mappedData;
-                cacheExpirationTime = currentTime + (5 * 60 * 1000);
+                paymentChannelsCache[cacheKey] = {
+                    data: mappedData,
+                    expiration: currentTime + (5 * 60 * 1000)
+                };
                 const resultData = [...mappedData];
                 if (manualChannel) {
                     resultData.unshift(manualChannel);
                 }
-                return reply.send({ success: true, gateway_online: true, message: 'Success', data: resultData });
+                return reply.send({ success: true, gateway_online: true, payment_mode: tripayConfig.mode, message: 'Success', data: resultData });
             }
             throw new Error(data.message || 'API responded with success=false');
         }
         catch (err) {
             console.error('[payment-channels API Error] Fetching Tripay failed:', err.message);
-            if (paymentChannelsCache) {
-                const resultData = [...paymentChannelsCache];
+            if (paymentChannelsCache[cacheKey]) {
+                const resultData = [...paymentChannelsCache[cacheKey].data];
                 if (manualChannel) {
                     resultData.unshift(manualChannel);
                 }
-                return reply.send({ success: true, gateway_online: false, message: 'Serving from stale cache due to gateway error', data: resultData });
+                return reply.send({ success: true, gateway_online: false, payment_mode: tripayConfig.mode, message: 'Cached data', data: resultData });
             }
             const resultData = [...FALLBACK_PAYMENT_CHANNELS];
             if (manualChannel) {
                 resultData.unshift(manualChannel);
             }
-            return reply.send({
-                success: true,
-                gateway_online: false,
-                message: 'Serving offline fallback payment methods',
-                data: resultData
-            });
+            return reply.send({ success: true, gateway_online: false, payment_mode: tripayConfig.mode, message: 'Fallback data', data: resultData });
         }
     });
     // 7. Upload manual receipt

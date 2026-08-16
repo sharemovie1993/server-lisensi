@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 import { waGateway } from '../../services/whatsapp.service';
 import { ADMIN_SECRET } from '../../utils/keys';
+import { getTripayConfigByProductId } from '../../services/tripay-resolver';
 
 export const prisma = new PrismaClient();
 
@@ -264,6 +265,11 @@ export const sendOwnerOrderNotification = async (
     const normalizedId = normalizeProductId(prodId);
     const productLabel = normalizedId === 'cakola' ? 'Platform Cakola' : (normalizedId === 'easy-tunnel' ? 'Easy Tunnel' : (normalizedId === 'privateer' ? 'Privateer' : prodId.toUpperCase()));
 
+    const tripayConfig = await getTripayConfigByProductId(normalizedId);
+    const modeNote = tripayConfig.mode === 'PRODUCTION'
+      ? `_Status: 🟢 Transaksi Mode PRODUCTION (Tripay Live / Real Money)_`
+      : `_Catatan: Karena produk ini dalam mode sandbox, Anda dapat membuka dashboard Sandbox Tripay untuk mengubah status invoice *${invoiceNum}* secara manual agar terkonfirmasi otomatis oleh sistem._`;
+
     const message = `*📢 [NOTIFIKASI OWNER] ORDER LISENSI BARU*
 
 Halo Owner! Ada transaksi/pengajuan lisensi baru masuk pada sistem.
@@ -280,7 +286,7 @@ Halo Owner! Ada transaksi/pengajuan lisensi baru masuk pada sistem.
 - *Total Biaya*: *${amountFormatted}*
 - *Metode Pembayaran*: *${paymentMethod}*
 
-_Catatan: Karena sistem dalam mode sandbox, Anda dapat membuka dashboard Sandbox Tripay/Payment Gateway untuk mengubah status invoice *${invoiceNum}* secara manual agar terkonfirmasi otomatis oleh sistem._`;
+${modeNote}`;
 
     await waGateway.sendMessage(ownerWA, message, 'ADMIN_NOTIFICATION', normalizedId);
     console.log(`[WA Owner Notify] Berhasil mengirim notifikasi order baru ke Owner (${ownerWA})`);

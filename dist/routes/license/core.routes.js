@@ -17,6 +17,7 @@ const license_helpers_1 = require("./helpers/license.helpers");
 const token_helpers_1 = require("./helpers/token.helpers");
 const billing_service_1 = require("./services/billing.service");
 const tripay_service_1 = require("./services/tripay.service");
+const tripay_resolver_1 = require("../../services/tripay-resolver");
 const format_1 = require("../../utils/format");
 const registerCoreLicenseRoutes = (fastify) => {
     // 1. Request / renew license and billing setup
@@ -323,11 +324,12 @@ const registerCoreLicenseRoutes = (fastify) => {
                     }
                 });
             }
-            // ──────── 3. TRIPAY GATEWAY ────────
-            const TRIPAY_API_KEY = process.env.TRIPAY_API_KEY || '';
-            const TRIPAY_PRIVATE_KEY = process.env.TRIPAY_PRIVATE_KEY || '';
-            const TRIPAY_MERCHANT_CODE = process.env.TRIPAY_MERCHANT_CODE || '';
-            const TRIPAY_API_URL = process.env.TRIPAY_API_URL || 'https://tripay.co.id/api-sandbox';
+            // ──────── 3. TRIPAY GATEWAY (DYNAMIC RESOLVER) ────────
+            const tripayConfig = await (0, tripay_resolver_1.getTripayConfigByProductId)(prodId);
+            const TRIPAY_API_KEY = tripayConfig.apiKey;
+            const TRIPAY_PRIVATE_KEY = tripayConfig.privateKey;
+            const TRIPAY_MERCHANT_CODE = tripayConfig.merchantCode;
+            const TRIPAY_API_URL = tripayConfig.apiUrl;
             const signature = (0, tripay_service_1.buildTripaySignature)(TRIPAY_MERCHANT_CODE, invoiceNumber, basePrice, TRIPAY_PRIVATE_KEY);
             const settingsMap = await (0, settings_service_1.getSettingsMap)(['billing_email', 'contact_phone']);
             const tripayPayload = (0, tripay_service_1.buildTripayPayload)({
@@ -488,10 +490,13 @@ const registerCoreLicenseRoutes = (fastify) => {
                 includeVpn: 0,
                 operatorPhone: targetPhone || null
             });
-            const TRIPAY_API_KEY = process.env.TRIPAY_API_KEY || '';
-            const TRIPAY_PRIVATE_KEY = process.env.TRIPAY_PRIVATE_KEY || '';
-            const TRIPAY_MERCHANT_CODE = process.env.TRIPAY_MERCHANT_CODE || '';
-            const TRIPAY_API_URL = process.env.TRIPAY_API_URL || 'https://tripay.co.id/api-sandbox';
+            const primaryPlanObj = await helpers_1.prisma.plan.findUnique({ where: { id: primaryPlanItem.planId }, select: { productId: true } });
+            const targetProdId = primaryPlanObj?.productId || 'hardware';
+            const tripayConfig = await (0, tripay_resolver_1.getTripayConfigByProductId)(targetProdId);
+            const TRIPAY_API_KEY = tripayConfig.apiKey;
+            const TRIPAY_PRIVATE_KEY = tripayConfig.privateKey;
+            const TRIPAY_MERCHANT_CODE = tripayConfig.merchantCode;
+            const TRIPAY_API_URL = tripayConfig.apiUrl;
             const signature = (0, tripay_service_1.buildTripaySignature)(TRIPAY_MERCHANT_CODE, invoiceNumber, totalAmount, TRIPAY_PRIVATE_KEY);
             const settingsMap = await (0, settings_service_1.getSettingsMap)(['billing_email', 'contact_phone']);
             const tripayOrderItems = lineItems.map(item => ({
