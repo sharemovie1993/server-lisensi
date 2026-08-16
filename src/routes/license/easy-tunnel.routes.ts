@@ -313,6 +313,8 @@ PersistentKeepalive = 25
         data: { activeHostname: null }
       });
 
+      await triggerCaddySync();
+
       console.log(`[Easy Tunnel] Released active device lock for license: ${license_key}`);
 
       return reply.send({
