@@ -324,6 +324,7 @@ export async function handleIncomingMessage(
     );
 
     try {
+      await prisma.activityLog.deleteMany({ where: { licenseKey: session.licenseKey } });
       await prisma.subscription.deleteMany({ where: { licenseId: session.licenseId } });
       await prisma.invoice.deleteMany({ where: { licenseId: session.licenseId } });
       await prisma.activatedDevice.deleteMany({ where: { licenseId: session.licenseId } });

@@ -308,8 +308,10 @@ const registerTenantRoutes = (fastify) => {
         try {
             const license = await helpers_1.prisma.license.findUnique({ where: { id } });
             if (license) {
+                await helpers_1.prisma.activityLog.deleteMany({ where: { licenseKey: license.licenseKey } });
                 await helpers_1.prisma.subscription.deleteMany({ where: { licenseId: id } });
                 await helpers_1.prisma.invoice.deleteMany({ where: { licenseId: id } });
+                await helpers_1.prisma.activatedDevice.deleteMany({ where: { licenseId: id } });
                 await helpers_1.prisma.license.delete({ where: { id } });
                 if (license.productId !== 'privateer') {
                     await (0, caddy_service_1.triggerCaddySync)();

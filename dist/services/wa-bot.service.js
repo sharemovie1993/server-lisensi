@@ -239,6 +239,7 @@ async function handleIncomingMessage(fromJid, text, sendReply, altJid) {
         await sendReply(fromJid, `🗑️ *Permintaan hapus diterima. Memproses...*\n\n` +
             `Menghapus data lisensi *${session.schoolName}* \`${session.licenseKey}\`...`);
         try {
+            await prisma.activityLog.deleteMany({ where: { licenseKey: session.licenseKey } });
             await prisma.subscription.deleteMany({ where: { licenseId: session.licenseId } });
             await prisma.invoice.deleteMany({ where: { licenseId: session.licenseId } });
             await prisma.activatedDevice.deleteMany({ where: { licenseId: session.licenseId } });

@@ -335,6 +335,14 @@ class WhatsappService extends events_1.EventEmitter {
         }
         const jid = cleaned + '@s.whatsapp.net';
         try {
+            // 1. Simulasi status mengetik (Presence Composing) manusiawi anti-banned
+            try {
+                await this.sock.sendPresenceUpdate('composing', jid);
+                const naturalTypingDelay = 1000 + Math.floor(Math.random() * 1500); // 1.0s - 2.5s
+                await new Promise(resolve => setTimeout(resolve, naturalTypingDelay));
+                await this.sock.sendPresenceUpdate('paused', jid);
+            }
+            catch (_) { }
             const sentMsg = await this.sock.sendMessage(jid, { text: pesan });
             this.messagesSentToday++;
             console.log(`[WA] Pesan terkirim ke ${nomor} (JID: ${jid})`);

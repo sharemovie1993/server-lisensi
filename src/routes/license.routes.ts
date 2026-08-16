@@ -5,6 +5,7 @@ import { registerEasyTunnelRoutes } from './license/easy-tunnel.routes';
 import { registerAuthLicenseRoutes } from './license/auth.routes';
 import { registerPaymentLicenseRoutes } from './license/payment.routes';
 import { registerPrivateerLicenseRoutes } from './license/privateer.routes';
+import { registerUndanganDigitalLicenseRoutes } from './license/undangan-digital.routes';
 
 export const licenseRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
   registerCoreLicenseRoutes(fastify);
@@ -13,5 +14,5 @@ export const licenseRoutes: FastifyPluginAsync = async (fastify: FastifyInstance
   registerAuthLicenseRoutes(fastify);
   registerPaymentLicenseRoutes(fastify);
   registerPrivateerLicenseRoutes(fastify);
+  registerUndanganDigitalLicenseRoutes(fastify); // Undangan Digital dedicated (undangan-digital)
 };
-

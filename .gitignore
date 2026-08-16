@@ -9,3 +9,9 @@ public/build-meta.json
 *.log
 vps_*.js
 get_schema.js
+*.pem
+CredentialVPS.*
+release*.tar.gz
+*.zip
+wa_auth/
+

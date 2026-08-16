@@ -43,7 +43,7 @@ try {
 
 # 4. EKSTRAKSI & RESTART PM2 DI VPS
 Write-Host "`n[4/4] Meng-ekstrak & merestart PM2 di VPS (Tanpa Build di VPS)..." -ForegroundColor Green
-$remoteCmd = "cd $REMOTE_DIR && sudo tar -xzf release_dist.tar.gz && sudo npx prisma generate && sudo pm2 restart licensing-server"
+$remoteCmd = "cd $REMOTE_DIR && sudo tar -xzf release_dist.tar.gz && npx prisma generate && pm2 restart licensing-server"
 try {
     ssh -i $VPS_PEM -o StrictHostKeyChecking=no "${VPS_USER}@${VPS_IP}" $remoteCmd
     Write-Host "`n==========================================================================" -ForegroundColor Cyan

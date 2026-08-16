@@ -81,10 +81,9 @@ async function startServer() {
     console.error('[WA GATEWAY ERROR] Gagal inisialisasi WA Gateway saat startup:', err.message);
   });
 
-  // Run checkExpirations immediately on WA connect or startup fallback
+  // Log when WA gateway connects
   waGateway.on('connected', async (num) => {
-    console.log(`[WA] WA Gateway terhubung ke ${num}. Menjalankan checkExpirations...`);
-    await checkExpirations();
+    console.log(`[WA] ✅ WA Gateway terhubung ke ${num}.`);
   });
 
   // Start cron checks and Caddy configuration sync

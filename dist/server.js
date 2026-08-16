@@ -75,10 +75,9 @@ async function startServer() {
     whatsapp_service_1.waGateway.init().catch(err => {
         console.error('[WA GATEWAY ERROR] Gagal inisialisasi WA Gateway saat startup:', err.message);
     });
-    // Run checkExpirations immediately on WA connect or startup fallback
+    // Log when WA gateway connects
     whatsapp_service_1.waGateway.on('connected', async (num) => {
-        console.log(`[WA] WA Gateway terhubung ke ${num}. Menjalankan checkExpirations...`);
-        await (0, cron_service_1.checkExpirations)();
+        console.log(`[WA] ✅ WA Gateway terhubung ke ${num}.`);
     });
     // Start cron checks and Caddy configuration sync
     await (0, caddy_service_1.triggerCaddySync)().catch(err => console.error('[CADDY SYNC ERROR]', err));

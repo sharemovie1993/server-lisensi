@@ -191,23 +191,29 @@ async function cleanupInactiveTrials() {
             return { warningsSent, deletedLicenses: 0 };
         }
         for (const lic of deleteCandidates) {
-            // Safety: jangan hapus kalau ada invoice lunas
-            const hasPaidInvoice = lic.invoices.some(inv => inv.status === 'paid' || inv.status === 'PAID');
-            if (hasPaidInvoice)
-                continue;
-            console.log(`[CRON-CLEANUP] Deleting inactive trial license: ${lic.licenseKey} for ${lic.schoolName}`);
-            // Kirim notifikasi WA penghapusan ke operator SEBELUM menghapus
-            if (lic.operatorPhone) {
-                const msg = (0, wa_bot_service_1.buildDeletionMessage)(lic.schoolName, lic.licenseKey, lic.requestedSlug ?? null);
-                await sendWaNotif(lic.operatorPhone, msg, 'CRON_DELETION', lic.productId);
-                console.log(`[CRON-WA] Notifikasi penghapusan terkirim ke operator ${lic.schoolName} (${lic.operatorPhone})`);
+            try {
+                // Safety: jangan hapus kalau ada invoice lunas
+                const hasPaidInvoice = lic.invoices.some(inv => inv.status === 'paid' || inv.status === 'PAID');
+                if (hasPaidInvoice)
+                    continue;
+                console.log(`[CRON-CLEANUP] Deleting inactive trial license: ${lic.licenseKey} for ${lic.schoolName}`);
+                // Hapus data relasi terlebih dahulu
+                await prisma.activityLog.deleteMany({ where: { licenseKey: lic.licenseKey } });
+                await prisma.subscription.deleteMany({ where: { licenseId: lic.id } });
+                await prisma.invoice.deleteMany({ where: { licenseId: lic.id } });
+                await prisma.activatedDevice.deleteMany({ where: { licenseId: lic.id } });
+                await prisma.license.delete({ where: { id: lic.id } });
+                // Kirim notifikasi WA penghapusan ke operator SETELAH berhasil menghapus dari database
+                if (lic.operatorPhone) {
+                    const msg = (0, wa_bot_service_1.buildDeletionMessage)(lic.schoolName, lic.licenseKey, lic.requestedSlug ?? null);
+                    await sendWaNotif(lic.operatorPhone, msg, 'CRON_DELETION', lic.productId);
+                    console.log(`[CRON-WA] Notifikasi penghapusan terkirim ke operator ${lic.schoolName} (${lic.operatorPhone})`);
+                }
+                deletedCount++;
             }
-            // Hapus data secara berurutan (relasi)
-            await prisma.subscription.deleteMany({ where: { licenseId: lic.id } });
-            await prisma.invoice.deleteMany({ where: { licenseId: lic.id } });
-            await prisma.activatedDevice.deleteMany({ where: { licenseId: lic.id } });
-            await prisma.license.delete({ where: { id: lic.id } });
-            deletedCount++;
+            catch (singleErr) {
+                console.error(`[CRON-CLEANUP] Gagal menghapus lisensi ${lic.licenseKey}:`, singleErr.message);
+            }
         }
         if (deletedCount > 0) {
             console.log(`[CRON-CLEANUP] Successfully cleaned up ${deletedCount} inactive trial licenses.`);
@@ -265,23 +271,31 @@ async function cleanupExpiredInvoices() {
             include: { license: true }
         });
         for (const inv of deleteCandidates) {
-            const hasPaid = inv.license && (inv.license.status === 'active' || inv.license.isActive === 1);
-            if (hasPaid) {
-                // Jika lisensinya aktif (sudah dibayar melalui invoice lain),
-                // cukup hapus invoice yang expired ini saja agar database bersih. Jangan sentuh lisensi aktifnya!
-                console.log(`[CRON-INVOICE] Deleting expired invoice only (license active): ${inv.invoiceNumber}`);
-                await prisma.invoice.delete({ where: { id: inv.id } });
-                deletedInvoices++;
+            try {
+                const hasPaid = inv.license && (inv.license.status === 'active' || inv.license.isActive === 1);
+                if (hasPaid) {
+                    // Jika lisensinya aktif (sudah dibayar melalui invoice lain),
+                    // cukup hapus invoice yang expired ini saja agar database bersih. Jangan sentuh lisensi aktifnya!
+                    console.log(`[CRON-INVOICE] Deleting expired invoice only (license active): ${inv.invoiceNumber}`);
+                    await prisma.invoice.delete({ where: { id: inv.id } });
+                    deletedInvoices++;
+                }
+                else {
+                    // Jika lisensinya memang tidak aktif (unpaid/trial terbengkalai), hapus keduanya
+                    console.log(`[CRON-INVOICE] Deleting expired invoice & license: ${inv.invoiceNumber} (created: ${inv.createdAt})`);
+                    if (inv.license) {
+                        await prisma.activityLog.deleteMany({ where: { licenseKey: inv.license.licenseKey } });
+                    }
+                    await prisma.subscription.deleteMany({ where: { licenseId: inv.licenseId } });
+                    await prisma.activatedDevice.deleteMany({ where: { licenseId: inv.licenseId } });
+                    await prisma.invoice.delete({ where: { id: inv.id } });
+                    await prisma.license.deleteMany({ where: { id: inv.licenseId } });
+                    deletedLicenses++;
+                    deletedInvoices++;
+                }
             }
-            else {
-                // Jika lisensinya memang tidak aktif (unpaid/trial terbengkalai), hapus keduanya
-                console.log(`[CRON-INVOICE] Deleting expired invoice & license: ${inv.invoiceNumber} (created: ${inv.createdAt})`);
-                await prisma.subscription.deleteMany({ where: { licenseId: inv.licenseId } });
-                await prisma.activatedDevice.deleteMany({ where: { licenseId: inv.licenseId } });
-                await prisma.invoice.delete({ where: { id: inv.id } });
-                await prisma.license.deleteMany({ where: { id: inv.licenseId } });
-                deletedLicenses++;
-                deletedInvoices++;
+            catch (singleErr) {
+                console.error(`[CRON-INVOICE] Gagal menghapus invoice/lisensi ${inv.invoiceNumber}:`, singleErr.message);
             }
         }
         if (deletedInvoices > 0) {

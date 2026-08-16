@@ -113,7 +113,7 @@ model Subscription {
   endDate    String   @map("end_date")
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
-  license    License  @relation(fields: [licenseId], references: [id])
+  license    License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
 
   @@map("subscriptions")
 }
@@ -142,7 +142,7 @@ model Invoice {
   planId              String?   @map("plan_id")
   createdAt           DateTime  @default(now()) @map("created_at")
   paymentProof        String?   @map("payment_proof")
-  license             License   @relation(fields: [licenseId], references: [id])
+  license             License   @relation(fields: [licenseId], references: [id], onDelete: Cascade)
   plan                Plan?     @relation(fields: [planId], references: [id])
 
   @@map("invoices")
@@ -155,7 +155,7 @@ model ActivityLog {
   ipAddress  String   @map("ip_address")
   action     String
   createdAt  DateTime @default(now()) @map("created_at")
-  license    License  @relation(fields: [licenseKey], references: [licenseKey])
+  license    License  @relation(fields: [licenseKey], references: [licenseKey], onDelete: Cascade)
 
   @@map("activity_logs")
 }
