@@ -110,7 +110,7 @@ export const sendLicenseWhatsAppNotification = async (
   invoiceNum: string,
   amount: number,
   paymentMethod: string,
-  status: 'paid' | 'unpaid',
+  status: 'paid' | 'unpaid' | 'expired',
   payCode?: string | null,
   qrUrl?: string | null
 ) => {
@@ -126,6 +126,8 @@ export const sendLicenseWhatsAppNotification = async (
     let paymentStatusNotes = '';
     if (status === 'paid') {
       paymentStatusNotes = `*Status*: ✅ *${isPrivateer ? 'PEMBAYARAN BERHASIL' : 'LUNAS'}* (${isPrivateer ? 'Saldo Sesi Bertambah' : 'Lisensi Aktif'})`;
+    } else if (status === 'expired') {
+      paymentStatusNotes = `*Status*: ⏰ *KADALUARSA (EXPIRED)*\nBatas waktu pembayaran tagihan ini telah berakhir. Silakan lakukan pemesanan/tagihan baru melalui panel admin.`;
     } else {
       paymentStatusNotes = `*Status*: ⚠️ *MENUNGGU PEMBAYARAN*\n`;
       if (paymentMethod.toLowerCase() === 'manual') {

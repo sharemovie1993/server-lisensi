@@ -114,6 +114,23 @@ const registerPaymentLicenseRoutes = (fastify) => {
         }
         const body = request.body;
         const { merchant_ref, status } = body;
+        // 1. If merchant_ref is from Project Rekening Bersama (starts with INV-), forward ALL statuses (PAID, EXPIRED, FAILED, REFUND)
+        if (merchant_ref && merchant_ref.startsWith('INV-')) {
+            try {
+                const fetchNode = require('node-fetch');
+                await fetchNode('http://localhost:5050/api/webhook/server-lisensi', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                    timeout: 4000
+                });
+                console.log(`[REKBER Forward Success] Forwarded ${status} callback for ${merchant_ref} to Project Rekening Bersama`);
+                return reply.send({ success: true, message: `Forwarded ${status} to Project Rekening Bersama` });
+            }
+            catch (e) {
+                console.warn('[REKBER Forward Error]', e.message);
+            }
+        }
         if (status === 'PAID') {
             try {
                 const invoice = await helpers_1.prisma.invoice.findUnique({
@@ -222,6 +239,66 @@ Pembayaran untuk invoice *${invoice.invoiceNumber}* telah berhasil diterima!
             catch (err) {
                 console.error('[Tripay Callback Database Error]', err.message);
                 return reply.status(500).send({ success: false, message: 'Database sync error.' });
+            }
+        }
+        else if (status === 'EXPIRED') {
+            try {
+                const invoice = await helpers_1.prisma.invoice.findUnique({
+                    where: { invoiceNumber: merchant_ref }
+                });
+                if (invoice && invoice.status !== 'paid') {
+                    await helpers_1.prisma.invoice.update({
+                        where: { id: invoice.id },
+                        data: { status: 'expired' }
+                    });
+                    console.log(`[Server Lisensi] Invoice ${merchant_ref} marked as EXPIRED.`);
+                    // 1. Webhook Push to Absenta School Instance if applicable
+                    const lic = invoice.licenseId
+                        ? await helpers_1.prisma.license.findUnique({ where: { id: invoice.licenseId } })
+                        : null;
+                    if (lic && lic.requestedSlug) {
+                        const schoolDomain = `https://${lic.requestedSlug}.absenta.id`;
+                        const callbackUrl = `${schoolDomain}/api/billing/subscriptions/license/callback`;
+                        (0, http_1.httpPost)(callbackUrl, { license_key: lic.licenseKey, tenant_id: lic.requestedSlug, status: 'expired', invoice_number: invoice.invoiceNumber }, {}, 5000)
+                            .then(res => console.log('[Tripay Expired Push Success]', res.status))
+                            .catch(err => console.log('[Tripay Expired Push Offline/NAT]', err.message));
+                    }
+                    // 2. WhatsApp Notification (Expired Notice)
+                    if (lic && lic.operatorPhone) {
+                        (0, helpers_1.sendLicenseWhatsAppNotification)(lic.operatorPhone, invoice.schoolName, lic.requestedSlug, lic.productId, invoice.planTitle, lic.licenseKey, invoice.invoiceNumber, Number(invoice.amount), invoice.paymentMethod, 'expired').catch(e => console.error('[WA Expired License Notify Error]', e.message));
+                    }
+                }
+            }
+            catch (e) {
+                console.warn('[Server Lisensi Expired Handle Error]', e.message);
+            }
+        }
+        else if (status === 'FAILED' || status === 'CANCELLED') {
+            try {
+                const invoice = await helpers_1.prisma.invoice.findUnique({
+                    where: { invoiceNumber: merchant_ref }
+                });
+                if (invoice && invoice.status !== 'paid') {
+                    await helpers_1.prisma.invoice.update({
+                        where: { id: invoice.id },
+                        data: { status: 'failed' }
+                    });
+                    console.log(`[Server Lisensi] Invoice ${merchant_ref} marked as FAILED/CANCELLED.`);
+                    // Webhook Push to Client
+                    const lic = invoice.licenseId
+                        ? await helpers_1.prisma.license.findUnique({ where: { id: invoice.licenseId } })
+                        : null;
+                    if (lic && lic.requestedSlug) {
+                        const schoolDomain = `https://${lic.requestedSlug}.absenta.id`;
+                        const callbackUrl = `${schoolDomain}/api/billing/subscriptions/license/callback`;
+                        (0, http_1.httpPost)(callbackUrl, { license_key: lic.licenseKey, tenant_id: lic.requestedSlug, status: 'failed', invoice_number: invoice.invoiceNumber }, {}, 5000)
+                            .then(res => console.log('[Tripay Failed Push Success]', res.status))
+                            .catch(err => console.log('[Tripay Failed Push Offline/NAT]', err.message));
+                    }
+                }
+            }
+            catch (e) {
+                console.warn('[Server Lisensi Failed Handle Error]', e.message);
             }
         }
         return reply.send({ success: true });
@@ -749,6 +826,107 @@ Pembayaran untuk invoice *${invoice.invoiceNumber}* telah berhasil diterima!
             return reply.sendFile('Orkestrator Ujian.apk');
         }
         return reply.status(404).send({ success: false, message: 'File APK tidak ditemukan di server.' });
+    });
+    // 9. Specialized Endpoint for Dynamic REKBER & Custom Billing Transactions
+    fastify.post('/api/license/rekber/create-transaction', async (request, reply) => {
+        const { invoice_number, amount, payment_method, customer_name, customer_phone, customer_email, order_items, expired_time } = request.body;
+        if (!invoice_number || !amount || !payment_method) {
+            return reply.status(400).send({ success: false, message: 'invoice_number, amount, and payment_method are required.' });
+        }
+        try {
+            const tripayConfig = await (0, tripay_resolver_1.getTripayConfigByProductId)('REKBER');
+            const TRIPAY_API_KEY = tripayConfig.apiKey;
+            const TRIPAY_PRIVATE_KEY = tripayConfig.privateKey;
+            const TRIPAY_MERCHANT_CODE = tripayConfig.merchantCode;
+            const TRIPAY_API_URL = tripayConfig.apiUrl;
+            if (!TRIPAY_API_KEY || !TRIPAY_PRIVATE_KEY || !TRIPAY_MERCHANT_CODE) {
+                return reply.status(500).send({ success: false, message: 'Tripay credentials not configured on Server Lisensi.' });
+            }
+            const signature = crypto_1.default
+                .createHmac('sha256', TRIPAY_PRIVATE_KEY)
+                .update(TRIPAY_MERCHANT_CODE + invoice_number + amount)
+                .digest('hex');
+            const tripayPayload = {
+                method: payment_method,
+                merchant_ref: invoice_number,
+                amount: Math.round(amount),
+                customer_name: customer_name || 'Pelanggan',
+                customer_email: customer_email || 'billing@barayaproject.id',
+                customer_phone: customer_phone || '081234567890',
+                order_items: order_items && order_items.length > 0
+                    ? order_items.map((it) => ({
+                        sku: it.sku || 'ITEM',
+                        name: it.name || 'Layanan',
+                        price: Math.round(it.price || amount),
+                        quantity: it.quantity || 1
+                    }))
+                    : [
+                        {
+                            sku: 'REKBER-CUSTOM',
+                            name: `Tagihan: ${invoice_number}`,
+                            price: Math.round(amount),
+                            quantity: 1
+                        }
+                    ],
+                expired_time: expired_time || Math.floor(Date.now() / 1000) + 24 * 3600,
+                signature
+            };
+            const fetchNode = require('node-fetch');
+            const response = await fetchNode(`${TRIPAY_API_URL}/transaction/create`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${TRIPAY_API_KEY}`
+                },
+                body: JSON.stringify(tripayPayload),
+                timeout: 6000
+            });
+            const tripayData = await response.json();
+            if (!tripayData.success) {
+                return reply.status(400).send({ success: false, message: tripayData.message || 'Tripay transaction creation failed' });
+            }
+            return reply.send({
+                success: true,
+                message: 'Transaction created successfully in Gateway',
+                data: tripayData.data
+            });
+        }
+        catch (err) {
+            console.error('[REKBER Gateway Tx Error]', err.message);
+            return reply.status(500).send({ success: false, message: 'Server Lisensi Gateway Error: ' + err.message });
+        }
+    });
+    // 10. Check Transaction Live Status from Tripay Gateway for REKBER
+    fastify.get('/api/license/rekber/check-status', async (request, reply) => {
+        const query = request.query;
+        const reference = query?.reference || query?.ref || query?.invoice_number;
+        if (!reference) {
+            return reply.status(400).send({ success: false, message: 'reference is required.' });
+        }
+        try {
+            const tripayConfig = await (0, tripay_resolver_1.getTripayConfigByProductId)('REKBER');
+            const fetchNode = require('node-fetch');
+            const response = await fetchNode(`${tripayConfig.apiUrl}/transaction/detail?reference=${encodeURIComponent(reference)}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${tripayConfig.apiKey}`
+                },
+                timeout: 5000
+            });
+            const json = await response.json();
+            if (json.success && json.data) {
+                return reply.send({
+                    success: true,
+                    status: json.data.status,
+                    paid_at: json.data.paid_at ? new Date(json.data.paid_at * 1000).toISOString() : null,
+                    data: json.data
+                });
+            }
+            return reply.status(404).send({ success: false, message: json.message || 'Transaction detail not found' });
+        }
+        catch (e) {
+            return reply.status(500).send({ success: false, message: 'Error checking Tripay status: ' + e.message });
+        }
     });
 };
 exports.registerPaymentLicenseRoutes = registerPaymentLicenseRoutes;

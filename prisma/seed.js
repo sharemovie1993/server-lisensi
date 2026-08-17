@@ -36,11 +36,119 @@ const products = [
     "id": "vpn-tunnel",
     "name": "VPN Tunnel",
     "prefix": "VPN"
+  },
+  {
+    "id": "rekber",
+    "name": "Rekening Bersama & Multi-Tenant Payment Gateway",
+    "prefix": "RKB"
+  },
+  {
+    "id": "undangan-digital",
+    "name": "Undangan Digital Multi-Event & Print Kit",
+    "prefix": "UND"
   }
 ];
 
 
 const plans = [
+  {
+    "id": "UND-BASIC",
+    "productId": "undangan-digital",
+    "name": "Paket Hemat (Khitan & Ultah)",
+    "type": "SOFTWARE_ONETIME",
+    "priceMonthly": 49000,
+    "priceYearly": 49000,
+    "priceOnetime": 49000,
+    "deviceLimit": 1,
+    "billingPeriod": "onetime",
+    "isActive": true,
+    "featuresJson": [
+      "1 Acara Aktif",
+      "Pilihan Tema Standar",
+      "Buku Tamu & RSVP",
+      "Amplop Digital",
+      "Masa Aktif 3 Bulan"
+    ]
+  },
+  {
+    "id": "UND-GOLD",
+    "productId": "undangan-digital",
+    "name": "Paket Wedding Gold (All Features)",
+    "type": "SOFTWARE_ONETIME",
+    "priceMonthly": 99000,
+    "priceYearly": 99000,
+    "priceOnetime": 99000,
+    "deviceLimit": 1,
+    "billingPeriod": "onetime",
+    "isActive": true,
+    "featuresJson": [
+      "Semua Fitur Wedding Lengkap",
+      "Semua Tema Luxury (Gold, Sage, Navy)",
+      "Buku Tamu & RSVP Realtime",
+      "Amplop Digital + QRIS",
+      "Piringan Musik Melayang",
+      "Tanpa Watermark",
+      "Masa Aktif 1 Tahun"
+    ]
+  },
+  {
+    "id": "UND-PLATINUM",
+    "productId": "undangan-digital",
+    "name": "Paket Platinum + Print-Ready Kit",
+    "type": "SOFTWARE_ONETIME",
+    "priceMonthly": 149000,
+    "priceYearly": 149000,
+    "priceOnetime": 149000,
+    "deviceLimit": 1,
+    "billingPeriod": "onetime",
+    "isActive": true,
+    "featuresJson": [
+      "Semua Fitur Paket Gold",
+      "Generator Cetak PDF HD (300 DPI A5/4R/Bifold)",
+      "Generator Label Stiker Tamu No. 103 & 121",
+      "Kartu Souvenir & Voucher Siap Cetak",
+      "QR Scanner Check-in Resepsi",
+      "Kirim WhatsApp Blast Assistant",
+      "Masa Aktif Selamanya"
+    ]
+  },
+  {
+    "id": "UND-RESELLER",
+    "productId": "undangan-digital",
+    "name": "Paket Reseller / Percetakan (10 Slot)",
+    "type": "SOFTWARE_ONETIME",
+    "priceMonthly": 450000,
+    "priceYearly": 450000,
+    "priceOnetime": 450000,
+    "deviceLimit": 10,
+    "billingPeriod": "onetime",
+    "isActive": true,
+    "featuresJson": [
+      "Kuota 10 Undangan Aktif",
+      "Fitur Platinum Lengkap di Semua Slot",
+      "Download Print Kit Sepuasnya",
+      "Dukungan Custom Domain / Subdomain",
+      "Dashboard Manajemen Vendor"
+    ]
+  },
+  {
+    "id": "rekber-custom-billing",
+    "productId": "rekber",
+    "name": "Custom Dynamic Invoicing & Payment Gateway",
+    "type": "PHYSICAL_SERVICE",
+    "priceMonthly": 0,
+    "priceYearly": 0,
+    "priceOnetime": 0,
+    "deviceLimit": 99999,
+    "featuresJson": [
+      "Dynamic Custom Invoicing",
+      "Virtual Account Bank Integration",
+      "QRIS Real-Time Scan",
+      "Multi-Tenant Open API & Webhook Forwarder"
+    ],
+    "billingPeriod": "ONETIME",
+    "isActive": true
+  },
   {
     "id": "FREE_LICENSE_SERVER_ACTIVATION",
     "productId": "cakola",

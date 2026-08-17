@@ -3,10 +3,15 @@
 
 {
     email sharemovie1993@gmail.com
+    servers {
+        protocols h1 h2
+    }
     on_demand_tls {
         ask http://127.0.0.1:5001/api/public/validate-domain
     }
 }
+
+
 
 # --- STATIC CENTRAL ROUTES ---
 
@@ -22,6 +27,12 @@ api.absenta.id {
     reverse_proxy 127.0.0.1:5001
 }
 
+# Central SaaS App Onboarding & Portal Gateway (Registrasi & RAB Calculator via WireGuard Tunnel)
+app.absenta.id {
+    tls /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.absenta.id/wildcard_.absenta.id.crt /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.absenta.id/wildcard_.absenta.id.key
+    reverse_proxy 10.0.0.25:5174
+}
+
 # Central POS System
 pos.absenta.id {
     reverse_proxy 10.0.0.3:3002
@@ -29,105 +40,39 @@ pos.absenta.id {
 
 
 
+
+
 # --- DYNAMIC TENANT GATEWAYS ---
 
-# Tenant: smp4 (Easy Tunnel - smp4.absenta.id)
-smp4.absenta.id {
+# Tenant: almuth (Easy Tunnel - almuth.absenta.id)
+almuth.absenta.id {
     tls /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.absenta.id/wildcard_.absenta.id.crt /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.absenta.id/wildcard_.absenta.id.key
-    reverse_proxy * https://10.0.0.20:5173 {
-        header_up Host smp4.absenta.id
-        transport http {
-            tls_insecure_skip_verify
-            tls_server_name smp4.absenta.id
-        }
+    reverse_proxy * http://10.0.0.24:3000 {
+        header_up Host almuth.absenta.id
+    }
+}
+
+# Tenant: dev-smkn1pld (Easy Tunnel - dev-smkn1pld.absenta.id)
+dev-smkn1pld.absenta.id {
+    tls /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.absenta.id/wildcard_.absenta.id.crt /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.absenta.id/wildcard_.absenta.id.key
+    reverse_proxy * http://10.0.2.2:80 {
+        header_up Host dev-smkn1pld.absenta.id
     }
 }
 
 # Tenant: smkn1pld (Easy Tunnel - smkn1pld.absenta.id)
 smkn1pld.absenta.id {
     tls /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.absenta.id/wildcard_.absenta.id.crt /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.absenta.id/wildcard_.absenta.id.key
-    reverse_proxy * https://10.0.0.22:443 {
+    reverse_proxy * http://10.0.0.22:80 {
         header_up Host smkn1pld.absenta.id
-        transport http {
-            tls_insecure_skip_verify
-            tls_server_name smkn1pld.absenta.id
-        }
     }
 }
 
-# Tenant: wewe (Easy Tunnel - wewe.absenta.id)
-wewe.absenta.id {
+# Tenant: luxury (Easy Tunnel - luxury.absenta.id)
+luxury.absenta.id {
     tls /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.absenta.id/wildcard_.absenta.id.crt /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.absenta.id/wildcard_.absenta.id.key
-    reverse_proxy * http://10.0.0.23:3389
-}
-
-# Tenant: demo (Easy Tunnel - demo.absenta.id)
-demo.absenta.id {
-    tls /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.absenta.id/wildcard_.absenta.id.crt /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.absenta.id/wildcard_.absenta.id.key
-    reverse_proxy * https://10.0.0.17:443 {
-        header_up Host demo.absenta.id
-        transport http {
-            tls_insecure_skip_verify
-            tls_server_name demo.absenta.id
-        }
-    }
-}
-
-# Tenant: smk6jkt (Easy Tunnel - smk6jkt.absenta.id)
-smk6jkt.absenta.id {
-    tls /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.absenta.id/wildcard_.absenta.id.crt /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.absenta.id/wildcard_.absenta.id.key
-    reverse_proxy * https://10.0.0.21:443 {
-        header_up Host smk6jkt.absenta.id
-        transport http {
-            tls_insecure_skip_verify
-            tls_server_name smk6jkt.absenta.id
-        }
-    }
-}
-
-# Tenant: smk6jkt (Easy Tunnel - smk6jkt.tefatjkt.net)
-smk6jkt.tefatjkt.net {
-    reverse_proxy * https://10.0.0.21:443 {
-        header_up Host smk6jkt.tefatjkt.net
-        transport http {
-            tls_insecure_skip_verify
-            tls_server_name smk6jkt.tefatjkt.net
-        }
-    }
-}
-
-# Tenant: cinta (Easy Tunnel - cinta.absenta.id)
-cinta.absenta.id {
-    tls /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.absenta.id/wildcard_.absenta.id.crt /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.absenta.id/wildcard_.absenta.id.key
-    reverse_proxy * https://10.0.0.18:443 {
-        header_up Host cinta.absenta.id
-        transport http {
-            tls_insecure_skip_verify
-            tls_server_name cinta.absenta.id
-        }
-    }
-}
-
-# Tenant: t (Easy Tunnel - t.absenta.id)
-t.absenta.id {
-    tls /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.absenta.id/wildcard_.absenta.id.crt /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.absenta.id/wildcard_.absenta.id.key
-    reverse_proxy * https://10.0.0.19:5173 {
-        header_up Host t.absenta.id
-        transport http {
-            tls_insecure_skip_verify
-            tls_server_name t.absenta.id
-        }
-    }
-}
-
-# Tenant: t (Easy Tunnel - absensi.tefatjkt.net)
-absensi.tefatjkt.net {
-    reverse_proxy * https://10.0.0.19:5173 {
-        header_up Host absensi.tefatjkt.net
-        transport http {
-            tls_insecure_skip_verify
-            tls_server_name absensi.tefatjkt.net
-        }
+    reverse_proxy * http://10.0.2.3:80 {
+        header_up Host luxury.absenta.id
     }
 }
 

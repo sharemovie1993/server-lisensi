@@ -104,6 +104,9 @@ const sendLicenseWhatsAppNotification = async (phone, schoolName, slug, prodId, 
         if (status === 'paid') {
             paymentStatusNotes = `*Status*: ✅ *${isPrivateer ? 'PEMBAYARAN BERHASIL' : 'LUNAS'}* (${isPrivateer ? 'Saldo Sesi Bertambah' : 'Lisensi Aktif'})`;
         }
+        else if (status === 'expired') {
+            paymentStatusNotes = `*Status*: ⏰ *KADALUARSA (EXPIRED)*\nBatas waktu pembayaran tagihan ini telah berakhir. Silakan lakukan pemesanan/tagihan baru melalui panel admin.`;
+        }
         else {
             paymentStatusNotes = `*Status*: ⚠️ *MENUNGGU PEMBAYARAN*\n`;
             if (paymentMethod.toLowerCase() === 'manual') {
