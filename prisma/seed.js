@@ -113,6 +113,24 @@ const plans = [
     ]
   },
   {
+    "id": "UND-RESELLER-5",
+    "productId": "undangan-digital",
+    "name": "Paket Reseller Starter (5 Slot)",
+    "type": "SOFTWARE_ONETIME",
+    "priceMonthly": 225000,
+    "priceYearly": 225000,
+    "priceOnetime": 225000,
+    "deviceLimit": 5,
+    "billingPeriod": "onetime",
+    "isActive": true,
+    "featuresJson": [
+      "Kuota 5 Undangan Aktif",
+      "Fitur Platinum Lengkap di Semua Slot",
+      "Unduh Print Kit 300 DPI Sepuasnya",
+      "White-Label Studio & Bebas Watermark"
+    ]
+  },
+  {
     "id": "UND-RESELLER",
     "productId": "undangan-digital",
     "name": "Paket Reseller / Percetakan (10 Slot)",
@@ -129,6 +147,44 @@ const plans = [
       "Download Print Kit Sepuasnya",
       "Dukungan Custom Domain / Subdomain",
       "Dashboard Manajemen Vendor"
+    ]
+  },
+  {
+    "id": "UND-RESELLER-25",
+    "productId": "undangan-digital",
+    "name": "Paket Reseller Pro (25 Slot)",
+    "type": "SOFTWARE_ONETIME",
+    "priceMonthly": 875000,
+    "priceYearly": 875000,
+    "priceOnetime": 875000,
+    "deviceLimit": 25,
+    "billingPeriod": "onetime",
+    "isActive": true,
+    "featuresJson": [
+      "Kuota 25 Undangan Aktif",
+      "Modal Super Hemat: Rp 35.000 / Acara",
+      "Fitur Platinum Lengkap di Semua Slot",
+      "Unduh Print Kit HD 300 DPI Sepuasnya",
+      "Prioritas Render Print Studio"
+    ]
+  },
+  {
+    "id": "UND-RESELLER-50",
+    "productId": "undangan-digital",
+    "name": "Paket Vendor & Percetakan (50 Slot)",
+    "type": "SOFTWARE_ONETIME",
+    "priceMonthly": 1250000,
+    "priceYearly": 1250000,
+    "priceOnetime": 1250000,
+    "deviceLimit": 50,
+    "billingPeriod": "onetime",
+    "isActive": true,
+    "featuresJson": [
+      "Kuota 50 Undangan Aktif",
+      "Modal Grosir: Rp 25.000 / Acara",
+      "Fitur Platinum Lengkap di Semua Slot",
+      "Unduh Print Kit HD Sepuasnya",
+      "Akses VIP Reseller & Jalur Support Khusus"
     ]
   },
   {
