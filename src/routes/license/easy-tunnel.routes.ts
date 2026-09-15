@@ -208,6 +208,7 @@ export const registerEasyTunnelRoutes = (fastify: FastifyInstance) => {
 
       const mainDomain = process.env.MAIN_DOMAIN || 'absenta.id';
       const serverEndpoint = process.env.VPS_IP || `api.${mainDomain}`;
+      const wgPort = process.env.WG_PORT || '51821';
       const clientConfig = `[Interface]
 PrivateKey = ${privateKey}
 Address = ${clientIp}/32
@@ -215,7 +216,7 @@ DNS = 1.1.1.1
 
 [Peer]
 PublicKey = ${serverPublicKey}
-Endpoint = ${serverEndpoint}:51820
+Endpoint = ${serverEndpoint}:${wgPort}
 AllowedIPs = 10.0.0.1/32, 10.0.2.1/32
 PersistentKeepalive = 25
 `;
