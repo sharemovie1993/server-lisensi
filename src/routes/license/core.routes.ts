@@ -1023,7 +1023,8 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
     const { invoiceNumber } = request.params as { invoiceNumber: string };
     try {
       const invoice = await prisma.invoice.findUnique({
-        where: { invoiceNumber: invoiceNumber.trim() }
+        where: { invoiceNumber: invoiceNumber.trim() },
+        include: { license: true }
       });
       if (!invoice) {
         return reply.status(404).send({ success: false, message: 'Invoice tidak ditemukan.' });
@@ -1033,7 +1034,9 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
         data: {
           invoice_number: invoice.invoiceNumber,
           status: invoice.status,
-          paid_at: invoice.paidAt ? invoice.paidAt.toISOString() : null
+          is_paid: invoice.status === 'paid',
+          paid_at: invoice.paidAt ? invoice.paidAt.toISOString() : null,
+          license_key: invoice.license?.licenseKey || null
         }
       });
     } catch (err: any) {
