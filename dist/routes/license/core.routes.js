@@ -476,22 +476,42 @@ const registerCoreLicenseRoutes = (fastify) => {
             const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
             const randomCode = Math.floor(1000 + Math.random() * 9000);
             const invoiceNumber = `INV-${dateStr}-${randomCode}`;
-            const primaryPlanItem = lineItems[0];
-            const newKey = 'HW-' + crypto_1.default.randomBytes(6).toString('hex').toUpperCase();
+            // Cari item utama (utamakan produk SaaS / Software jika ada dalam keranjang multi-item)
+            const primarySoftwareItem = lineItems.find(i => i.type === 'SOFTWARE_SUBSCRIPTION' || i.type === 'SOFTWARE_ONETIME') || lineItems[0];
+            const primaryPlanObj = await helpers_1.prisma.plan.findUnique({
+                where: { id: primarySoftwareItem.planId },
+                include: { product: true }
+            });
+            const targetProdId = primaryPlanObj?.productId || 'cakola';
+            let prodPrefix = primaryPlanObj?.product?.prefix || 'ABS';
+            if (primarySoftwareItem.type === 'HARDWARE_PERIPHERAL') {
+                prodPrefix = 'HW';
+            }
+            const newKey = `${prodPrefix}-${crypto_1.default.randomBytes(6).toString('hex').toUpperCase()}`;
+            // Hitung masa aktif lisensi
+            let expiryDateStr = '2099-12-31';
+            if (primaryPlanObj?.billingPeriod === 'MONTH') {
+                const d = new Date();
+                d.setDate(d.getDate() + 30);
+                expiryDateStr = d.toISOString().slice(0, 10);
+            }
+            else if (primaryPlanObj?.billingPeriod === 'YEAR') {
+                const d = new Date();
+                d.setDate(d.getDate() + 365);
+                expiryDateStr = d.toISOString().slice(0, 10);
+            }
             const { license } = await (0, billing_service_1.createLicenseAndSubscription)(newKey, {
-                productId: 'hardware',
+                productId: targetProdId,
                 schoolName: resolvedSchoolName,
-                deviceLimit: 9999,
-                isUnlimited: 1,
-                expiresAt: '2099-12-31',
+                deviceLimit: primaryPlanObj?.deviceLimit ?? 9999,
+                isUnlimited: (primaryPlanObj?.deviceLimit === 0 || primaryPlanObj?.deviceLimit === 9999) ? 1 : 0,
+                expiresAt: expiryDateStr,
                 status: 'pending',
                 isActive: 0,
-                planId: primaryPlanItem.planId,
+                planId: primarySoftwareItem.planId,
                 includeVpn: 0,
                 operatorPhone: targetPhone || null
             });
-            const primaryPlanObj = await helpers_1.prisma.plan.findUnique({ where: { id: primaryPlanItem.planId }, select: { productId: true } });
-            const targetProdId = primaryPlanObj?.productId || 'hardware';
             const tripayConfig = await (0, tripay_resolver_1.getTripayConfigByProductId)(targetProdId);
             const TRIPAY_API_KEY = tripayConfig.apiKey;
             const TRIPAY_PRIVATE_KEY = tripayConfig.privateKey;
@@ -536,8 +556,8 @@ const registerCoreLicenseRoutes = (fastify) => {
                     invoiceNumber,
                     licenseId: license.id,
                     schoolName: resolvedSchoolName,
-                    productId: 'hardware',
-                    planTitle: `Order Multi-Product (${lineItems.length} items)`,
+                    productId: targetProdId,
+                    planTitle: lineItems.length === 1 ? primarySoftwareItem.name : `${primarySoftwareItem.name} + ${lineItems.length - 1} item lainnya`,
                     amount: totalAmount,
                     itemsJson: lineItems,
                     subtotalAmount,
@@ -554,7 +574,7 @@ const registerCoreLicenseRoutes = (fastify) => {
                         reference: tx.reference || ''
                     },
                     expiredTime: String(tx.expired_time),
-                    planId: primaryPlanItem.planId
+                    planId: primarySoftwareItem.planId
                 });
                 return reply.send({
                     success: true,

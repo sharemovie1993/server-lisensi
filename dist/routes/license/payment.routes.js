@@ -153,16 +153,27 @@ const registerPaymentLicenseRoutes = (fastify) => {
                     await processPrivateerTopUp(updatedInvoice);
                     return reply.send({ success: true, message: 'Privateer topup processed.' });
                 }
+                // Ambil data lisensi sebelum update untuk akumulasi masa aktif perpanjangan
+                const existingLic = await helpers_1.prisma.license.findUnique({
+                    where: { id: invoice.licenseId }
+                });
                 // Resolve license duration
-                const planId = invoice.planId || '';
+                const planId = (invoice.planId || '').toLowerCase();
                 let days = 30;
-                if (planId.includes('semester'))
+                if (planId.includes('sem') || planId.includes('semester'))
                     days = 180;
-                else if (planId.includes('annual'))
+                else if (planId.includes('annual') || planId.includes('tahun') || planId.includes('yearly'))
                     days = 365;
                 else if (planId.includes('lifetime'))
                     days = 3650;
-                const baseDate = new Date();
+                // Akumulasi masa aktif jika lisensi saat ini masih aktif
+                let baseDate = new Date();
+                if (existingLic && existingLic.expiresAt) {
+                    const currentExp = new Date(existingLic.expiresAt);
+                    if (!isNaN(currentExp.getTime()) && currentExp > baseDate) {
+                        baseDate = currentExp;
+                    }
+                }
                 baseDate.setDate(baseDate.getDate() + days);
                 const expiresStr = baseDate.toISOString().slice(0, 10);
                 // Activate license

@@ -49,6 +49,11 @@ const ticketsRoutes = async (fastify) => {
             const license = request.license;
             const tickets = await prisma.supportTicket.findMany({
                 where: { tenantId: license.id },
+                include: {
+                    messages: {
+                        orderBy: { createdAt: 'asc' }
+                    }
+                },
                 orderBy: { createdAt: 'desc' }
             });
             return reply.send({ success: true, data: tickets });

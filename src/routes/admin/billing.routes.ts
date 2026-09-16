@@ -375,13 +375,24 @@ export const registerBillingRoutes = (fastify: FastifyInstance) => {
         return reply.send({ success: true, message: 'Transaksi Privateer dikonfirmasi & sesi berhasil ditambahkan!' });
       }
 
-      const planId = invoice.planId || '';
-      let days = 30;
-      if (planId.toLowerCase().includes('tahun') || planId.toLowerCase().includes('annual') || planId.toLowerCase().includes('yearly')) days = 365;
-      else if (planId.toLowerCase().includes('sem') || planId.toLowerCase().includes('semester')) days = 180;
-      else if (planId.toLowerCase().includes('lifetime')) days = 3650;
+      const existingLic = await prisma.license.findUnique({
+        where: { id: invoice.licenseId }
+      });
 
-      const baseDate = new Date();
+      const planId = (invoice.planId || '').toLowerCase();
+      let days = 30;
+      if (planId.includes('tahun') || planId.includes('annual') || planId.includes('yearly')) days = 365;
+      else if (planId.includes('sem') || planId.includes('semester')) days = 180;
+      else if (planId.includes('lifetime')) days = 3650;
+
+      // Akumulasi masa aktif jika lisensi saat ini masih aktif
+      let baseDate = new Date();
+      if (existingLic && existingLic.expiresAt) {
+        const currentExp = new Date(existingLic.expiresAt);
+        if (!isNaN(currentExp.getTime()) && currentExp > baseDate) {
+          baseDate = currentExp;
+        }
+      }
       baseDate.setDate(baseDate.getDate() + days);
       const expiresStr = baseDate.toISOString().slice(0, 10);
 

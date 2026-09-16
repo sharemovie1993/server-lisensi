@@ -177,14 +177,28 @@ pos.${MAIN_DOMAIN} {
         header_up Host ${domainClean}
     }`;
 
-          caddyfile += `
+          if (isInternalSubdomain) {
+            caddyfile += `
 # Tenant: ${up.slug} (Easy Tunnel - ${domainClean})
 ${domainClean} {${wildcardTlsBlock}
     reverse_proxy * ${upstreamProtocol}://${up.wireguard_ip}:${targetPort}${tlsConfig}
 }
 `;
+          } else {
+            caddyfile += `
+# Tenant: ${up.slug} (Easy Tunnel - ${domainClean})
+http://${domainClean} {
+    reverse_proxy * ${upstreamProtocol}://${up.wireguard_ip}:${targetPort}${tlsConfig}
+}
+
+https://${domainClean} {
+    reverse_proxy * ${upstreamProtocol}://${up.wireguard_ip}:${targetPort}${tlsConfig}
+}
+`;
+          }
         } else {
-          caddyfile += `
+          if (isInternalSubdomain) {
+            caddyfile += `
 # Tenant: ${up.slug} (${domainClean})
 ${domainClean} {${wildcardTlsBlock}
     # Route backend API
@@ -194,6 +208,26 @@ ${domainClean} {${wildcardTlsBlock}
     reverse_proxy * http://${up.wireguard_ip}:${ports.frontend}
 }
 `;
+          } else {
+            caddyfile += `
+# Tenant: ${up.slug} (${domainClean})
+http://${domainClean} {
+    # Route backend API
+    reverse_proxy /api/* http://${up.wireguard_ip}:${ports.backend}
+    
+    # Route frontend Vite / Web client
+    reverse_proxy * http://${up.wireguard_ip}:${ports.frontend}
+}
+
+https://${domainClean} {
+    # Route backend API
+    reverse_proxy /api/* http://${up.wireguard_ip}:${ports.backend}
+    
+    # Route frontend Vite / Web client
+    reverse_proxy * http://${up.wireguard_ip}:${ports.frontend}
+}
+`;
+          }
         }
       });
     });
