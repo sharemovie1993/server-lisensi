@@ -33,6 +33,8 @@ process.on('unhandledRejection', (reason) => {
 function initVpnFirewall() {
     console.log('[FIREWALL] Mengonfigurasi aturan isolasi 3-Zona pada interface wg0...');
     try {
+        // 0. Izinkan ICMP Ping ke Gateway (10.0.0.1) untuk kebutuhan diagnosa dan health check seluruh client VPN
+        (0, child_process_1.exec)('sudo iptables -C INPUT -i wg0 -p icmp -j ACCEPT 2>/dev/null || sudo iptables -I INPUT 1 -i wg0 -p icmp -j ACCEPT');
         // 1. Izinkan Laptop Admin/Deployer (10.0.0.2/29) di urutan teratas (-I FORWARD 1)
         (0, child_process_1.exec)('sudo iptables -C FORWARD -i wg0 -o wg0 -s 10.0.0.2/29 -j ACCEPT 2>/dev/null || sudo iptables -I FORWARD 1 -i wg0 -o wg0 -s 10.0.0.2/29 -j ACCEPT');
         // 2. Blokir inter-tenant traffic antar-sekolah (10.0.0.10 - 10.0.0.254) di urutan ke-2 (-I FORWARD 2)
