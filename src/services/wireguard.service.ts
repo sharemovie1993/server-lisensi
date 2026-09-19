@@ -27,6 +27,8 @@ export interface WireguardPeerInfo {
   subdomain?: string;
   localPort?: number;
   licenseKey?: string;
+  hostname?: string;
+  osType?: string;
   isRegisteredDb: boolean;
 }
 
@@ -278,14 +280,17 @@ export async function listWireguardPeers(): Promise<WireguardPeerInfo[]> {
         wireguardIp: true,
         localPort: true,
         isActive: true,
-        expiresAt: true
+        expiresAt: true,
+        activeHostname: true,
+        activeOs: true
       }
     });
 
     const licenseByIp = new Map<string, any>();
     licenses.forEach(l => {
       if (l.wireguardIp) {
-        licenseByIp.set(l.wireguardIp.replace(/\/32$/, ''), l);
+        const ipKey = l.wireguardIp.replace(/\/(32|24|16|8)$/, '').trim();
+        licenseByIp.set(ipKey, l);
       }
     });
 
@@ -298,6 +303,8 @@ export async function listWireguardPeers(): Promise<WireguardPeerInfo[]> {
         peer.subdomain = lic.requestedSlug ? `${lic.requestedSlug}.${MAIN_DOMAIN}` : undefined;
         peer.localPort = lic.localPort || undefined;
         peer.licenseKey = lic.licenseKey;
+        peer.hostname = lic.activeHostname || undefined;
+        peer.osType = lic.activeOs || undefined;
         peer.isRegisteredDb = true;
       } else {
         peer.isRegisteredDb = false;
@@ -326,6 +333,8 @@ export async function listWireguardPeers(): Promise<WireguardPeerInfo[]> {
     subdomain: p.subdomain,
     localPort: p.localPort,
     licenseKey: p.licenseKey,
+    hostname: p.hostname,
+    osType: p.osType,
     isRegisteredDb: p.isRegisteredDb || false
   }));
 

@@ -22,7 +22,10 @@ import {
   Key,
   ExternalLink,
   Layers,
-  AlertCircle
+  AlertCircle,
+  Laptop,
+  Monitor,
+  Cpu
 } from 'lucide-react';
 
 interface WireguardPeer {
@@ -43,6 +46,8 @@ interface WireguardPeer {
   subdomain?: string;
   localPort?: number;
   licenseKey?: string;
+  hostname?: string;
+  osType?: string;
   isRegisteredDb: boolean;
 }
 
@@ -248,12 +253,45 @@ PersistentKeepalive = 25
     setIsConfigModalOpen(true);
   };
 
+  const renderOsBadge = (osType?: string) => {
+    if (!osType) return null;
+    const lower = osType.toLowerCase();
+    if (lower.includes('win')) {
+      return (
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+          🪟 {osType}
+        </span>
+      );
+    }
+    if (lower.includes('linux') || lower.includes('ubuntu') || lower.includes('debian')) {
+      return (
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+          🐧 {osType}
+        </span>
+      );
+    }
+    if (lower.includes('mac') || lower.includes('darwin')) {
+      return (
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-500/10 text-slate-300 border border-slate-500/20">
+          🍎 {osType}
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-800 text-slate-400 border border-slate-700">
+        💻 {osType}
+      </span>
+    );
+  };
+
   // Filter peers
   const filteredPeers = peers.filter(p => {
     const matchesSearch =
       p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.allowedIps.toLowerCase().includes(search.toLowerCase()) ||
       p.endpoint.toLowerCase().includes(search.toLowerCase()) ||
+      (p.hostname && p.hostname.toLowerCase().includes(search.toLowerCase())) ||
+      (p.osType && p.osType.toLowerCase().includes(search.toLowerCase())) ||
       (p.subdomain && p.subdomain.toLowerCase().includes(search.toLowerCase())) ||
       (p.appName && p.appName.toLowerCase().includes(search.toLowerCase())) ||
       p.publicKey.toLowerCase().includes(search.toLowerCase());
@@ -413,6 +451,7 @@ PersistentKeepalive = 25
             <thead className="bg-slate-950/80 text-slate-400 border-b border-slate-800 uppercase tracking-wider text-[11px]">
               <tr>
                 <th className="py-3 px-4">Klien / Instansi</th>
+                <th className="py-3 px-4">Perangkat & OS</th>
                 <th className="py-3 px-4">Virtual IP (VPN)</th>
                 <th className="py-3 px-4">Realtime Endpoint (ISP)</th>
                 <th className="py-3 px-4">Handshake Terakhir</th>
@@ -423,14 +462,14 @@ PersistentKeepalive = 25
             <tbody className="divide-y divide-slate-800/60">
               {loading && peers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-500">
+                  <td colSpan={7} className="py-12 text-center text-slate-500">
                     <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-emerald-500" />
                     Memuat data WireGuard peers...
                   </td>
                 </tr>
               ) : filteredPeers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-500">
+                  <td colSpan={7} className="py-12 text-center text-slate-500">
                     <AlertCircle className="w-8 h-8 mx-auto mb-2 text-slate-600" />
                     Tidak ada peer yang cocok dengan kriteria pencarian.
                   </td>
@@ -464,6 +503,21 @@ PersistentKeepalive = 25
                             key: {peer.publicKey.slice(0, 16)}...
                           </span>
                         )}
+                      </div>
+                    </td>
+
+                    {/* Device & OS */}
+                    <td className="py-3.5 px-4">
+                      <div className="flex flex-col space-y-1">
+                        {peer.hostname ? (
+                          <span className="font-mono text-xs text-slate-200 flex items-center font-medium">
+                            <Laptop className="w-3.5 h-3.5 mr-1 text-slate-400 shrink-0" />
+                            {peer.hostname}
+                          </span>
+                        ) : (
+                          <span className="text-slate-600 italic text-[11px]">-</span>
+                        )}
+                        {renderOsBadge(peer.osType)}
                       </div>
                     </td>
 
