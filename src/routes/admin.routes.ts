@@ -10,6 +10,7 @@ import { registerTicketRoutes } from './admin/ticket.routes';
 import { registerPublicRoutes } from './admin/public.routes';
 import { registerSettingsRoutes } from './admin/settings.routes';
 import { registerSstpRoutes } from './admin/sstp.routes';
+import { registerWireguardRoutes } from './admin/wireguard.routes';
 
 // Re-export verifyAdmin for backwards compatibility
 export { verifyAdmin };
@@ -44,6 +45,9 @@ export const adminRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
 
   // Register SSTP VPN Sub-routes
   registerSstpRoutes(fastify);
+
+  // Register WireGuard Server Sub-routes
+  registerWireguardRoutes(fastify);
 };
 
 

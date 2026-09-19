@@ -13,6 +13,7 @@ const ticket_routes_1 = require("./admin/ticket.routes");
 const public_routes_1 = require("./admin/public.routes");
 const settings_routes_1 = require("./admin/settings.routes");
 const sstp_routes_1 = require("./admin/sstp.routes");
+const wireguard_routes_1 = require("./admin/wireguard.routes");
 const adminRoutes = async (fastify) => {
     // Register Auth Sub-routes
     (0, auth_routes_1.registerAuthRoutes)(fastify);
@@ -34,5 +35,7 @@ const adminRoutes = async (fastify) => {
     (0, public_routes_1.registerPublicRoutes)(fastify);
     // Register SSTP VPN Sub-routes
     (0, sstp_routes_1.registerSstpRoutes)(fastify);
+    // Register WireGuard Server Sub-routes
+    (0, wireguard_routes_1.registerWireguardRoutes)(fastify);
 };
 exports.adminRoutes = adminRoutes;

@@ -22,6 +22,7 @@ import CaddyGateway from './components/CaddyGateway';
 import PrivateerTransactions from './components/PrivateerTransactions';
 import CronJobMonitor from './components/CronJobMonitor';
 import SstpVpnManager from './components/SstpVpnManager';
+import WireguardManager from './components/WireguardManager';
 
 // Icons
 import {
@@ -45,7 +46,8 @@ import {
   Moon,
   CreditCard,
   Clock,
-  ShieldCheck
+  ShieldCheck,
+  Shield
 } from 'lucide-react';
 
 const queryClient = new QueryClient();
@@ -61,6 +63,7 @@ const dummySocket = {
 // SIDEBAR ITEMS
 const sidebarItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'wireguard', label: 'WireGuard Server', icon: Shield },
   { id: 'tenants', label: 'Daftar Server & Tunnel', icon: Server },
   { id: 'sstp-vpn', label: 'SSTP VPN MikroTik', icon: ShieldCheck },
   { id: 'subscriptions', label: 'Langganan Sekolah', icon: Users },
@@ -269,6 +272,7 @@ export default function App() {
             {activeTab === 'dashboard' && (
               <DashboardOverview onSwitchTab={setActiveTab} />
             )}
+            {activeTab === 'wireguard' && <WireguardManager />}
             {activeTab === 'tenants' && <TenantManager />}
             {activeTab === 'sstp-vpn' && <SstpVpnManager />}
             {activeTab === 'subscriptions' && <SubscriptionsList />}
