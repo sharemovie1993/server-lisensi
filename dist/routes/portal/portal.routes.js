@@ -43,7 +43,7 @@ async function authenticateMember(request, reply) {
         return null;
     }
 }
-const registerPortalRoutes = (fastify) => {
+const registerPortalRoutes = async (fastify) => {
     // 1. Send OTP for registration
     fastify.post('/api/portal/auth/send-otp', async (request, reply) => {
         const { email, phone } = request.body || {};

@@ -1,4 +1,4 @@
-import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../license/helpers';
@@ -51,7 +51,7 @@ export async function authenticateMember(request: FastifyRequest, reply: Fastify
   }
 }
 
-export const registerPortalRoutes = (fastify: FastifyInstance) => {
+export const registerPortalRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
 
   // 1. Send OTP for registration
   fastify.post('/api/portal/auth/send-otp', async (request: FastifyRequest, reply: FastifyReply) => {
