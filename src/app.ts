@@ -10,6 +10,7 @@ import { riskAdminRoutes } from './modules/risk/routes/risk-admin.routes';
 import { analyticsAdminRoutes } from './modules/analytics/routes/analytics-admin.routes';
 import { revenueAdminRoutes } from './modules/revenue/routes/revenue-admin.routes';
 import { upgradeIntelligenceAdminRoutes } from './modules/upgrade-intelligence/routes/upgrade-intelligence-admin.routes';
+import { registerPortalRoutes } from './routes/portal/portal.routes';
 
 export function buildApp(): FastifyInstance {
   const app = fastify({
@@ -46,12 +47,28 @@ export function buildApp(): FastifyInstance {
     prefix: '/'
   });
 
-  // 3. Fallback redirects for admin HTML files (React Single Page App)
+  // 3. Fallback redirects for admin & member portal HTML files (React Single Page App)
   app.get('/admin', async (_request, reply) => {
     return reply.sendFile('index.html');
   });
 
   app.get('/admin/*', async (_request, reply) => {
+    return reply.sendFile('index.html');
+  });
+
+  app.get('/login', async (_request, reply) => {
+    return reply.sendFile('index.html');
+  });
+
+  app.get('/register', async (_request, reply) => {
+    return reply.sendFile('index.html');
+  });
+
+  app.get('/d', async (_request, reply) => {
+    return reply.sendFile('index.html');
+  });
+
+  app.get('/d/*', async (_request, reply) => {
     return reply.sendFile('index.html');
   });
 
@@ -64,6 +81,7 @@ export function buildApp(): FastifyInstance {
   app.register(analyticsAdminRoutes);
   app.register(revenueAdminRoutes);
   app.register(upgradeIntelligenceAdminRoutes);
+  app.register(registerPortalRoutes);
 
   return app;
 }

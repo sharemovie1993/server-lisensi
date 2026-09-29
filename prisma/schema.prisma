@@ -82,6 +82,8 @@ model License {
   publicRequestsToday      Int?              @default(0) @map("public_requests_today")
   localAvgResponseTimeMs   Float?            @default(0) @map("local_avg_response_time_ms")
   publicAvgResponseTimeMs  Float?            @default(0) @map("public_avg_response_time_ms")
+  memberId                 String?           @map("member_id")
+  member                   MemberUser?       @relation(fields: [memberId], references: [id])
   activatedDevices         ActivatedDevice[]
   logs                     ActivityLog[]
   invoices                 Invoice[]
@@ -306,4 +308,24 @@ model SstpAccount {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("sstp_accounts")
+}
+
+model MemberUser {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  name         String
+  phone        String?
+  schoolName   String?   @map("school_name")
+  npsn         String?
+  hasNpsn      Boolean   @default(true) @map("has_npsn")
+  role         String    @default("MEMBER")
+  isVerified   Boolean   @default(true) @map("is_verified")
+  documentUrl  String?   @map("document_url")
+  slots        Int       @default(4)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  licenses     License[]
+
+  @@map("member_users")
 }

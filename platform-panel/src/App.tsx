@@ -3,9 +3,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import apiClient from './api/apiClient';
 import { SocketContext } from './hooks/useSocket';
 import { TOKEN_KEY, THEME_KEY } from './constants/storage';
-import { APP_NAME, SIDEBAR_NAME, MRR_PER_TENANT, POLL_INTERVAL_MS } from './constants/app';
+import { APP_NAME, SIDEBAR_NAME } from './constants/app';
 
-// Components
+// Admin Components
 import DashboardOverview from './components/DashboardOverview';
 import TenantManager from './components/TenantManager';
 import RiskIntelligence from './components/RiskIntelligence';
@@ -23,6 +23,11 @@ import PrivateerTransactions from './components/PrivateerTransactions';
 import CronJobMonitor from './components/CronJobMonitor';
 import SstpVpnManager from './components/SstpVpnManager';
 import WireguardManager from './components/WireguardManager';
+
+// Member Portal Components
+import MemberRegister from './components/portal/MemberRegister';
+import MemberLogin from './components/portal/MemberLogin';
+import MemberDashboard from './components/portal/MemberDashboard';
 
 // Icons
 import {
@@ -47,7 +52,8 @@ import {
   CreditCard,
   Clock,
   ShieldCheck,
-  Shield
+  Shield,
+  ExternalLink
 } from 'lucide-react';
 
 const queryClient = new QueryClient();
@@ -60,7 +66,7 @@ const dummySocket = {
   emit: () => {},
 };
 
-// SIDEBAR ITEMS
+// SIDEBAR ITEMS FOR ADMIN
 const sidebarItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'wireguard', label: 'WireGuard Server', icon: Shield },
@@ -81,50 +87,70 @@ const sidebarItems = [
   { id: 'settings', label: 'Konfigurasi Sistem', icon: Settings },
 ];
 
-
 export default function App() {
   const [theme, setTheme] = useState<'dark' | 'light'>(() => (localStorage.getItem(THEME_KEY) as 'dark' | 'light') || 'dark');
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [currentPath, setCurrentPath] = useState<string>(() => window.location.pathname || '/');
+
+  // Admin auth state
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(false);
   const [adminSecretInput, setAdminSecretInput] = useState<string>('');
-  const [checkingAuth, setCheckingAuth] = useState<boolean>(true);
+  const [checkingAdminAuth, setCheckingAdminAuth] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [loginError, setLoginError] = useState<string | null>(null);
 
-  const checkAuth = async () => {
+  // Sync route on popstate
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentPath(window.location.pathname || '/');
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const navigate = (path: string) => {
+    window.history.pushState({}, '', path);
+    setCurrentPath(path);
+  };
+
+  // Check admin auth when accessing /admin
+  const checkAdminAuth = async () => {
     const token = localStorage.getItem(TOKEN_KEY);
     if (!token) {
-      setIsLoggedIn(false);
-      setCheckingAuth(false);
+      setIsAdminLoggedIn(false);
+      setCheckingAdminAuth(false);
       return;
     }
     
     try {
-      // Validate token against basic settings endpoint
       const res = await apiClient.get('/api/admin/settings');
       if (res.status === 200) {
-        setIsLoggedIn(true);
+        setIsAdminLoggedIn(true);
       }
     } catch (e) {
       localStorage.removeItem(TOKEN_KEY);
-      setIsLoggedIn(false);
+      setIsAdminLoggedIn(false);
     } finally {
-      setCheckingAuth(false);
+      setCheckingAdminAuth(false);
     }
   };
 
   useEffect(() => {
-    checkAuth();
-  }, []);
+    if (currentPath.startsWith('/admin')) {
+      checkAdminAuth();
+    } else {
+      setCheckingAdminAuth(false);
+    }
+  }, [currentPath]);
 
   useEffect(() => {
     localStorage.setItem(THEME_KEY, theme);
   }, [theme]);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!adminSecretInput.trim()) return;
 
-    setCheckingAuth(true);
+    setCheckingAdminAuth(true);
     setLoginError(null);
     try {
       const res = await apiClient.post('/api/admin/login', {
@@ -132,25 +158,103 @@ export default function App() {
       });
       if (res.data && res.data.success && res.data.token) {
         localStorage.setItem(TOKEN_KEY, res.data.token);
-        setIsLoggedIn(true);
+        setIsAdminLoggedIn(true);
       } else {
         setLoginError(res.data.message || 'PIN Admin tidak valid!');
-        setIsLoggedIn(false);
+        setIsAdminLoggedIn(false);
       }
     } catch (err: any) {
       setLoginError(err.response?.data?.message || 'Gagal terhubung ke API login!');
-      setIsLoggedIn(false);
+      setIsAdminLoggedIn(false);
     } finally {
-      setCheckingAuth(false);
+      setCheckingAdminAuth(false);
     }
   };
 
-  const handleLogout = () => {
+  const handleAdminLogout = () => {
     localStorage.removeItem(TOKEN_KEY);
-    setIsLoggedIn(false);
+    setIsAdminLoggedIn(false);
   };
 
-  if (checkingAuth) {
+  const handleMemberLogout = () => {
+    localStorage.removeItem('portal_token');
+    localStorage.removeItem('portal_user');
+    navigate('/login');
+  };
+
+  // ==========================================
+  // ROUTING DISPATCH: MEMBER PORTAL VS ADMIN
+  // ==========================================
+
+  // 1. If path is /register
+  if (currentPath === '/register') {
+    return (
+      <MemberRegister
+        onNavigateLogin={() => navigate('/login')}
+        onRegisterSuccess={() => navigate('/d/home')}
+        theme={theme}
+        setTheme={setTheme}
+      />
+    );
+  }
+
+  // 2. If path is NOT /admin (e.g. /login, /d/home, /d/*, or /)
+  if (!currentPath.startsWith('/admin')) {
+    const hasPortalToken = !!localStorage.getItem('portal_token');
+
+    // If on /login, or no token, show login screen (unless already logged in and at /d/home)
+    if (!hasPortalToken || currentPath === '/login') {
+      if (currentPath !== '/login' && !hasPortalToken) {
+        // Automatically default to login if no token
+        return (
+          <MemberLogin
+            onNavigateRegister={() => navigate('/register')}
+            onNavigateAdmin={() => navigate('/admin')}
+            onLoginSuccess={() => navigate('/d/home')}
+            theme={theme}
+            setTheme={setTheme}
+          />
+        );
+      }
+
+      if (currentPath === '/login') {
+        if (hasPortalToken) {
+          // Already logged in, can directly view dashboard
+          return (
+            <MemberDashboard
+              onLogout={handleMemberLogout}
+              theme={theme}
+              setTheme={setTheme}
+            />
+          );
+        }
+        return (
+          <MemberLogin
+            onNavigateRegister={() => navigate('/register')}
+            onNavigateAdmin={() => navigate('/admin')}
+            onLoginSuccess={() => navigate('/d/home')}
+            theme={theme}
+            setTheme={setTheme}
+          />
+        );
+      }
+    }
+
+    // Has portal token & on /d/home or root
+    return (
+      <MemberDashboard
+        onLogout={handleMemberLogout}
+        theme={theme}
+        setTheme={setTheme}
+      />
+    );
+  }
+
+  // ==========================================
+  // 3. ADMIN CONSOLE ROUTE (/admin/*)
+  // ==========================================
+
+  if (checkingAdminAuth) {
     return (
       <div className={`min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-400 ${theme === 'light' ? 'theme-light' : ''}`}>
         <Loader className="w-8 h-8 text-indigo-500 animate-spin mb-2" />
@@ -159,8 +263,8 @@ export default function App() {
     );
   }
 
-  // LOGIN SCREEN
-  if (!isLoggedIn) {
+  // ADMIN LOGIN SCREEN
+  if (!isAdminLoggedIn) {
     return (
       <div className={`min-h-screen bg-slate-950 flex items-center justify-center p-4 ${theme === 'light' ? 'theme-light' : ''}`}>
         <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl space-y-6 text-center">
@@ -171,7 +275,7 @@ export default function App() {
             <h2 className="text-white text-2xl font-black tracking-tight">{APP_NAME}</h2>
             <p className="text-slate-400 text-sm mt-1.5">Akses terbatas untuk administrator sistem pusat.</p>
           </div>
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleAdminLogin} className="space-y-4">
             <div>
               <input
                 type="password"
@@ -197,23 +301,35 @@ export default function App() {
               Masuk ke Console
             </button>
           </form>
+
+          <div className="pt-2 border-t border-slate-800">
+            <button
+              onClick={() => navigate('/login')}
+              type="button"
+              className="text-xs text-slate-400 hover:text-white transition underline"
+            >
+              Beralih ke Portal Member / Institusi
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
-
+  // ADMIN DASHBOARD SCREEN
   return (
     <QueryClientProvider client={queryClient}>
       <SocketContext.Provider value={dummySocket}>
         <div className={`min-h-screen bg-slate-950 flex ${theme === 'light' ? 'theme-light' : ''}`}>
           {/* SIDEBAR */}
           <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col h-screen sticky top-0">
-            <div className="p-6 border-b border-slate-800 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-extrabold shadow-lg shadow-indigo-600/20">
-                A
+            <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-extrabold shadow-lg shadow-indigo-600/20">
+                  A
+                </div>
+                <span className="text-white font-extrabold tracking-wide text-lg">{SIDEBAR_NAME}</span>
               </div>
-              <span className="text-white font-extrabold tracking-wide text-lg">{SIDEBAR_NAME}</span>
             </div>
 
             <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
@@ -241,6 +357,14 @@ export default function App() {
 
             <div className="p-4 border-t border-slate-800 space-y-2">
               <button
+                onClick={() => navigate('/d/home')}
+                className="w-full flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-semibold text-indigo-400 hover:bg-indigo-950/40 hover:text-indigo-300 transition"
+              >
+                <ExternalLink className="w-4 h-4" />
+                <span>Lihat Portal Member</span>
+              </button>
+
+              <button
                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
                 className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-400 hover:bg-slate-850 hover:text-slate-200 transition"
               >
@@ -258,7 +382,7 @@ export default function App() {
               </button>
 
               <button
-                onClick={handleLogout}
+                onClick={handleAdminLogout}
                 className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold text-rose-450 hover:bg-rose-500/10 text-rose-400 transition"
               >
                 <LogOut className="w-5 h-5" />
