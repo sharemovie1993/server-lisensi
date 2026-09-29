@@ -86,7 +86,7 @@ const registerPortalRoutes = async (fastify) => {
     });
     // 2. Register Member Account (Clone of Screenshot 2)
     fastify.post('/api/portal/auth/register', async (request, reply) => {
-        const { has_npsn, npsn, school_name, email, phone, password, otp_code } = request.body || {};
+        const { has_npsn, npsn, school_name, email, phone, password } = request.body || {};
         if (!email || !password) {
             return reply.status(400).send({ success: false, message: 'Email dan kata sandi wajib diisi.' });
         }
@@ -98,13 +98,6 @@ const registerPortalRoutes = async (fastify) => {
         const existing = await helpers_1.prisma.memberUser.findUnique({ where: { email: cleanEmail } });
         if (existing) {
             return reply.status(400).send({ success: false, message: 'Email ini sudah terdaftar. Silakan login.' });
-        }
-        // Optional OTP verification if code provided
-        if (otp_code) {
-            const otpRecord = portalOtpStore.get(cleanEmail) || (phone ? portalOtpStore.get(phone.trim().toLowerCase()) : null);
-            if (otpRecord && otpRecord.code !== otp_code.trim()) {
-                return reply.status(400).send({ success: false, message: 'Kode OTP yang Anda masukkan salah.' });
-            }
         }
         // Auto-approve if official school email domain (e.g. .sch.id)
         const isOfficialSchoolDomain = cleanEmail.endsWith('.sch.id');
@@ -283,12 +276,65 @@ const registerPortalRoutes = async (fastify) => {
             return reply.status(500).send({ success: false, message: 'Gagal mengambil lisensi: ' + err.message });
         }
     });
-    // 6. Create / Generate New License Key (Clone of Screenshot 1 Card: "Buat Kunci Lisensi Baru")
+    // 6. Request OTP via WhatsApp to Claim License
+    fastify.post('/api/portal/licenses/request-otp', async (request, reply) => {
+        const member = await authenticateMember(request, reply);
+        if (!member)
+            return;
+        const phone = (member.phone || '').trim();
+        if (!phone || phone.length < 8) {
+            return reply.status(400).send({
+                success: false,
+                message: 'Nomor WhatsApp belum terdaftar pada akun institusi Anda. Silakan hubungi admin.'
+            });
+        }
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        portalOtpStore.set(`claim_${member.id}`, {
+            target: phone,
+            code,
+            expiresAt: Date.now() + 10 * 60 * 1000 // 10 minutes
+        });
+        try {
+            const msg = `🔐 *[KODE OTP KLAIM LISENSI ABSENTA]*\n\n` +
+                `Halo *${member.name || member.schoolName}*!\n\n` +
+                `Kode verifikasi OTP untuk menerbitkan kunci lisensi server baru Anda adalah:\n` +
+                `👉 *${code}*\n\n` +
+                `Kode ini berlaku selama 10 menit. Masukkan kode ini pada form klaim lisensi. Jangan berikan kepada siapa pun demi keamanan server Anda.`;
+            await whatsapp_service_1.waGateway.sendMessage(phone, msg, 'OTP_PORTAL_CLAIM', 'cakola');
+        }
+        catch (waErr) {
+            console.warn('[Portal Claim OTP] Gagal mengirim WA:', waErr.message);
+        }
+        const maskedPhone = phone.length > 6
+            ? phone.slice(0, 4) + '****' + phone.slice(-3)
+            : phone;
+        return reply.send({
+            success: true,
+            message: `Kode OTP verifikasi telah dikirimkan ke WhatsApp ${maskedPhone}.`,
+            test_code: process.env.NODE_ENV !== 'production' ? code : undefined
+        });
+    });
+    // 7. Create / Generate New License Key with WhatsApp OTP verification
     fastify.post('/api/portal/licenses/create', async (request, reply) => {
         const member = await authenticateMember(request, reply);
         if (!member)
             return;
-        const { duration, requested_slug, school_name } = request.body || {};
+        const { duration, requested_slug, school_name, otp_code } = request.body || {};
+        if (!otp_code || otp_code.trim().length !== 6) {
+            return reply.status(400).send({
+                success: false,
+                message: 'Kode OTP WhatsApp 6 digit wajib dimasukkan untuk mengonfirmasi klaim lisensi.'
+            });
+        }
+        const otpRecord = portalOtpStore.get(`claim_${member.id}`);
+        if (!otpRecord || otpRecord.expiresAt < Date.now() || otpRecord.code !== otp_code.trim()) {
+            return reply.status(400).send({
+                success: false,
+                message: 'Kode OTP WhatsApp tidak valid atau telah kedaluwarsa. Silakan minta kode OTP baru.'
+            });
+        }
+        // OTP verified -> remove to prevent reuse
+        portalOtpStore.delete(`claim_${member.id}`);
         try {
             const today = new Date();
             const todayStr = today.toISOString().slice(0, 10);

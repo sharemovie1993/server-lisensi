@@ -18,7 +18,10 @@ import {
   Building,
   Calendar,
   Layers,
-  Sparkles
+  Sparkles,
+  Smartphone,
+  X,
+  ShieldCheck
 } from 'lucide-react';
 import portalClient from '../../api/portalClient';
 
@@ -77,6 +80,14 @@ export default function MemberDashboard({
   const [selectedDuration, setSelectedDuration] = useState<'1_week' | '1_month' | '3_months'>('1_month');
   const [customNodeName, setCustomNodeName] = useState<string>('');
   
+  // WhatsApp OTP Claim Modal State
+  const [isOtpModalOpen, setIsOtpModalOpen] = useState<boolean>(false);
+  const [claimOtp, setClaimOtp] = useState<string>('');
+  const [isSendingClaimOtp, setIsSendingClaimOtp] = useState<boolean>(false);
+  const [claimOtpCooldown, setClaimOtpCooldown] = useState<number>(0);
+  const [claimOtpMsg, setClaimOtpMsg] = useState<string | null>(null);
+  const [claimOtpError, setClaimOtpError] = useState<string | null>(null);
+
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -118,7 +129,41 @@ export default function MemberDashboard({
     fetchLicenses();
   }, []);
 
-  const handleCreateLicense = async () => {
+  // Request WhatsApp OTP for License Claim
+  const requestClaimOtp = async () => {
+    setIsSendingClaimOtp(true);
+    setClaimOtpError(null);
+    setClaimOtpMsg(null);
+
+    try {
+      const res = await portalClient.post('/api/portal/licenses/request-otp');
+      if (res.data.success) {
+        setClaimOtpMsg(res.data.message);
+        if (res.data.test_code) {
+          setClaimOtp(res.data.test_code);
+        }
+        setClaimOtpCooldown(60);
+        const timer = setInterval(() => {
+          setClaimOtpCooldown((prev) => {
+            if (prev <= 1) {
+              clearInterval(timer);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      } else {
+        setClaimOtpError(res.data.message || 'Gagal mengirim kode OTP WhatsApp.');
+      }
+    } catch (err: any) {
+      setClaimOtpError(err.response?.data?.message || 'Gagal mengirim kode OTP WhatsApp.');
+    } finally {
+      setIsSendingClaimOtp(false);
+    }
+  };
+
+  // Open Claim Modal & Trigger WhatsApp OTP
+  const handleOpenClaimModal = () => {
     if (capacity.available_slots <= 0) {
       setFeedbackMsg({
         type: 'error',
@@ -127,34 +172,46 @@ export default function MemberDashboard({
       return;
     }
 
+    setClaimOtp('');
+    setClaimOtpError(null);
+    setClaimOtpMsg(null);
+    setIsOtpModalOpen(true);
+    requestClaimOtp();
+  };
+
+  // Confirm OTP and Generate License Key
+  const handleConfirmCreateLicense = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!claimOtp.trim() || claimOtp.trim().length !== 6) {
+      setClaimOtpError('Masukkan 6 digit kode OTP yang diterima via WhatsApp.');
+      return;
+    }
+
     setIsCreatingKey(true);
-    setFeedbackMsg(null);
+    setClaimOtpError(null);
 
     try {
       const res = await portalClient.post('/api/portal/licenses/create', {
         duration: selectedDuration,
-        school_name: customNodeName.trim() || undefined
+        school_name: customNodeName.trim() || undefined,
+        otp_code: claimOtp.trim()
       });
 
       if (res.data.success) {
+        setIsOtpModalOpen(false);
         setFeedbackMsg({
           type: 'success',
-          text: `Kunci lisensi ${res.data.license.license_key} berhasil diterbitkan!`
+          text: `Selamat! Kunci lisensi ${res.data.license.license_key} berhasil diterbitkan!`
         });
         setCustomNodeName('');
+        setClaimOtp('');
         await fetchLicenses();
         await fetchProfile();
       } else {
-        setFeedbackMsg({
-          type: 'error',
-          text: res.data.message || 'Gagal membuat kunci lisensi.'
-        });
+        setClaimOtpError(res.data.message || 'Gagal menerbitkan kunci lisensi.');
       }
     } catch (err: any) {
-      setFeedbackMsg({
-        type: 'error',
-        text: err.response?.data?.message || 'Terjadi kesalahan sistem saat membuat lisensi.'
-      });
+      setClaimOtpError(err.response?.data?.message || 'Kode OTP salah atau telah kedaluwarsa.');
     } finally {
       setIsCreatingKey(false);
     }
@@ -168,6 +225,12 @@ export default function MemberDashboard({
 
   const userEmail = userProfile?.email || 'member@absenta.id';
   const displayEmail = userEmail.length > 22 ? userEmail.slice(0, 20) + '...' : userEmail;
+
+  const durationLabels: Record<string, string> = {
+    '1_week': '1 Minggu (Try Out / Uji Coba)',
+    '1_month': '1 Bulan (Ujian Standar)',
+    '3_months': '3 Bulan (Satu Semester Penuh)'
+  };
 
   return (
     <div className={`min-h-screen ${theme === 'dark' ? 'bg-[#0b1324] text-slate-100' : 'bg-slate-50 text-slate-800'} transition-colors duration-200 pb-16`}>
@@ -190,7 +253,7 @@ export default function MemberDashboard({
             </div>
           </div>
 
-          {/* Center Navigation Tabs (Clone of screenshot nav pills) */}
+          {/* Center Navigation Tabs */}
           <nav className="hidden md:flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-950/60 rounded-full border border-slate-200 dark:border-slate-800">
             <button
               onClick={() => setActiveNav('lisensi')}
@@ -308,7 +371,7 @@ export default function MemberDashboard({
           </div>
         )}
 
-        {/* 2. TOP BANNER / HEADER CARD (Faithful clone of Screenshot 1) */}
+        {/* 2. TOP BANNER / HEADER CARD */}
         <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-sm">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             
@@ -328,7 +391,7 @@ export default function MemberDashboard({
               </h1>
 
               <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                Otorisasi resmi untuk mengaktifkan server ujian Extraordinary CBT. Setiap kunci lisensi terkunci permanen pada 1 mesin server hingga masa aktif berakhir.
+                Otorisasi resmi untuk mengaktifkan server ujian Absenta CBT. Setiap kunci lisensi terkunci permanen pada 1 mesin server hingga masa aktif berakhir.
               </p>
             </div>
 
@@ -364,7 +427,7 @@ export default function MemberDashboard({
           </div>
         </section>
 
-        {/* 3. TWO-COLUMN INTERACTIVE ROW (Faithful clone of Screenshot 1) */}
+        {/* 3. TWO-COLUMN INTERACTIVE ROW */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           
           {/* LEFT COLUMN: Buat Kunci Lisensi Baru (lg:col-span-7) */}
@@ -405,7 +468,7 @@ export default function MemberDashboard({
                     1 Minggu
                   </span>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-700 text-slate-700 dark:text-slate-200">
-                    Try Out / Uji Coba
+                    Try Out
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
@@ -451,7 +514,7 @@ export default function MemberDashboard({
                     3 Bulan
                   </span>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-700 text-slate-700 dark:text-slate-200">
-                    Satu Semester Penuh
+                    Semester
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
@@ -474,28 +537,22 @@ export default function MemberDashboard({
               />
             </div>
 
-            {/* Warning Callout Box (yellow/amber) */}
+            {/* Warning Callout Box */}
             <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 flex items-start gap-3 text-amber-900 dark:text-amber-200 text-xs leading-relaxed">
               <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
               <div>
-                <span className="font-bold">Aturan Penguncian Mesin:</span> Sekali kunci lisensi dimasukkan ke server CBT, kunci terkunci permanen pada mesin tersebut. Slot baru akan terbuka otomatis oleh sistem setelah masa aktif kunci kedaluwarsa.
+                <span className="font-bold">Keamanan Klaim:</span> Penerbitan kunci lisensi akan dikonfirmasi dengan kode OTP yang dikirimkan ke nomor WhatsApp Anda.
               </div>
             </div>
 
-            {/* Full-width Action Button */}
+            {/* Full-width Action Button that triggers WhatsApp OTP Modal */}
             <button
-              onClick={handleCreateLicense}
-              disabled={isCreatingKey || capacity.available_slots <= 0}
+              onClick={handleOpenClaimModal}
+              disabled={capacity.available_slots <= 0}
               className="w-full py-4 bg-[#111827] dark:bg-indigo-600 hover:bg-[#1f2937] dark:hover:bg-indigo-700 text-white font-bold text-sm rounded-2xl shadow-lg transition duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              {isCreatingKey ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Menerbitkan Kunci Lisensi...</span>
-                </>
-              ) : (
-                'Buat Kunci Lisensi Sekarang'
-              )}
+              <Smartphone className="w-4 h-4" />
+              <span>Buat Kunci Lisensi Sekarang (Verifikasi WhatsApp)</span>
             </button>
 
           </section>
@@ -555,9 +612,9 @@ export default function MemberDashboard({
                   {userProfile?.school_name || userProfile?.name || 'Institusi Terdaftar'}
                 </span>
               </div>
-              {userProfile?.npsn && (
+              {userProfile?.phone && (
                 <p className="text-[11px] text-slate-400 mt-1 pl-6.5">
-                  NPSN: <span className="font-mono text-slate-700 dark:text-slate-300">{userProfile.npsn}</span>
+                  WhatsApp: <span className="font-mono text-slate-700 dark:text-slate-300">{userProfile.phone}</span>
                 </p>
               )}
             </div>
@@ -668,6 +725,127 @@ export default function MemberDashboard({
         </section>
 
       </main>
+
+      {/* WHATSAPP OTP CONFIRMATION MODAL */}
+      {isOtpModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
+            
+            {/* Modal Header */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-600/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                  <Smartphone className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900 dark:text-white">
+                    Verifikasi WhatsApp
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Konfirmasi klaim kunci lisensi server
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsOtpModalOpen(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Target Summary Pill */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-1.5 text-xs">
+              <div className="flex justify-between text-slate-500 dark:text-slate-400">
+                <span>Durasi:</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200">
+                  {durationLabels[selectedDuration]}
+                </span>
+              </div>
+              <div className="flex justify-between text-slate-500 dark:text-slate-400">
+                <span>Server Label:</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200">
+                  {customNodeName || userProfile?.school_name || 'Server Utama'}
+                </span>
+              </div>
+            </div>
+
+            {/* Status Notification */}
+            {claimOtpMsg && (
+              <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium bg-emerald-50 dark:bg-emerald-950/40 p-3 rounded-xl border border-emerald-200/60 dark:border-emerald-800/60">
+                ✓ {claimOtpMsg}
+              </p>
+            )}
+
+            {claimOtpError && (
+              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-xs text-rose-700 dark:text-rose-300">
+                ⚠️ {claimOtpError}
+              </div>
+            )}
+
+            {/* OTP Form */}
+            <form onSubmit={handleConfirmCreateLicense} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 text-center">
+                  Masukkan 6 Digit Kode OTP WhatsApp
+                </label>
+                <input
+                  type="text"
+                  required
+                  maxLength={6}
+                  value={claimOtp}
+                  onChange={(e) => setClaimOtp(e.target.value)}
+                  placeholder="------"
+                  autoFocus
+                  className="w-full py-3.5 px-4 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-2xl text-slate-900 dark:text-white text-center text-2xl font-mono tracking-[0.4em] font-extrabold focus:border-emerald-500 focus:outline-none transition"
+                />
+              </div>
+
+              <div className="flex items-center justify-between text-xs pt-1">
+                <span className="text-slate-400">Tidak menerima pesan?</span>
+                <button
+                  type="button"
+                  onClick={requestClaimOtp}
+                  disabled={isSendingClaimOtp || claimOtpCooldown > 0}
+                  className="font-bold text-emerald-600 dark:text-emerald-400 hover:underline disabled:opacity-50 disabled:no-underline"
+                >
+                  {isSendingClaimOtp ? 'Mengirim...' : claimOtpCooldown > 0 ? `Kirim Ulang (${claimOtpCooldown}s)` : 'Kirim Ulang OTP'}
+                </button>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsOtpModalOpen(false)}
+                  className="w-1/3 py-3 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreatingKey || claimOtp.trim().length !== 6}
+                  className="w-2/3 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-lg transition duration-150 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                >
+                  {isCreatingKey ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Verifikasi & Terbitkan...</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>Verifikasi & Terbitkan</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
