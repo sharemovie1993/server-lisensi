@@ -201,7 +201,7 @@ DNS = 1.1.1.1
 [Peer]
 PublicKey = ${serverPublicKey}
 Endpoint = ${serverEndpoint}:${wgPort}
-AllowedIPs = 10.0.0.1/32, 10.0.2.1/32
+AllowedIPs = 10.0.0.0/24, 10.0.2.0/24
 PersistentKeepalive = 25
 `;
             return reply.send({

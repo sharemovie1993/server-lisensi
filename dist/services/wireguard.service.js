@@ -406,7 +406,7 @@ MTU = 1360
 [Peer]
 PublicKey = ${serverPubKey}
 Endpoint = ${VPS_IP}:${WG_PORT}
-AllowedIPs = 10.0.0.1/32, 10.0.2.1/32
+AllowedIPs = 10.0.0.0/24, 10.0.2.0/24
 PersistentKeepalive = 25
 `;
     return {
