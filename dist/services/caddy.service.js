@@ -13,6 +13,10 @@ const MAIN_DOMAIN = process.env.MAIN_DOMAIN || 'absenta.id';
 const isLinux = process.platform === 'linux';
 const caddyfilePath = isLinux ? '/etc/caddy/Caddyfile' : path_1.default.join(__dirname, '../../Caddyfile.generated');
 const caddySslBase = process.env.CADDY_SSL_BASE || '/var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory';
+const cfToken = process.env.CLOUDFLARE_API_TOKEN;
+const wildcardTlsDirective = cfToken
+    ? `tls {\n        dns cloudflare ${cfToken}\n    }`
+    : `tls ${caddySslBase}/wildcard_.${MAIN_DOMAIN}/wildcard_.${MAIN_DOMAIN}.crt ${caddySslBase}/wildcard_.${MAIN_DOMAIN}/wildcard_.${MAIN_DOMAIN}.key`;
 const PORT_EXCEPTIONS = {
     'cibinong': { backend: 5006, frontend: 5176 },
     '2pwk': { backend: 5005, frontend: 5174 }
@@ -111,12 +115,13 @@ ${MAIN_DOMAIN}, www.${MAIN_DOMAIN} {
 
 # Central License Server API & admin UI
 api.${MAIN_DOMAIN} {
+    ${wildcardTlsDirective}
     reverse_proxy 127.0.0.1:5001
 }
 
 # Central SaaS App Onboarding & Portal Gateway (Registrasi & RAB Calculator via WireGuard Tunnel)
 app.${MAIN_DOMAIN} {
-    tls ${caddySslBase}/wildcard_.${MAIN_DOMAIN}/wildcard_.${MAIN_DOMAIN}.crt ${caddySslBase}/wildcard_.${MAIN_DOMAIN}/wildcard_.${MAIN_DOMAIN}.key
+    ${wildcardTlsDirective}
     reverse_proxy 10.0.0.25:5174
 }
 
@@ -140,8 +145,8 @@ pos.${MAIN_DOMAIN} {
                 const isInternalSubdomain = domainClean.endsWith(`.${MAIN_DOMAIN.toLowerCase()}`);
                 let wildcardTlsBlock = '';
                 if (isInternalSubdomain) {
-                    // Arahkan ke file sertifikat wildcard yang sudah ada di VPS
-                    wildcardTlsBlock = `\n    tls ${caddySslBase}/wildcard_.${MAIN_DOMAIN}/wildcard_.${MAIN_DOMAIN}.crt ${caddySslBase}/wildcard_.${MAIN_DOMAIN}/wildcard_.${MAIN_DOMAIN}.key`;
+                    // Arahkan ke sertifikat wildcard otomatis (Cloudflare DNS / Caddy SSL)
+                    wildcardTlsBlock = `\n    ${wildcardTlsDirective}`;
                 }
                 if (up.product_id === 'easy-tunnel' || up.product_id === 'cakola') {
                     const port = up.local_port || 5002;
@@ -219,7 +224,7 @@ https://${domainClean} {
         caddyfile += `
 # Fallback catch-all for inactive/unmapped subdomains
 *.${MAIN_DOMAIN} {
-    tls ${caddySslBase}/wildcard_.${MAIN_DOMAIN}/wildcard_.${MAIN_DOMAIN}.crt ${caddySslBase}/wildcard_.${MAIN_DOMAIN}/wildcard_.${MAIN_DOMAIN}.key
+    ${wildcardTlsDirective}
     root * /var/www/${MAIN_DOMAIN}
     @notAssets {
         not path /assets/* /css/* /js/* /_expo/* /favicon.ico /metadata.json /BTI-compact-logo.png /logo.png

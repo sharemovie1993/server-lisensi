@@ -8,10 +8,12 @@ const auth_routes_1 = require("./license/auth.routes");
 const payment_routes_1 = require("./license/payment.routes");
 const privateer_routes_1 = require("./license/privateer.routes");
 const undangan_digital_routes_1 = require("./license/undangan-digital.routes");
+const tenant_entitlements_routes_1 = require("./license/tenant-entitlements.routes");
 const licenseRoutes = async (fastify) => {
     (0, core_routes_1.registerCoreLicenseRoutes)(fastify);
     (0, tunnel_routes_1.registerTunnelLicenseRoutes)(fastify); // VPN Tunnel lama (vpn-tunnel)
     (0, easy_tunnel_routes_1.registerEasyTunnelRoutes)(fastify); // Easy Tunnel dedicated (easy-tunnel)
+    (0, tenant_entitlements_routes_1.registerTenantEntitlementRoutes)(fastify); // Tenant Entitlements & Migration Rebind
     (0, auth_routes_1.registerAuthLicenseRoutes)(fastify);
     (0, payment_routes_1.registerPaymentLicenseRoutes)(fastify);
     (0, privateer_routes_1.registerPrivateerLicenseRoutes)(fastify);

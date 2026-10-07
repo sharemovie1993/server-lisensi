@@ -67,6 +67,9 @@ model License {
   localPort                Int?              @map("local_port")
   operatorPhone            String?           @map("operator_phone")
   npsn                     String?           @map("npsn")
+  hostLicenseKey           String?           @map("host_license_key")
+  tenantIdentifier         String?           @map("tenant_identifier")
+  entitlementStatus        String            @default("ACTIVE") @map("entitlement_status")
   requestedSupabaseAnonKey String?           @map("requested_supabase_anon_key")
   requestedSupabaseUrl     String?           @map("requested_supabase_url")
   originalDeviceId         String?           @map("original_device_id")
@@ -328,4 +331,22 @@ model MemberUser {
   licenses     License[]
 
   @@map("member_users")
+}
+
+model TenantMigrationLog {
+  id              String   @id @default(uuid())
+  tenantSlug      String   @map("tenant_slug")
+  npsn            String?
+  sourceHostKey   String?  @map("source_host_key")
+  targetHostKey   String   @map("target_host_key")
+  sourceScenario  String?  @map("source_scenario")
+  targetScenario  String   @map("target_scenario")
+  licenseKeysJson Json     @map("license_keys_json")
+  action          String   // REBIND | PARK_CLOUD | UNPARK_LOCAL
+  ipAddress       String?  @map("ip_address")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([tenantSlug])
+  @@index([targetHostKey])
+  @@map("tenant_migration_logs")
 }
