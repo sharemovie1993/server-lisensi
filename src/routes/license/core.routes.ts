@@ -51,7 +51,9 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
       device_id,
       phone_number,
       wa_number,
-      whatsapp
+      whatsapp,
+      server_license_key,
+      tenant_identifier
     } = body;
 
     if (!school_name || !product_id || !plan_id) {
@@ -281,7 +283,9 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
             requestedSlug: resolvedSlug,
             includeVpn: include_vpn || 0,
             originalDeviceId: device_id || null,
-            operatorPhone: targetPhone || null
+            operatorPhone: targetPhone || null,
+            hostLicenseKey: server_license_key || null,
+            tenantIdentifier: tenant_identifier || resolvedSlug || null
           });
           licenseId = license.id;
         }
@@ -345,7 +349,9 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
             requestedSlug: resolvedSlug,
             includeVpn: include_vpn || 0,
             originalDeviceId: device_id || null,
-            operatorPhone: targetPhone || null
+            operatorPhone: targetPhone || null,
+            hostLicenseKey: server_license_key || null,
+            tenantIdentifier: tenant_identifier || resolvedSlug || null
           });
           licenseId = license.id;
         }
@@ -448,7 +454,9 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
             requestedSlug: resolvedSlug,
             includeVpn: include_vpn || 0,
             originalDeviceId: device_id || null,
-            operatorPhone: targetPhone || null
+            operatorPhone: targetPhone || null,
+            hostLicenseKey: server_license_key || null,
+            tenantIdentifier: tenant_identifier || resolvedSlug || null
           });
           licenseId = license.id;
         }

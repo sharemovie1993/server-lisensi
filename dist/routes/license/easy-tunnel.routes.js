@@ -54,6 +54,9 @@ const registerEasyTunnelRoutes = (fastify) => {
                     local_port: license.localPort || null,
                     app_name: license.appName || null,
                     active_hostname: license.activeHostname || null,
+                    entitlement_status: license.entitlementStatus || 'ACTIVE',
+                    host_license_key: license.hostLicenseKey || null,
+                    tenant_identifier: license.tenantIdentifier || license.requestedSlug || null,
                     expired: expired
                 }
             });
@@ -66,7 +69,7 @@ const registerEasyTunnelRoutes = (fastify) => {
     // 3. POST /api/license/easy-tunnel/request — Request WireGuard tunnel configuration
     fastify.post('/api/license/easy-tunnel/request', async (request, reply) => {
         const body = request.body;
-        const { license_key, subdomain_slug, local_port, app_name, hostname, os_type } = body;
+        const { license_key, subdomain_slug, local_port, app_name, hostname, os_type, server_license_key, tenant_identifier } = body;
         if (!license_key || !subdomain_slug || !local_port) {
             return reply.status(400).send({
                 success: false,
@@ -177,7 +180,9 @@ const registerEasyTunnelRoutes = (fastify) => {
                     localPort: portNum,
                     appName: app_name || null,
                     activeHostname: hostname ? hostname.trim() : null,
-                    activeOs: os_type ? os_type.trim() : null
+                    activeOs: os_type ? os_type.trim() : null,
+                    ...(server_license_key ? { hostLicenseKey: server_license_key.trim() } : {}),
+                    ...(tenant_identifier ? { tenantIdentifier: tenant_identifier.trim() } : {})
                 }
             });
             await (0, caddy_service_1.triggerCaddySync)();

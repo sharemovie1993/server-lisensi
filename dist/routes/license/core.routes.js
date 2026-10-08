@@ -23,7 +23,7 @@ const registerCoreLicenseRoutes = (fastify) => {
     // 1. Request / renew license and billing setup
     fastify.post('/api/license/request', async (request, reply) => {
         const body = request.body;
-        const { school_name, device_limit, is_unlimited, product_id, plan_id, payment_method, renew_license_key, requested_slug, include_vpn, device_id, phone_number, wa_number, whatsapp } = body;
+        const { school_name, device_limit, is_unlimited, product_id, plan_id, payment_method, renew_license_key, requested_slug, include_vpn, device_id, phone_number, wa_number, whatsapp, server_license_key, tenant_identifier } = body;
         if (!school_name || !product_id || !plan_id) {
             return reply.status(400).send({ success: false, message: 'school_name, product_id, dan plan_id wajib diisi.' });
         }
@@ -234,7 +234,9 @@ const registerCoreLicenseRoutes = (fastify) => {
                         requestedSlug: resolvedSlug,
                         includeVpn: include_vpn || 0,
                         originalDeviceId: device_id || null,
-                        operatorPhone: targetPhone || null
+                        operatorPhone: targetPhone || null,
+                        hostLicenseKey: server_license_key || null,
+                        tenantIdentifier: tenant_identifier || resolvedSlug || null
                     });
                     licenseId = license.id;
                 }
@@ -284,7 +286,9 @@ const registerCoreLicenseRoutes = (fastify) => {
                         requestedSlug: resolvedSlug,
                         includeVpn: include_vpn || 0,
                         originalDeviceId: device_id || null,
-                        operatorPhone: targetPhone || null
+                        operatorPhone: targetPhone || null,
+                        hostLicenseKey: server_license_key || null,
+                        tenantIdentifier: tenant_identifier || resolvedSlug || null
                     });
                     licenseId = license.id;
                 }
@@ -369,7 +373,9 @@ const registerCoreLicenseRoutes = (fastify) => {
                         requestedSlug: resolvedSlug,
                         includeVpn: include_vpn || 0,
                         originalDeviceId: device_id || null,
-                        operatorPhone: targetPhone || null
+                        operatorPhone: targetPhone || null,
+                        hostLicenseKey: server_license_key || null,
+                        tenantIdentifier: tenant_identifier || resolvedSlug || null
                     });
                     licenseId = license.id;
                 }

@@ -54,6 +54,9 @@ export const registerEasyTunnelRoutes = (fastify: FastifyInstance) => {
           local_port: license.localPort || null,
           app_name: license.appName || null,
           active_hostname: license.activeHostname || null,
+          entitlement_status: license.entitlementStatus || 'ACTIVE',
+          host_license_key: license.hostLicenseKey || null,
+          tenant_identifier: license.tenantIdentifier || license.requestedSlug || null,
           expired: expired
         }
       });
@@ -65,8 +68,17 @@ export const registerEasyTunnelRoutes = (fastify: FastifyInstance) => {
 
   // 3. POST /api/license/easy-tunnel/request — Request WireGuard tunnel configuration
   fastify.post('/api/license/easy-tunnel/request', async (request: FastifyRequest, reply: FastifyReply) => {
-    const body = request.body as { license_key: string; subdomain_slug: string; local_port: number; app_name?: string; hostname?: string; os_type?: string };
-    const { license_key, subdomain_slug, local_port, app_name, hostname, os_type } = body;
+    const body = request.body as {
+      license_key: string;
+      subdomain_slug: string;
+      local_port: number;
+      app_name?: string;
+      hostname?: string;
+      os_type?: string;
+      server_license_key?: string;
+      tenant_identifier?: string;
+    };
+    const { license_key, subdomain_slug, local_port, app_name, hostname, os_type, server_license_key, tenant_identifier } = body;
 
     if (!license_key || !subdomain_slug || !local_port) {
       return reply.status(400).send({
@@ -191,7 +203,9 @@ export const registerEasyTunnelRoutes = (fastify: FastifyInstance) => {
           localPort: portNum,
           appName: app_name || null,
           activeHostname: hostname ? hostname.trim() : null,
-          activeOs: os_type ? os_type.trim() : null
+          activeOs: os_type ? os_type.trim() : null,
+          ...(server_license_key ? { hostLicenseKey: server_license_key.trim() } : {}),
+          ...(tenant_identifier ? { tenantIdentifier: tenant_identifier.trim() } : {})
         }
       });
 

@@ -98,6 +98,8 @@ export interface RequestBody {
   phone_number?: string;
   wa_number?: string;
   whatsapp?: string;
+  server_license_key?: string;
+  tenant_identifier?: string;
 }
 
 export const sendLicenseWhatsAppNotification = async (

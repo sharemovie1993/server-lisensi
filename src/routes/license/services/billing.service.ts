@@ -18,6 +18,9 @@ interface LicenseAndSubscriptionData {
   operatorPhone?: string | null;
   npsn?: string | null;
   originalDeviceId?: string | null;
+  hostLicenseKey?: string | null;
+  tenantIdentifier?: string | null;
+  entitlementStatus?: string;
 }
 
 export async function createLicenseAndSubscription(licenseKey: string, data: LicenseAndSubscriptionData) {
@@ -39,7 +42,10 @@ export async function createLicenseAndSubscription(licenseKey: string, data: Lic
         includeVpn: data.includeVpn,
         operatorPhone: data.operatorPhone,
         npsn: data.npsn,
-        originalDeviceId: data.originalDeviceId
+        originalDeviceId: data.originalDeviceId,
+        hostLicenseKey: data.hostLicenseKey || null,
+        tenantIdentifier: data.tenantIdentifier || data.requestedSlug || null,
+        entitlementStatus: data.entitlementStatus || 'ACTIVE'
       }
     });
 
