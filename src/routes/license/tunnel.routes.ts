@@ -118,8 +118,8 @@ export const registerTunnelLicenseRoutes = (fastify: FastifyInstance) => {
       const wgPort = process.env.WG_PORT || '51821';
       const clientConfig = `[Interface]
 PrivateKey = ${privateKey}
-Address = ${clientIp}/32
-DNS = 1.1.1.1
+Address = ${clientIp}/24
+MTU = 1360
 
 [Peer]
 PublicKey = ${serverPublicKey}
