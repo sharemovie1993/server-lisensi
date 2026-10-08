@@ -25,7 +25,10 @@ import {
   AlertCircle,
   Laptop,
   Monitor,
-  Cpu
+  Cpu,
+  Wrench,
+  Terminal,
+  CheckCircle2
 } from 'lucide-react';
 
 interface WireguardPeer {
@@ -79,6 +82,14 @@ export default function WireguardManager() {
   const [isConfigModalOpen, setIsConfigModalOpen] = useState<boolean>(false);
   const [activeConfig, setActiveConfig] = useState<{ name: string; config: string } | null>(null);
   const [copied, setCopied] = useState<boolean>(false);
+
+  // Audit & Ping states
+  const [auditing, setAuditing] = useState<boolean>(false);
+  const [isAuditModalOpen, setIsAuditModalOpen] = useState<boolean>(false);
+  const [auditReport, setAuditReport] = useState<any>(null);
+
+  const [pingingIp, setPingingIp] = useState<string | null>(null);
+  const [pingResultModal, setPingResultModal] = useState<{ ip: string; alive: boolean; output: string; avgRttMs?: number } | null>(null);
 
   // Form states for Add Peer
   const [formName, setFormName] = useState<string>('');
@@ -235,14 +246,13 @@ export default function WireguardManager() {
     const serverPubKey = serverStatus?.publicKey || 'SP47bTGqXxN4Qqe2DewpONtYEOh2qcXPTj7dt1g1x2o=';
     const config = `[Interface]
 PrivateKey = <MASUKKAN_PRIVATE_KEY_KLIEN>
-Address = ${cleanIp}/32
-DNS = 1.1.1.1
+Address = ${cleanIp}/24
 MTU = 1360
 
 [Peer]
 PublicKey = ${serverPubKey}
 Endpoint = 103.196.155.87:${serverStatus?.listenPort || 51821}
-AllowedIPs = 10.0.0.1/32, 10.0.2.1/32
+AllowedIPs = 10.0.0.0/24, 10.0.2.0/24
 PersistentKeepalive = 25
 `;
 
@@ -251,6 +261,40 @@ PersistentKeepalive = 25
       config
     });
     setIsConfigModalOpen(true);
+  };
+
+  const handleAuditRepair = async () => {
+    setAuditing(true);
+    try {
+      const res = await apiClient.post('/api/admin/wireguard/audit-repair');
+      if (res.data?.success) {
+        setAuditReport(res.data.data);
+        setIsAuditModalOpen(true);
+        await loadData(false);
+      }
+    } catch (err: any) {
+      alert('Gagal audit WireGuard: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setAuditing(false);
+    }
+  };
+
+  const handlePingPeer = async (peer: WireguardPeer) => {
+    const cleanIp = peer.allowedIps.split('/')[0].trim();
+    if (!cleanIp) return;
+    setPingingIp(cleanIp);
+    try {
+      const res = await apiClient.post('/api/admin/wireguard/ping', { ipAddress: cleanIp });
+      setPingResultModal(res.data);
+    } catch (err: any) {
+      setPingResultModal({
+        ip: cleanIp,
+        alive: false,
+        output: err.response?.data?.message || err.message || 'Ping failed'
+      });
+    } finally {
+      setPingingIp(null);
+    }
   };
 
   const renderOsBadge = (osType?: string) => {
@@ -344,6 +388,16 @@ PersistentKeepalive = 25
           >
             <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
             <span>{syncing ? 'Syncing...' : 'Sync WG'}</span>
+          </button>
+
+          <button
+            onClick={handleAuditRepair}
+            disabled={auditing}
+            className="px-3.5 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-medium transition-all flex items-center space-x-1.5 disabled:opacity-50"
+            title="Pindai integritas wg0.conf & perbaiki peer rusak/stale"
+          >
+            <Wrench className={`w-3.5 h-3.5 ${auditing ? 'animate-spin' : ''}`} />
+            <span>{auditing ? 'Memeriksa...' : 'Audit & Perbaiki'}</span>
           </button>
 
           <button
@@ -576,6 +630,14 @@ PersistentKeepalive = 25
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end space-x-1.5">
                         <button
+                          onClick={() => handlePingPeer(peer)}
+                          disabled={pingingIp === peer.allowedIps.split('/')[0].trim()}
+                          className="p-1.5 bg-slate-800 hover:bg-emerald-900/40 text-slate-300 hover:text-emerald-400 rounded-lg border border-slate-700 hover:border-emerald-700 transition-all disabled:opacity-50"
+                          title="Uji Ping dari Server ke Peer Ini"
+                        >
+                          <Terminal className={`w-3.5 h-3.5 ${pingingIp === peer.allowedIps.split('/')[0].trim() ? 'animate-pulse text-emerald-400' : ''}`} />
+                        </button>
+                        <button
                           onClick={() => handleShowConfigForExisting(peer)}
                           className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg border border-slate-700 transition-all"
                           title="Lihat & Download Template Config Klien (.conf)"
@@ -780,6 +842,152 @@ PersistentKeepalive = 25
                   <span>Download .conf</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL AUDIT & REPAIR ────────────────────────────────────────── */}
+      {isAuditModalOpen && auditReport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl relative">
+            <button
+              onClick={() => setIsAuditModalOpen(false)}
+              className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-all"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
+                <Wrench className="w-5 h-5 text-amber-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">Hasil Audit & Health Check WireGuard</h3>
+                <p className="text-xs text-slate-400">Pemeriksaan integritas /etc/wireguard/wg0.conf & runtime kernel</p>
+              </div>
+            </div>
+
+            {/* Quick Metrics */}
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl text-center">
+                <span className="text-[11px] text-slate-400 block">Total Peer</span>
+                <span className="text-lg font-bold text-white">{auditReport.totalPeers}</span>
+              </div>
+              <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl text-center">
+                <span className="text-[11px] text-emerald-400 block">Sehat</span>
+                <span className="text-lg font-bold text-emerald-400">{auditReport.healthyPeers}</span>
+              </div>
+              <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl text-center">
+                <span className="text-[11px] text-amber-400 block">Diperbaiki</span>
+                <span className="text-lg font-bold text-amber-400">{auditReport.repairedPeers}</span>
+              </div>
+            </div>
+
+            {/* Repairs Applied */}
+            {auditReport.repairsApplied?.length > 0 && (
+              <div className="mb-4">
+                <h4 className="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-2 flex items-center">
+                  <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Perbaikan yang Diterapkan:
+                </h4>
+                <div className="bg-emerald-950/20 border border-emerald-800/40 rounded-xl p-3 space-y-1.5 max-h-36 overflow-y-auto">
+                  {auditReport.repairsApplied.map((r: string, idx: number) => (
+                    <div key={idx} className="text-xs text-emerald-300 flex items-start space-x-1.5">
+                      <span>•</span>
+                      <span>{r}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Issues Found */}
+            {auditReport.issues?.length > 0 ? (
+              <div className="mb-4">
+                <h4 className="text-xs font-semibold text-amber-400 uppercase tracking-wider mb-2 flex items-center">
+                  <AlertCircle className="w-3.5 h-3.5 mr-1" /> Isu / Peringatan Ditemukan:
+                </h4>
+                <div className="bg-amber-950/20 border border-amber-800/40 rounded-xl p-3 space-y-1.5 max-h-36 overflow-y-auto">
+                  {auditReport.issues.map((issue: string, idx: number) => (
+                    <div key={idx} className="text-xs text-amber-300 flex items-start space-x-1.5">
+                      <span>•</span>
+                      <span>{issue}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="mb-4 p-3 bg-emerald-950/20 border border-emerald-800/30 rounded-xl text-center">
+                <span className="text-xs text-emerald-400 font-medium">✓ Seluruh konfigurasi WireGuard 100% konsisten & valid.</span>
+              </div>
+            )}
+
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setIsAuditModalOpen(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-medium transition-all"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL HASIL PING TEST ────────────────────────────────────────── */}
+      {pingResultModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl relative">
+            <button
+              onClick={() => setPingResultModal(null)}
+              className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-all"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center space-x-3 mb-4">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                pingResultModal.alive ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-rose-500/10 border border-rose-500/30'
+              }`}>
+                <Terminal className={`w-5 h-5 ${pingResultModal.alive ? 'text-emerald-400' : 'text-rose-400'}`} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">Hasil Ping Test ({pingResultModal.ip})</h3>
+                <p className="text-xs text-slate-400">Tes konektivitas langsung dari VPS (wg0) ke Peer</p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between mb-3 p-3 bg-slate-950 border border-slate-800 rounded-xl">
+              <span className="text-xs text-slate-400">Status Koneksi:</span>
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                pingResultModal.alive
+                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                  : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+              }`}>
+                {pingResultModal.alive ? '✓ TERHUBUNG (ALIVE)' : '✕ TIMEOUT / UNREACHABLE'}
+              </span>
+            </div>
+
+            {pingResultModal.avgRttMs !== undefined && (
+              <div className="flex items-center justify-between mb-3 px-3 py-2 bg-slate-950/60 border border-slate-800/60 rounded-xl">
+                <span className="text-xs text-slate-400">Average RTT Latency:</span>
+                <span className="text-xs font-mono font-bold text-emerald-400">{pingResultModal.avgRttMs} ms</span>
+              </div>
+            )}
+
+            <div className="relative mb-4">
+              <pre className="p-3 bg-slate-950 border border-slate-800 rounded-xl font-mono text-xs text-slate-300 overflow-x-auto max-h-48 whitespace-pre-wrap">
+                {pingResultModal.output}
+              </pre>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setPingResultModal(null)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-medium transition-all"
+              >
+                Tutup
+              </button>
             </div>
           </div>
         </div>

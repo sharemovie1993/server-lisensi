@@ -84,5 +84,41 @@ const registerWireguardRoutes = (fastify) => {
             return reply.status(500).send({ success: false, message: err.message || 'Gagal syncconf WireGuard.' });
         }
     });
+    // 6. POST /api/admin/wireguard/audit-repair — Audit & Perbaiki wg0.conf
+    fastify.post('/api/admin/wireguard/audit-repair', async (request, reply) => {
+        await (0, middleware_1.verifyAdmin)(request, reply);
+        if (reply.sent)
+            return;
+        try {
+            const report = await (0, wireguard_service_1.auditAndRepairWireguardConfig)();
+            return reply.send({
+                success: true,
+                message: report.repairedPeers > 0
+                    ? `Audit selesai: ${report.repairedPeers} masalah peer berhasil diperbaiki.`
+                    : 'Audit selesai: Konfigurasi WireGuard 100% sehat.',
+                data: report
+            });
+        }
+        catch (err) {
+            return reply.status(500).send({ success: false, message: err.message || 'Gagal melakukan audit WireGuard.' });
+        }
+    });
+    // 7. POST /api/admin/wireguard/ping — Uji koneksi ping ke peer dari VPS
+    fastify.post('/api/admin/wireguard/ping', async (request, reply) => {
+        await (0, middleware_1.verifyAdmin)(request, reply);
+        if (reply.sent)
+            return;
+        try {
+            const { ipAddress } = request.body;
+            if (!ipAddress) {
+                return reply.status(400).send({ success: false, message: 'Alamat IP wajib disertakan.' });
+            }
+            const res = await (0, wireguard_service_1.pingWireguardPeer)(ipAddress);
+            return reply.send(res);
+        }
+        catch (err) {
+            return reply.status(400).send({ success: false, message: err.message || 'Gagal menjalankan ping test.' });
+        }
+    });
 };
 exports.registerWireguardRoutes = registerWireguardRoutes;

@@ -422,6 +422,7 @@ export async function createWireguardPeer(payload: {
     // Tulis ke wg0.conf TANPA ENDPOINT (Golden Rule for Dynamic Roaming)
     try {
       if (fs.existsSync(WG_CONF_PATH)) {
+        backupWgConf();
         const peerEntry = `
 # Client: ${name.replace(/\n/g, '')}
 [Peer]
@@ -452,8 +453,7 @@ AllowedIPs = ${cleanIp}/32
 
   const clientConfig = `[Interface]
 PrivateKey = ${privateKey || '<MASUKKAN_PRIVATE_KEY_ANDA>'}
-Address = ${cleanIp}/32
-DNS = 1.1.1.1
+Address = ${cleanIp}/24
 MTU = 1360
 
 [Peer]
@@ -503,6 +503,7 @@ export async function deleteWireguardPeer(publicKey: string): Promise<{ success:
     // 2. Remove dari wg0.conf
     try {
       if (fs.existsSync(WG_CONF_PATH)) {
+        backupWgConf();
         let content = fs.readFileSync(WG_CONF_PATH, 'utf8');
         // Pattern untuk menghapus blok peer dan komentar sebelumnya
         const pattern = new RegExp(`(?:#[^\\n]*\\n)*\\s*\\[Peer\\][\\s\\S]*?PublicKey\\s*=\\s*${publicKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[\\s\\S]*?(?=(?:#[^\\n]*\\n)*\\s*\\[Peer\\]|$)`, 'gi');
@@ -537,3 +538,189 @@ export async function syncWireguardConfig(): Promise<{ success: boolean; message
   }
   return { success: true, message: 'Sync WireGuard simulasi berhasil (Dev mode).' };
 }
+
+/**
+ * Menyimpan snapshot cadangan wg0.conf sebelum dilakukan perubahan konfigurasi
+ */
+export function backupWgConf(): void {
+  try {
+    if (fs.existsSync(WG_CONF_PATH)) {
+      const backupDir = '/etc/wireguard/backups';
+      if (!fs.existsSync(backupDir)) {
+        try {
+          fs.mkdirSync(backupDir, { recursive: true });
+        } catch {}
+      }
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      fs.copyFileSync(WG_CONF_PATH, `${backupDir}/wg0.conf.backup_${timestamp}`);
+    }
+  } catch (err: any) {
+    console.warn('[WG Backup Conf Warning]', err.message);
+  }
+}
+
+export interface AuditRepairResult {
+  totalPeers: number;
+  healthyPeers: number;
+  repairedPeers: number;
+  issues: string[];
+  repairsApplied: string[];
+  success: boolean;
+}
+
+/**
+ * Memeriksa integritas wg0.conf:
+ * - Mendeteksi peer tanpa AllowedIPs
+ * - Mendeteksi duplikasi PublicKey
+ * - Mengoreksi formatting dan menyinkronkan ulang ke runtime kernel
+ */
+export async function auditAndRepairWireguardConfig(): Promise<AuditRepairResult> {
+  const issues: string[] = [];
+  const repairsApplied: string[] = [];
+  let totalPeers = 0;
+  let healthyPeers = 0;
+  let repairedPeers = 0;
+
+  if (process.platform !== 'linux' || !fs.existsSync(WG_CONF_PATH)) {
+    return {
+      totalPeers: 0,
+      healthyPeers: 0,
+      repairedPeers: 0,
+      issues: ['WireGuard config file tidak ditemukan atau sistem berjalan di lingkungan non-Linux (Dev).'],
+      repairsApplied: [],
+      success: true
+    };
+  }
+
+  backupWgConf();
+
+  const confContent = fs.readFileSync(WG_CONF_PATH, 'utf8');
+  const peerBlocks = confContent.split(/\[Peer\]/i);
+  const header = peerBlocks[0];
+
+  const seenKeys = new Set<string>();
+  const validBlocks: string[] = [];
+
+  for (let i = 1; i < peerBlocks.length; i++) {
+    totalPeers++;
+    const block = peerBlocks[i];
+    const prevText = peerBlocks[i - 1];
+
+    let comment = '';
+    const commentLines = prevText.split('\n').filter(l => l.trim().startsWith('#'));
+    if (commentLines.length > 0) {
+      comment = commentLines.join('\n').trim();
+    }
+
+    const pubKeyMatch = block.match(/PublicKey\s*=\s*([A-Za-z0-9+/=]+)/i);
+    const allowedIpsMatch = block.match(/AllowedIPs\s*=\s*([0-9.,/ ]+)/i);
+    const endpointMatch = block.match(/Endpoint\s*=\s*([^\n\r]+)/i);
+
+    if (!pubKeyMatch) {
+      issues.push(`Peer #${i}: Kehilangan PublicKey yang valid - blok diabaikan.`);
+      continue;
+    }
+
+    const pubKey = pubKeyMatch[1].trim();
+
+    if (seenKeys.has(pubKey)) {
+      issues.push(`Peer #${i} (${pubKey.substring(0, 10)}...): Duplikasi PublicKey terdeteksi.`);
+      repairsApplied.push(`Menghapus blok duplikasi PublicKey ${pubKey.substring(0, 10)}...`);
+      repairedPeers++;
+      continue;
+    }
+    seenKeys.add(pubKey);
+
+    let allowedIps = allowedIpsMatch ? allowedIpsMatch[1].trim() : '';
+
+    if (!allowedIps) {
+      issues.push(`Peer #${i} (${pubKey.substring(0, 10)}...): Kehilangan baris AllowedIPs (Kritis)!`);
+      const nextIp = await getNextWireguardIp('10.0.0.');
+      allowedIps = `${nextIp}/32`;
+      repairsApplied.push(`Mengoreksi dan menginjeksi AllowedIPs = ${allowedIps} untuk peer ${pubKey.substring(0, 10)}...`);
+      repairedPeers++;
+    } else {
+      healthyPeers++;
+    }
+
+    let reconstructedBlock = '';
+    if (comment) reconstructedBlock += `${comment}\n`;
+    reconstructedBlock += `[Peer]\nPublicKey = ${pubKey}\nAllowedIPs = ${allowedIps}\n`;
+    if (endpointMatch) {
+      reconstructedBlock += `Endpoint = ${endpointMatch[1].trim()}\n`;
+    }
+    validBlocks.push(reconstructedBlock);
+  }
+
+  // Tulis ulang wg0.conf yang bersih
+  const newConf = header.trim() + '\n\n' + validBlocks.join('\n') + '\n';
+  fs.writeFileSync(WG_CONF_PATH, newConf, 'utf8');
+
+  // Sinkronisasikan ke runtime kernel
+  try {
+    execSync(`sudo wg syncconf ${WG_INTERFACE} <(sudo wg-quick strip ${WG_INTERFACE})`, {
+      shell: '/bin/bash',
+      stdio: 'pipe'
+    });
+    repairsApplied.push('Kernel WireGuard runtime berhasil disinkronkan dengan wg syncconf.');
+  } catch (err: any) {
+    issues.push(`Gagal syncconf kernel: ${err.message}`);
+  }
+
+  return {
+    totalPeers,
+    healthyPeers,
+    repairedPeers,
+    issues,
+    repairsApplied,
+    success: issues.length === 0 || repairsApplied.length > 0
+  };
+}
+
+/**
+ * Menjalankan uji ping dari server ke alamat IP peer WireGuard
+ */
+export async function pingWireguardPeer(ipAddress: string): Promise<{
+  success: boolean;
+  ip: string;
+  alive: boolean;
+  output: string;
+  avgRttMs?: number;
+}> {
+  const cleanIp = (ipAddress || '').split('/')[0].trim();
+  if (!cleanIp || !/^10\.(0\.[0-2]\.[0-9]+)$/.test(cleanIp)) {
+    throw new Error('Alamat IP tidak valid atau di luar subnet WireGuard (10.0.x.x).');
+  }
+
+  try {
+    let cmd = `ping -c 2 -W 2 "${cleanIp}"`;
+    if (process.platform === 'win32') {
+      cmd = `ping -n 2 -w 2000 ${cleanIp}`;
+    }
+
+    const output = execSync(cmd, { encoding: 'utf8', stdio: 'pipe' });
+    const isAlive = !output.includes('100% packet loss') && !output.includes('100% loss');
+
+    let avgRtt: number | undefined;
+    const rttMatch = output.match(/min\/avg\/max\S* = [\d.]+\/([\d.]+)/) || output.match(/Average = (\d+)ms/);
+    if (rttMatch) {
+      avgRtt = parseFloat(rttMatch[1]);
+    }
+
+    return {
+      success: true,
+      ip: cleanIp,
+      alive: isAlive,
+      output: output.trim(),
+      avgRttMs: avgRtt
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      ip: cleanIp,
+      alive: false,
+      output: err.stdout?.toString() || err.message || 'Ping timeout / host unreachable.'
+    };
+  }
+}
+
