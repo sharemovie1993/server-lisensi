@@ -52,7 +52,9 @@ export default function SstpVpnManager() {
   const [formError, setFormError] = useState<string | null>(null);
 
   // Script Modal state
-  const [scriptText, setScriptText] = useState<string>('');
+  const [activeScriptTab, setActiveScriptTab] = useState<'sstp' | 'l2tp'>('sstp');
+  const [sstpScriptText, setSstpScriptText] = useState<string>('');
+  const [l2tpScriptText, setL2tpScriptText] = useState<string>('');
   const [copied, setCopied] = useState<boolean>(false);
 
   const loadData = async () => {
@@ -172,21 +174,26 @@ export default function SstpVpnManager() {
   const handleOpenScriptModal = async (acc: SstpAccount) => {
     setSelectedAccount(acc);
     setCopied(false);
+    setActiveScriptTab('sstp');
     try {
       const res = await apiClient.get(`/api/admin/sstp/accounts/${acc.id}/script`);
-      if (res.data?.success && res.data.data?.script) {
-        setScriptText(res.data.data.script);
+      if (res.data?.success && res.data.data) {
+        setSstpScriptText(res.data.data.sstpScript || res.data.data.script || '');
+        setL2tpScriptText(res.data.data.l2tpScript || '');
       } else {
-        setScriptText(`# Gagal mengambil skrip.`);
+        setSstpScriptText(`# Gagal mengambil skrip SSTP.`);
+        setL2tpScriptText(`# Gagal mengambil skrip L2TP.`);
       }
     } catch (err) {
-      setScriptText(`# Gagal terhubung ke API.`);
+      setSstpScriptText(`# Gagal terhubung ke API.`);
+      setL2tpScriptText(`# Gagal terhubung ke API.`);
     }
     setIsScriptModalOpen(true);
   };
 
   const handleCopyScript = () => {
-    navigator.clipboard.writeText(scriptText);
+    const textToCopy = activeScriptTab === 'sstp' ? sstpScriptText : l2tpScriptText;
+    navigator.clipboard.writeText(textToCopy);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
   };
@@ -209,10 +216,10 @@ export default function SstpVpnManager() {
         <div>
           <h2 className="text-white text-2xl font-bold flex items-center gap-2">
             <ShieldCheck className="w-7 h-7 text-indigo-400" />
-            SSTP VPN Manager (MikroTik RouterOS v6)
+            MikroTik VPN Manager (SSTP & L2TP)
           </h2>
           <p className="text-slate-400 text-sm mt-1">
-            Pengelolaan terowongan SSL VPN SSTP internal untuk perangkat MikroTik RouterOS v6 tanpa WireGuard.
+            Pengelolaan terowongan SSL VPN SSTP & L2TP/IPsec untuk perangkat MikroTik RouterOS v6 & v7.
           </p>
         </div>
 
@@ -229,7 +236,7 @@ export default function SstpVpnManager() {
             className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm flex items-center gap-2 shadow-lg shadow-indigo-600/20 transition"
           >
             <Plus className="w-4 h-4" />
-            Tambah Akun SSTP
+            Tambah Akun VPN
           </button>
         </div>
       </div>
@@ -241,7 +248,7 @@ export default function SstpVpnManager() {
             <Server className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider">Total Akun SSTP</p>
+            <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider">Total Akun VPN</p>
             <h3 className="text-white text-2xl font-extrabold mt-0.5">{accounts.length}</h3>
           </div>
         </div>
@@ -262,7 +269,8 @@ export default function SstpVpnManager() {
           </div>
           <div>
             <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider">Server Endpoint</p>
-            <h3 className="text-amber-300 text-lg font-mono font-bold mt-0.5">absenta.id:4443</h3>
+            <h3 className="text-amber-300 text-base font-mono font-bold mt-0.5">103.196.155.87:4443</h3>
+            <p className="text-slate-500 text-[11px] font-mono">SSTP :4443 | L2TP :1701</p>
           </div>
         </div>
       </div>
@@ -554,7 +562,7 @@ export default function SstpVpnManager() {
         </div>
       )}
 
-      {/* MODAL SKRIP MIKROTIK v6 */}
+      {/* MODAL SKRIP MIKROTIK v6 / v7 */}
       {isScriptModalOpen && selectedAccount && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-2xl shadow-2xl space-y-5">
@@ -562,7 +570,7 @@ export default function SstpVpnManager() {
               <div>
                 <h3 className="text-white text-lg font-bold flex items-center gap-2">
                   <Terminal className="w-5 h-5 text-indigo-400" />
-                  Skrip MikroTik RouterOS v6 CLI
+                  Skrip MikroTik RouterOS CLI
                 </h3>
                 <p className="text-slate-400 text-xs mt-0.5">Akun: <strong className="text-white">{selectedAccount.username}</strong> ({selectedAccount.comment || 'Client MikroTik'})</p>
               </div>
@@ -574,16 +582,46 @@ export default function SstpVpnManager() {
               </button>
             </div>
 
+            {/* TAB SELECTOR PROTOKOL */}
+            <div className="flex items-center gap-2 p-1 bg-slate-950 border border-slate-800 rounded-xl">
+              <button
+                type="button"
+                onClick={() => { setActiveScriptTab('sstp'); setCopied(false); }}
+                className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                  activeScriptTab === 'sstp'
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                SSTP Client (Port 4443 - Rekomendasi)
+              </button>
+              <button
+                type="button"
+                onClick={() => { setActiveScriptTab('l2tp'); setCopied(false); }}
+                className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                  activeScriptTab === 'l2tp'
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Lock className="w-3.5 h-3.5" />
+                L2TP/IPSec Client (Port 1701)
+              </button>
+            </div>
+
             <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-300 text-xs flex items-center gap-2">
               <Info className="w-4 h-4 flex-shrink-0 text-indigo-400" />
               <span>
-                Salin skrip di bawah lalu tempel (*paste*) langsung ke menu <strong>Terminal</strong> pada aplikasi Winbox atau SSH MikroTik RouterOS v6.
+                {activeScriptTab === 'sstp'
+                  ? 'SSTP berjalan via TCP Port 4443 langsung ke VPS IP (Tembus NAT & Firewall ISP). Pastikan verify-server-certificate=no.'
+                  : 'L2TP menggunakan IPsec Pre-Shared Key "absenta". Memerlukan port UDP 1701 & 500/4500 terbuka tanpa diblokir ISP.'}
               </span>
             </div>
 
             <div className="relative">
-              <pre className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-emerald-400 font-mono text-xs overflow-x-auto whitespace-pre-wrap leading-relaxed">
-                {scriptText}
+              <pre className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-emerald-400 font-mono text-xs overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-64">
+                {activeScriptTab === 'sstp' ? sstpScriptText : l2tpScriptText}
               </pre>
 
               <button
@@ -602,7 +640,7 @@ export default function SstpVpnManager() {
                 ) : (
                   <>
                     <Copy className="w-3.5 h-3.5" />
-                    Salin Skrip MikroTik
+                    Salin Skrip {activeScriptTab.toUpperCase()}
                   </>
                 )}
               </button>

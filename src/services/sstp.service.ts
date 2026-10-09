@@ -7,7 +7,6 @@ const isLinux = process.platform === 'linux';
 const SSH_KEY_PATH = process.env.VPS_SSH_KEY || path.join(__dirname, '../../ls-key.pem');
 const VPS_IP = process.env.VPS_PUBLIC_IP || '103.196.155.87';
 const VPS_USER = process.env.VPS_USER || 'asepsuryadi';
-const MAIN_DOMAIN = process.env.MAIN_DOMAIN || 'absenta.id';
 
 // Helper to execute commands locally on VPS or via SSH
 function execVpsCommand(cmd: string): Promise<string> {
@@ -176,16 +175,41 @@ export function generateMikrotikScript(account: {
   comment?: string | null;
 }) {
   const commentText = account.comment ? account.comment.replace(/[\r\n"']/g, ' ') : 'Klien MikroTik RouterOS v6';
-  return `# ========================================================
-# SKRIP SETUP L2TP CLIENT MIKROTIK (ROUTEROS v6 & v7)
+
+  const sstpScript = `# ========================================================
+# SKRIP SETUP SSTP CLIENT MIKROTIK (ROUTEROS v6 & v7)
+# Protokol             : SSTP (SSL VPN TCP Port 4443)
+# Keunggulan           : Tembus NAT / Blokir ISP (Rekomendasi)
 # Deskripsi / Instansi : ${commentText}
-# Target VPS Server    : ${VPS_IP} (${MAIN_DOMAIN})
+# Endpoint Server      : ${VPS_IP}:4443
 # Username Client      : ${account.username}
 # ========================================================
 
-/interface l2tp-client remove [find name="l2tp-out-absenta"]
-/interface l2tp-client add name="l2tp-out-absenta" connect-to="${VPS_IP}" user="${account.username}" password="${account.password}" use-ipsec=yes ipsec-secret="absenta" allow=mschap2,mschap1 disabled=no comment="${commentText}"
+/interface sstp-client remove [find name="sstp-out-absenta"]
+/interface sstp-client add name="sstp-out-absenta" connect-to="${VPS_IP}:4443" user="${account.username}" password="${account.password}" profile=default-encryption verify-server-certificate=no disabled=no comment="${commentText}"
 `;
+
+  const l2tpScript = `# ========================================================
+# SKRIP SETUP L2TP CLIENT MIKROTIK (ROUTEROS v6 & v7)
+# Protokol             : L2TP / IPsec (UDP Port 1701 & 500/4500)
+# Deskripsi / Instansi : ${commentText}
+# Endpoint Server      : ${VPS_IP}
+# Username Client      : ${account.username}
+# IPsec Pre-Shared Key : absenta
+# ========================================================
+
+/interface l2tp-client remove [find name="l2tp-out-absenta"]
+/interface l2tp-client add name="l2tp-out-absenta" connect-to="${VPS_IP}" user="${account.username}" password="${account.password}" use-ipsec=yes ipsec-secret="absenta" allow=mschap2,mschap1,pap disabled=no comment="${commentText}"
+`;
+
+  return {
+    sstpScript,
+    l2tpScript,
+    script: sstpScript, // default script for backward compatibility
+    vpsIp: VPS_IP,
+    sstpEndpoint: `${VPS_IP}:4443`,
+    l2tpEndpoint: `${VPS_IP}:1701`
+  };
 }
 
 

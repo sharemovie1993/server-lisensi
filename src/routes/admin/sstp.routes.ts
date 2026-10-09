@@ -21,7 +21,9 @@ export const registerSstpRoutes = (fastify: FastifyInstance) => {
       return reply.send({
         success: true,
         data: accounts,
-        suggestedNextIp: nextIp
+        suggestedNextIp: nextIp,
+        serverEndpoint: '103.196.155.87:4443',
+        vpsIp: '103.196.155.87'
       });
     } catch (err: any) {
       return reply.status(500).send({ success: false, message: err.message || 'Gagal mengambil daftar akun SSTP.' });
@@ -110,13 +112,13 @@ export const registerSstpRoutes = (fastify: FastifyInstance) => {
         return reply.status(404).send({ success: false, message: 'Akun SSTP tidak ditemukan.' });
       }
 
-      const script = generateMikrotikScript(target);
+      const scriptData = generateMikrotikScript(target);
       return reply.send({
         success: true,
         data: {
           username: target.username,
           comment: target.comment,
-          script
+          ...scriptData
         }
       });
     } catch (err: any) {
