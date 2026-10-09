@@ -153,26 +153,29 @@ function generateMikrotikScript(account) {
     const sstpScript = `# ========================================================
 # SKRIP SETUP SSTP CLIENT MIKROTIK (ROUTEROS v6 & v7)
 # Protokol             : SSTP (SSL VPN TCP Port 4443)
-# Keunggulan           : Tembus NAT / Blokir ISP (Rekomendasi)
+# Keunggulan           : Tembus NAT / ISP / Seluler (Paling Stabil)
 # Deskripsi / Instansi : ${commentText}
 # Endpoint Server      : ${VPS_IP}:4443
-# Username Client      : ${account.username}
+# Username Client      : ${account.username}@DEFAULT
 # ========================================================
 
 /interface sstp-client remove [find name="sstp-out-absenta"]
-/interface sstp-client add name="sstp-out-absenta" connect-to="${VPS_IP}:4443" user="${account.username}" password="${account.password}" profile=default-encryption verify-server-certificate=no disabled=no comment="${commentText}"
+/interface sstp-client add name="sstp-out-absenta" connect-to="${VPS_IP}:4443" user="${account.username}@DEFAULT" password="${account.password}" profile=default-encryption verify-server-certificate=no disabled=no comment="${commentText}"
 `;
     const l2tpScript = `# ========================================================
 # SKRIP SETUP L2TP CLIENT MIKROTIK (ROUTEROS v6 & v7)
-# Protokol             : L2TP / IPsec (UDP Port 1701 & 500/4500)
+# Protokol             : L2TP Client (UDP Port 1701)
 # Deskripsi / Instansi : ${commentText}
 # Endpoint Server      : ${VPS_IP}
-# Username Client      : ${account.username}
-# IPsec Pre-Shared Key : absenta
+# Username Client      : ${account.username}@DEFAULT
 # ========================================================
 
 /interface l2tp-client remove [find name="l2tp-out-absenta"]
-/interface l2tp-client add name="l2tp-out-absenta" connect-to="${VPS_IP}" user="${account.username}" password="${account.password}" use-ipsec=yes ipsec-secret="absenta" allow=mschap2,mschap1,pap disabled=no comment="${commentText}"
+# Opsi 1: Tanpa IPsec (Paling mudah tembus NAT & tidak bentrok proposal)
+/interface l2tp-client add name="l2tp-out-absenta" connect-to="${VPS_IP}" user="${account.username}@DEFAULT" password="${account.password}" use-ipsec=no allow=mschap2,mschap1,pap disabled=no comment="${commentText}"
+
+# Opsi 2 (Alternatif bila ingin IPsec aktif):
+# /interface l2tp-client add name="l2tp-out-absenta" connect-to="${VPS_IP}" user="${account.username}@DEFAULT" password="${account.password}" use-ipsec=yes ipsec-secret="absenta" allow=mschap2,mschap1,pap disabled=no comment="${commentText}"
 `;
     return {
         sstpScript,
