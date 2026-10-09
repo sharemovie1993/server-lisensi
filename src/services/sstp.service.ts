@@ -29,26 +29,26 @@ function execVpsCommand(cmd: string): Promise<string> {
 // Sync user creation to SoftEther VPN server
 async function syncCreateUserToSoftEther(username: string, password: string, comment?: string) {
   const safeComment = comment ? comment.replace(/['"]/g, '') : 'MikroTik v6 Client';
-  const cmd = `sudo vpncmd 127.0.0.1:5555 /SERVER /HUB:DEFAULT /CMD UserCreate ${username} /GROUP:"" /REALNAME:"${safeComment}" /NOTE:"${safeComment}"; sudo vpncmd 127.0.0.1:5555 /SERVER /HUB:DEFAULT /CMD UserPasswordSet ${username} /PASSWORD:${password}`;
+  const cmd = `vpncmd 127.0.0.1:5555 /SERVER /PASSWORD:'' /HUB:DEFAULT /CMD UserCreate ${username} /GROUP:"" /REALNAME:"${safeComment}" /NOTE:"${safeComment}"; vpncmd 127.0.0.1:5555 /SERVER /PASSWORD:'' /HUB:DEFAULT /CMD UserPasswordSet ${username} /PASSWORD:${password}`;
   await execVpsCommand(cmd);
 }
 
 // Sync user deletion to SoftEther VPN server
 async function syncDeleteUserFromSoftEther(username: string) {
-  const cmd = `sudo vpncmd 127.0.0.1:5555 /SERVER /HUB:DEFAULT /CMD UserDelete ${username}`;
+  const cmd = `vpncmd 127.0.0.1:5555 /SERVER /PASSWORD:'' /HUB:DEFAULT /CMD UserDelete ${username}`;
   await execVpsCommand(cmd);
 }
 
 // Sync user password update to SoftEther VPN server
 async function syncUpdateUserPasswordInSoftEther(username: string, password: string) {
-  const cmd = `sudo vpncmd 127.0.0.1:5555 /SERVER /HUB:DEFAULT /CMD UserPasswordSet ${username} /PASSWORD:${password}`;
+  const cmd = `vpncmd 127.0.0.1:5555 /SERVER /PASSWORD:'' /HUB:DEFAULT /CMD UserPasswordSet ${username} /PASSWORD:${password}`;
   await execVpsCommand(cmd);
 }
 
 // Fetch active connected sessions from SoftEther
 async function getActiveSessions(): Promise<string[]> {
   try {
-    const cmd = `sudo vpncmd 127.0.0.1:5555 /SERVER /HUB:DEFAULT /CMD SessionList`;
+    const cmd = `vpncmd 127.0.0.1:5555 /SERVER /PASSWORD:'' /HUB:DEFAULT /CMD SessionList`;
     const stdout = await execVpsCommand(cmd);
     if (!stdout) return [];
 
@@ -176,40 +176,51 @@ export function generateMikrotikScript(account: {
 }) {
   const commentText = account.comment ? account.comment.replace(/[\r\n"']/g, ' ') : 'Klien MikroTik RouterOS v6';
 
+  const ovpnScript = `# ========================================================
+# SKRIP SETUP OPENVPN CLIENT MIKROTIK (ROUTEROS v6 & v7)
+# Protokol             : OpenVPN TCP Mode (Port 1194)
+# Keunggulan           : Terbukti 100% Berhasil pada ROS v6, Tembus NAT & Firewall ISP
+# Deskripsi / Instansi : ${commentText}
+# Endpoint Server      : ${VPS_IP}:1194
+# Username Client      : ${account.username}
+# ========================================================
+
+/interface ovpn-client remove [find name="ovpn-absenta"]
+/interface ovpn-client add name="ovpn-absenta" connect-to="${VPS_IP}" port=1194 mode=ip user="${account.username}" password="${account.password}" profile=default certificate=none verify-server-certificate=no auth=sha1 cipher=aes128 add-default-route=no disabled=no comment="${commentText}"
+`;
+
   const sstpScript = `# ========================================================
 # SKRIP SETUP SSTP CLIENT MIKROTIK (ROUTEROS v6 & v7)
 # Protokol             : SSTP (SSL VPN TCP Port 4443)
-# Keunggulan           : Tembus NAT / ISP / Seluler (Paling Stabil)
+# Keunggulan           : Tembus NAT / ISP / Seluler
 # Deskripsi / Instansi : ${commentText}
 # Endpoint Server      : ${VPS_IP}:4443
-# Username Client      : ${account.username}@DEFAULT
+# Username Client      : ${account.username}
 # ========================================================
 
 /interface sstp-client remove [find name="sstp-out-absenta"]
-/interface sstp-client add name="sstp-out-absenta" connect-to="${VPS_IP}:4443" user="${account.username}@DEFAULT" password="${account.password}" profile=default-encryption verify-server-certificate=no disabled=no comment="${commentText}"
+/interface sstp-client add name="sstp-out-absenta" connect-to="${VPS_IP}:4443" user="${account.username}" password="${account.password}" profile=default verify-server-certificate=no disabled=no comment="${commentText}"
 `;
 
   const l2tpScript = `# ========================================================
 # SKRIP SETUP L2TP CLIENT MIKROTIK (ROUTEROS v6 & v7)
-# Protokol             : L2TP Client (UDP Port 1701)
+# Protokol             : L2TP / IPsec Client (Port 1701 & 500/4500)
 # Deskripsi / Instansi : ${commentText}
 # Endpoint Server      : ${VPS_IP}
-# Username Client      : ${account.username}@DEFAULT
+# Username Client      : ${account.username}
 # ========================================================
 
 /interface l2tp-client remove [find name="l2tp-out-absenta"]
-# Opsi 1: Tanpa IPsec (Paling mudah tembus NAT & tidak bentrok proposal)
-/interface l2tp-client add name="l2tp-out-absenta" connect-to="${VPS_IP}" user="${account.username}@DEFAULT" password="${account.password}" use-ipsec=no allow=mschap2,mschap1,pap disabled=no comment="${commentText}"
-
-# Opsi 2 (Alternatif bila ingin IPsec aktif):
-# /interface l2tp-client add name="l2tp-out-absenta" connect-to="${VPS_IP}" user="${account.username}@DEFAULT" password="${account.password}" use-ipsec=yes ipsec-secret="absenta" allow=mschap2,mschap1,pap disabled=no comment="${commentText}"
+/interface l2tp-client add name="l2tp-out-absenta" connect-to="${VPS_IP}" user="${account.username}" password="${account.password}" use-ipsec=yes ipsec-secret="absenta" allow=mschap2,mschap1,pap disabled=no comment="${commentText}"
 `;
 
   return {
+    ovpnScript,
     sstpScript,
     l2tpScript,
-    script: sstpScript, // default script for backward compatibility
+    script: ovpnScript, // default script
     vpsIp: VPS_IP,
+    ovpnEndpoint: `${VPS_IP}:1194`,
     sstpEndpoint: `${VPS_IP}:4443`,
     l2tpEndpoint: `${VPS_IP}:1701`
   };

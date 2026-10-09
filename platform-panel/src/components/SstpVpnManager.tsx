@@ -52,7 +52,8 @@ export default function SstpVpnManager() {
   const [formError, setFormError] = useState<string | null>(null);
 
   // Script Modal state
-  const [activeScriptTab, setActiveScriptTab] = useState<'sstp' | 'l2tp'>('sstp');
+  const [activeScriptTab, setActiveScriptTab] = useState<'ovpn' | 'sstp' | 'l2tp'>('ovpn');
+  const [ovpnScriptText, setOvpnScriptText] = useState<string>('');
   const [sstpScriptText, setSstpScriptText] = useState<string>('');
   const [l2tpScriptText, setL2tpScriptText] = useState<string>('');
   const [copied, setCopied] = useState<boolean>(false);
@@ -174,17 +175,20 @@ export default function SstpVpnManager() {
   const handleOpenScriptModal = async (acc: SstpAccount) => {
     setSelectedAccount(acc);
     setCopied(false);
-    setActiveScriptTab('sstp');
+    setActiveScriptTab('ovpn');
     try {
       const res = await apiClient.get(`/api/admin/sstp/accounts/${acc.id}/script`);
       if (res.data?.success && res.data.data) {
+        setOvpnScriptText(res.data.data.ovpnScript || '');
         setSstpScriptText(res.data.data.sstpScript || res.data.data.script || '');
         setL2tpScriptText(res.data.data.l2tpScript || '');
       } else {
+        setOvpnScriptText(`# Gagal mengambil skrip OpenVPN.`);
         setSstpScriptText(`# Gagal mengambil skrip SSTP.`);
         setL2tpScriptText(`# Gagal mengambil skrip L2TP.`);
       }
     } catch (err) {
+      setOvpnScriptText(`# Gagal terhubung ke API.`);
       setSstpScriptText(`# Gagal terhubung ke API.`);
       setL2tpScriptText(`# Gagal terhubung ke API.`);
     }
@@ -192,7 +196,12 @@ export default function SstpVpnManager() {
   };
 
   const handleCopyScript = () => {
-    const textToCopy = activeScriptTab === 'sstp' ? sstpScriptText : l2tpScriptText;
+    const textToCopy =
+      activeScriptTab === 'ovpn'
+        ? ovpnScriptText
+        : activeScriptTab === 'sstp'
+        ? sstpScriptText
+        : l2tpScriptText;
     navigator.clipboard.writeText(textToCopy);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
@@ -586,6 +595,18 @@ export default function SstpVpnManager() {
             <div className="flex items-center gap-2 p-1 bg-slate-950 border border-slate-800 rounded-xl">
               <button
                 type="button"
+                onClick={() => { setActiveScriptTab('ovpn'); setCopied(false); }}
+                className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                  activeScriptTab === 'ovpn'
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                OpenVPN TCP (1194 - Rekomendasi v6)
+              </button>
+              <button
+                type="button"
                 onClick={() => { setActiveScriptTab('sstp'); setCopied(false); }}
                 className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 ${
                   activeScriptTab === 'sstp'
@@ -593,8 +614,8 @@ export default function SstpVpnManager() {
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                <ShieldCheck className="w-3.5 h-3.5" />
-                SSTP Client (Port 4443 - Rekomendasi)
+                <Wifi className="w-3.5 h-3.5" />
+                SSTP Client (4443)
               </button>
               <button
                 type="button"
@@ -606,22 +627,24 @@ export default function SstpVpnManager() {
                 }`}
               >
                 <Lock className="w-3.5 h-3.5" />
-                L2TP/IPSec Client (Port 1701)
+                L2TP/IPsec (1701)
               </button>
             </div>
 
             <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-300 text-xs flex items-center gap-2">
               <Info className="w-4 h-4 flex-shrink-0 text-indigo-400" />
               <span>
-                {activeScriptTab === 'sstp'
-                  ? 'SSTP berjalan via TCP Port 4443 langsung ke VPS IP (Tembus NAT & Firewall ISP). Pastikan verify-server-certificate=no.'
+                {activeScriptTab === 'ovpn'
+                  ? 'OpenVPN berjalan via TCP Port 1194. Terbukti 100% stabil pada MikroTik RouterOS v6, tembus firewall ISP & NAT tanpa perlu impor sertifikat.'
+                  : activeScriptTab === 'sstp'
+                  ? 'SSTP berjalan via TCP Port 4443 langsung ke VPS IP (Tembus NAT & Firewall ISP).'
                   : 'L2TP menggunakan IPsec Pre-Shared Key "absenta". Memerlukan port UDP 1701 & 500/4500 terbuka tanpa diblokir ISP.'}
               </span>
             </div>
 
             <div className="relative">
               <pre className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-emerald-400 font-mono text-xs overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-64">
-                {activeScriptTab === 'sstp' ? sstpScriptText : l2tpScriptText}
+                {activeScriptTab === 'ovpn' ? ovpnScriptText : activeScriptTab === 'sstp' ? sstpScriptText : l2tpScriptText}
               </pre>
 
               <button
