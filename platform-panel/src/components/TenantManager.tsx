@@ -135,10 +135,11 @@ export default function TenantManager() {
 
   const aggregatedTenants = getAggregatedTenants();
 
-  // CALCULATE STATS FOR ANALYTICS CARDS
+  // CALCULATE STATS FOR ANALYTICS CARDS (Murni Fisik Server vs Tunnel)
+  const physicalServers = aggregatedTenants.filter(t => t.nodeType !== 'TUNNEL' && t.productId !== 'easy-tunnel');
   const totalServers = aggregatedTenants.length;
-  const onlineServers = aggregatedTenants.filter(t => isTenantOnline(t.lastHeartbeatAt)).length;
-  const offlineServers = totalServers - onlineServers;
+  const onlineServers = physicalServers.filter(t => isTenantOnline(t.lastHeartbeatAt)).length;
+  const offlineServers = physicalServers.length - onlineServers;
   const activeTunnelsCount = aggregatedTenants.filter(t => (t.productId === 'easy-tunnel' || t.nodeType === 'TUNNEL') && t.status === 'active').length;
 
   const filteredTenants = aggregatedTenants.filter(t => {
@@ -363,7 +364,7 @@ export default function TenantManager() {
                           <div className="flex flex-col space-y-1">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="font-bold text-white text-xs sm:text-sm">
-                                {t.schoolName}
+                                {t.schoolName && t.schoolName.includes('|') ? t.schoolName.split('|')[0].trim() : t.schoolName}
                               </span>
                               {getNodeTypeBadge(t.nodeType)}
                               {t.is_trial && (
@@ -424,78 +425,118 @@ export default function TenantManager() {
 
                       {/* Status & Tunnel */}
                       <td className="px-6 py-4">
-                        <div className="flex flex-col items-start gap-1.5">
-                          <div className="flex items-center gap-2">
-                            {isTenantOnline(t.lastHeartbeatAt) ? (
-                              <span className="text-xs text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
-                                ⚡ Online
-                              </span>
-                            ) : (
-                              <span className="text-xs text-slate-500 bg-slate-950/60 border border-slate-800 px-2 py-0.5 rounded-full">
-                                💤 Offline
-                              </span>
-                            )}
-                            
-                            {/* Lisensi Status */}
-                            {(() => {
-                              const statusUpper = t.status?.toUpperCase() || '';
-                              if (statusUpper === 'ACTIVE') {
-                                return (
+                        {(() => {
+                          const isTunnel = t.nodeType === 'TUNNEL' || t.productId === 'easy-tunnel';
+                          if (isTunnel) {
+                            return (
+                              <div className="flex flex-col items-start gap-1.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-purple-400 font-semibold bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full">
+                                    ⚡ Tunnel Aktif
+                                  </span>
                                   <span className="text-[10px] font-bold text-emerald-450 uppercase">
-                                    • Aktif
+                                    • {t.status === 'active' ? 'Aktif' : (t.status?.toUpperCase() || 'AKTIF')}
                                   </span>
-                                );
-                              } else if (statusUpper === 'EXPIRED' || statusUpper === 'INACTIVE') {
-                                return (
-                                  <span className="text-[10px] font-bold text-rose-450 uppercase">
-                                    • Expired
-                                  </span>
-                                );
-                              } else {
-                                return (
-                                  <span className="text-[10px] font-bold text-amber-450 uppercase">
-                                    • Pending
-                                  </span>
-                                );
-                              }
-                            })()}
-                          </div>
+                                </div>
+                                <span className="text-[10.5px] text-slate-400 font-mono">
+                                  Gateway: {t.requestedSlug ? `${t.requestedSlug}.absenta.id` : 'absenta.id'}
+                                </span>
+                                <span className="text-[9.5px] font-bold text-purple-400 bg-purple-950/30 border border-purple-900/30 px-1.5 py-0.5 rounded">
+                                  🔑 WireGuard ({t.wireguardIp || 'Cloud Gateway'})
+                                </span>
+                              </div>
+                            );
+                          }
 
-                          {/* Metrik Real-time */}
-                          {isTenantOnline(t.lastHeartbeatAt) ? (
-                            <div className="text-[10.5px] text-slate-400 font-mono space-x-1.5 flex items-center">
-                              <span className={t.memoryUsage && t.memoryUsage > 0.8 ? 'text-rose-450 font-bold' : 'text-slate-400'}>
-                                RAM: {t.memoryUsage ? `${(t.memoryUsage * 100).toFixed(0)}%` : 'N/A'}
-                              </span>
-                              <span className="text-slate-700">|</span>
-                              <span>DB: {t.dbSize ? `${t.dbSize.toFixed(1)}MB` : 'N/A'}</span>
-                              <span className="text-slate-700">|</span>
-                              <span>{t.activeUsers ?? 0} Users</span>
+                          return (
+                            <div className="flex flex-col items-start gap-1.5">
+                              <div className="flex items-center gap-2">
+                                {isTenantOnline(t.lastHeartbeatAt) ? (
+                                  <span className="text-xs text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                                    ⚡ Online
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-slate-500 bg-slate-950/60 border border-slate-800 px-2 py-0.5 rounded-full">
+                                    💤 Offline
+                                  </span>
+                                )}
+                                
+                                {/* Lisensi Status */}
+                                {(() => {
+                                  const statusUpper = t.status?.toUpperCase() || '';
+                                  if (statusUpper === 'ACTIVE') {
+                                    return (
+                                      <span className="text-[10px] font-bold text-emerald-450 uppercase">
+                                        • Aktif
+                                      </span>
+                                    );
+                                  } else if (statusUpper === 'EXPIRED' || statusUpper === 'INACTIVE') {
+                                    return (
+                                      <span className="text-[10px] font-bold text-rose-450 uppercase">
+                                        • Expired
+                                      </span>
+                                    );
+                                  } else {
+                                    return (
+                                      <span className="text-[10px] font-bold text-amber-450 uppercase">
+                                        • Pending
+                                      </span>
+                                    );
+                                  }
+                                })()}
+                              </div>
+
+                              {/* Metrik Real-time */}
+                              {isTenantOnline(t.lastHeartbeatAt) ? (
+                                <div className="text-[10.5px] text-slate-400 font-mono space-x-1.5 flex items-center">
+                                  <span className={t.memoryUsage && t.memoryUsage > 0.8 ? 'text-rose-450 font-bold' : 'text-slate-400'}>
+                                    RAM: {t.memoryUsage ? `${(t.memoryUsage * 100).toFixed(0)}%` : 'N/A'}
+                                  </span>
+                                  <span className="text-slate-700">|</span>
+                                  <span>DB: {t.dbSize ? `${t.dbSize.toFixed(1)}MB` : 'N/A'}</span>
+                                  <span className="text-slate-700">|</span>
+                                  <span>{t.activeUsers ?? 0} Users</span>
+                                </div>
+                              ) : (
+                                <span className="text-[10.5px] text-slate-500 font-mono">
+                                  {t.lastHeartbeatAt 
+                                    ? `Sejak ${new Date(t.lastHeartbeatAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} (${new Date(t.lastHeartbeatAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })})` 
+                                    : 'Belum pernah online'}
+                                </span>
+                              )}
+
+                              {/* Tunnel IP */}
+                              {t.wireguardIp ? (
+                                <span className="text-[9.5px] font-bold text-purple-400 bg-purple-950/30 border border-purple-900/30 px-1.5 py-0.5 rounded">
+                                  🔑 Tunnel: {t.wireguardIp}
+                                </span>
+                              ) : (
+                                <span className="text-[9.5px] font-medium text-slate-500 bg-slate-950/40 border border-slate-900/80 px-1.5 py-0.5 rounded">
+                                  ☁️ Direct Host (SaaS Local)
+                                </span>
+                              )}
                             </div>
-                          ) : (
-                            <span className="text-[10.5px] text-slate-500 font-mono">
-                              {t.lastHeartbeatAt 
-                                ? `Sejak ${new Date(t.lastHeartbeatAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} (${new Date(t.lastHeartbeatAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })})` 
-                                : 'Belum pernah online'}
-                            </span>
-                          )}
-
-                          {/* Tunnel IP */}
-                          {t.wireguardIp ? (
-                            <span className="text-[9.5px] font-bold text-purple-400 bg-purple-950/30 border border-purple-900/30 px-1.5 py-0.5 rounded">
-                              🔑 Tunnel: {t.wireguardIp}
-                            </span>
-                          ) : (
-                            <span className="text-[9.5px] font-medium text-slate-500 bg-slate-950/40 border border-slate-900/80 px-1.5 py-0.5 rounded">
-                              ☁️ No Tunnel (SaaS)
-                            </span>
-                          )}
-                        </div>
+                          );
+                        })()}
                       </td>
 
                       {/* Spesifikasi Perangkat Keras */}
                       <td className="px-6 py-4">
                         {(() => {
+                          const isTunnel = t.nodeType === 'TUNNEL' || t.productId === 'easy-tunnel';
+                          if (isTunnel) {
+                            return (
+                              <div className="flex flex-col gap-1 text-xs">
+                                <span className="text-purple-450 flex items-center gap-1 font-mono text-[10.5px]">
+                                  <Cpu className="w-3.5 h-3.5 text-purple-400" /> Cloud WireGuard Gateway
+                                </span>
+                                <span className="text-[10px] text-slate-400">
+                                  Jalur Enkripsi Terowongan Subdomain
+                                </span>
+                              </div>
+                            );
+                          }
+
                           const hw = parseHardware(t.osType);
                           if (hw.os === 'N/A' && hw.cpu === 'N/A') {
                             return <span className="text-xs text-slate-500 font-mono">-</span>;
