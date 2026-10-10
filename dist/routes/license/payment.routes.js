@@ -217,8 +217,12 @@ const registerPaymentLicenseRoutes = (fastify) => {
                 const isBundledTunnel = (lic.includeVpn === 1) ||
                     planId.includes('paket_lengkap') ||
                     (invoice.planTitle || '').toLowerCase().includes('paket lengkap');
-                if (isBundledTunnel && (lic.requestedSlug || lic.tenantIdentifier)) {
-                    const tenantSlug = (lic.requestedSlug || lic.tenantIdentifier || '').trim().toLowerCase();
+                let extractedSlug = (lic.requestedSlug || lic.tenantIdentifier || '').trim().toLowerCase();
+                if (!extractedSlug && invoice.schoolName && invoice.schoolName.includes('|')) {
+                    extractedSlug = invoice.schoolName.split('|')[1].trim().toLowerCase();
+                }
+                if (isBundledTunnel && extractedSlug) {
+                    const tenantSlug = extractedSlug;
                     const hostKey = lic.hostLicenseKey || lic.licenseKey;
                     const tunnelPlanId = (planId.includes('annual') || planId.includes('tahun') || planId.includes('yearly')) ? 'easy_tunnel_annual' : 'easy_tunnel_monthly';
                     try {

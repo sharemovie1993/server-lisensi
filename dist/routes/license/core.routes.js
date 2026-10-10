@@ -820,9 +820,22 @@ const registerCoreLicenseRoutes = (fastify) => {
                 where: childWhere,
                 select: { id: true }
             });
-            const allLicenseIds = tenantSlug ? childLicenses.map(c => c.id) : [license.id, ...childLicenses.map(c => c.id)];
+            const childIds = childLicenses.map(c => c.id);
+            const subWhere = tenantSlug
+                ? {
+                    OR: [
+                        ...(childIds.length > 0 ? [{ licenseId: { in: childIds } }] : []),
+                        {
+                            licenseId: license.id,
+                            schoolName: { contains: '|' + tenantSlug, mode: 'insensitive' }
+                        }
+                    ]
+                }
+                : {
+                    licenseId: { in: [license.id, ...childIds] }
+                };
             const subs = await helpers_1.prisma.subscription.findMany({
-                where: { licenseId: { in: allLicenseIds } },
+                where: subWhere,
                 orderBy: { id: 'desc' }
             });
             const mapped = subs.map(s => ({
@@ -868,9 +881,22 @@ const registerCoreLicenseRoutes = (fastify) => {
                 where: childInvWhere,
                 select: { id: true }
             });
-            const allInvLicenseIds = tenantSlug ? childInvLicenses.map(c => c.id) : [license.id, ...childInvLicenses.map(c => c.id)];
+            const childInvIds = childInvLicenses.map(c => c.id);
+            const invWhere = tenantSlug
+                ? {
+                    OR: [
+                        ...(childInvIds.length > 0 ? [{ licenseId: { in: childInvIds } }] : []),
+                        {
+                            licenseId: license.id,
+                            schoolName: { contains: '|' + tenantSlug, mode: 'insensitive' }
+                        }
+                    ]
+                }
+                : {
+                    licenseId: { in: [license.id, ...childInvIds] }
+                };
             const list = await helpers_1.prisma.invoice.findMany({
-                where: { licenseId: { in: allInvLicenseIds } },
+                where: invWhere,
                 orderBy: { createdAt: 'desc' }
             });
             const mapped = list.map(i => ({
