@@ -213,6 +213,96 @@ const registerPaymentLicenseRoutes = (fastify) => {
                         }
                     });
                 }
+                // === AUTO-BUNDLING PROVISIONING & CO-TERMINATION: EASY TUNNEL ===
+                const isBundledTunnel = (lic.includeVpn === 1) ||
+                    planId.includes('paket_lengkap') ||
+                    (invoice.planTitle || '').toLowerCase().includes('paket lengkap');
+                if (isBundledTunnel && (lic.requestedSlug || lic.tenantIdentifier)) {
+                    const tenantSlug = (lic.requestedSlug || lic.tenantIdentifier || '').trim().toLowerCase();
+                    const hostKey = lic.hostLicenseKey || lic.licenseKey;
+                    const tunnelPlanId = (planId.includes('annual') || planId.includes('tahun') || planId.includes('yearly')) ? 'easy_tunnel_annual' : 'easy_tunnel_monthly';
+                    try {
+                        console.log(`[AUTO-BUNDLING] Processing Easy Tunnel for bundled plan: ${planId}, Tenant: ${tenantSlug}, Host: ${hostKey}...`);
+                        // 1. Cek apakah sudah ada lisensi easy-tunnel untuk tenant ini
+                        let tunnelLic = await helpers_1.prisma.license.findFirst({
+                            where: {
+                                productId: 'easy-tunnel',
+                                requestedSlug: tenantSlug,
+                                OR: [
+                                    { hostLicenseKey: hostKey },
+                                    { hostLicenseKey: null }
+                                ]
+                            }
+                        });
+                        if (tunnelLic) {
+                            // Jika sudah ada: Perpanjang masa aktifnya (Co-Termination)
+                            console.log(`[AUTO-BUNDLING] Extending existing Easy Tunnel license: ${tunnelLic.licenseKey} to ${expiresStr}`);
+                            await helpers_1.prisma.license.update({
+                                where: { id: tunnelLic.id },
+                                data: {
+                                    status: 'active',
+                                    isActive: 1,
+                                    expiresAt: expiresStr,
+                                    hostLicenseKey: hostKey,
+                                    schoolName: invoice.schoolName
+                                }
+                            });
+                            // Perpanjang juga subscription-nya jika ada
+                            const existingTunnelSub = await helpers_1.prisma.subscription.findFirst({
+                                where: { licenseId: tunnelLic.id }
+                            });
+                            if (existingTunnelSub) {
+                                await helpers_1.prisma.subscription.update({
+                                    where: { id: existingTunnelSub.id },
+                                    data: {
+                                        status: 'active',
+                                        endDate: expiresStr,
+                                        schoolName: invoice.schoolName
+                                    }
+                                });
+                            }
+                        }
+                        else {
+                            // Jika belum ada: Generate lisensi easy-tunnel baru
+                            const randBytes = crypto_1.default.randomBytes(8).toString('hex').toUpperCase();
+                            const newTunnelKey = `TUN-${randBytes.slice(0, 4)}-${randBytes.slice(4, 8)}-${randBytes.slice(8, 12)}`;
+                            console.log(`[AUTO-BUNDLING] Creating NEW Easy Tunnel license: ${newTunnelKey} for tenant ${tenantSlug}`);
+                            const createdTunnelLic = await helpers_1.prisma.license.create({
+                                data: {
+                                    licenseKey: newTunnelKey,
+                                    productId: 'easy-tunnel',
+                                    schoolName: invoice.schoolName,
+                                    deviceLimit: 1,
+                                    isUnlimited: 0,
+                                    expiresAt: expiresStr,
+                                    status: 'active',
+                                    isActive: 1,
+                                    planId: tunnelPlanId,
+                                    requestedSlug: tenantSlug,
+                                    includeVpn: 1,
+                                    hostLicenseKey: hostKey,
+                                    tenantIdentifier: tenantSlug,
+                                    operatorPhone: lic.operatorPhone || null
+                                }
+                            });
+                            await helpers_1.prisma.subscription.create({
+                                data: {
+                                    licenseId: createdTunnelLic.id,
+                                    schoolName: invoice.schoolName,
+                                    productId: 'easy-tunnel',
+                                    planId: tunnelPlanId,
+                                    status: 'active',
+                                    startDate: new Date().toISOString().slice(0, 10),
+                                    endDate: expiresStr
+                                }
+                            });
+                            console.log(`[AUTO-BUNDLING] ✅ Easy Tunnel license ${newTunnelKey} successfully bundled & activated!`);
+                        }
+                    }
+                    catch (tunnelErr) {
+                        console.error('[AUTO-BUNDLING ERROR] Failed to provision bundled Easy Tunnel license:', tunnelErr.message);
+                    }
+                }
                 // 1. Kirim notifikasi WA Lunas ke Pembeli (Operator)
                 if (lic.operatorPhone) {
                     (0, helpers_1.sendLicenseWhatsAppNotification)(lic.operatorPhone, invoice.schoolName, lic.requestedSlug, lic.productId, invoice.planTitle, lic.licenseKey, invoice.invoiceNumber, Number(invoice.amount), invoice.paymentMethod, 'paid').catch(e => console.error('[WA Paid License Notify Error]', e.message));
@@ -345,9 +435,15 @@ Pembayaran untuk invoice *${invoice.invoiceNumber}* telah berhasil diterima!
                     }
                 });
             }
-            // Find all licenses under these subdomain slugs
+            // Find all licenses under these subdomain slugs or bound to this host (2-Tier)
+            const licenseOrs = [
+                { hostLicenseKey: coreKey.trim() }
+            ];
+            if (slugs.length > 0) {
+                licenseOrs.push({ requestedSlug: { in: slugs } });
+            }
             const licenses = await helpers_1.prisma.license.findMany({
-                where: { requestedSlug: { in: slugs } },
+                where: { OR: licenseOrs },
                 orderBy: { id: 'desc' }
             });
             // Find all invoices under these license IDs (including the core license itself)

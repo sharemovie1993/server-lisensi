@@ -122,36 +122,15 @@ export default function TenantManager() {
     return null;
   };
 
-  // AGREGASI / MERGER LISENSI UNTUK MODE HYBRID TUNNEL
+  // MURNI SERVER & TUNNEL INFRASTRUCTURE NODES
   const getAggregatedTenants = (): (Tenant & { tunnelLicenseKey?: string; tunnelStatus?: string })[] => {
-    const tunnels = tenants.filter(t => t.productId === 'easy-tunnel');
-    const mainLicenses = tenants.filter(t => t.productId !== 'easy-tunnel');
-    const mergedTunnelIds = new Set<string>();
-
-    const merged = mainLicenses.map(main => {
-      if (main.deployMode?.toLowerCase() === 'hybrid' || main.requestedSlug) {
-        // Cari tunnel yang memiliki requestedSlug atau schoolName yang sama
-        const matchTunnel = tunnels.find(tun => 
-          (tun.requestedSlug && main.requestedSlug && tun.requestedSlug === main.requestedSlug) ||
-          (tun.schoolName && main.schoolName && tun.schoolName === main.schoolName)
-        );
-
-        if (matchTunnel) {
-          mergedTunnelIds.add(matchTunnel.id);
-          return {
-            ...main,
-            wireguardIp: matchTunnel.wireguardIp || main.wireguardIp,
-            tunnelLicenseKey: matchTunnel.licenseKey,
-            tunnelStatus: matchTunnel.status
-          };
-        }
-      }
-      return main;
+    return tenants.map(t => {
+      const isTunnel = t.productId === 'easy-tunnel' || t.nodeType === 'TUNNEL';
+      return {
+        ...t,
+        nodeType: isTunnel ? 'TUNNEL' : (t.nodeType || 'SERVER_SAAS')
+      };
     });
-
-    // Tetap tampilkan tunnel yang tidak memiliki server utama (orphan tunnels)
-    const orphanTunnels = tunnels.filter(tun => !mergedTunnelIds.has(tun.id));
-    return [...merged, ...orphanTunnels];
   };
 
   const aggregatedTenants = getAggregatedTenants();
@@ -160,7 +139,7 @@ export default function TenantManager() {
   const totalServers = aggregatedTenants.length;
   const onlineServers = aggregatedTenants.filter(t => isTenantOnline(t.lastHeartbeatAt)).length;
   const offlineServers = totalServers - onlineServers;
-  const activeTunnelsCount = tenants.filter(t => t.productId === 'easy-tunnel' && t.status === 'active').length;
+  const activeTunnelsCount = aggregatedTenants.filter(t => (t.productId === 'easy-tunnel' || t.nodeType === 'TUNNEL') && t.status === 'active').length;
 
   const filteredTenants = aggregatedTenants.filter(t => {
     const matchesProduct = selectedProductId === 'all' || t.productId === selectedProductId;
@@ -377,31 +356,68 @@ export default function TenantManager() {
                     <tr className="hover:bg-slate-850/50 transition border-b border-slate-850">
                       {/* Server / Node */}
                       <td className="px-6 py-4">
-                        <div className="flex items-center space-x-3">
-                          <TelemetryStatusIcon tenant={t} />
-                          <div className="flex flex-col">
-                            <span className="font-semibold text-white text-xs sm:text-sm flex items-center gap-1.5 flex-wrap">
-                              <span>{t.schoolName}</span>
+                        <div className="flex items-start space-x-3">
+                          <div className="pt-1">
+                            <TelemetryStatusIcon tenant={t} />
+                          </div>
+                          <div className="flex flex-col space-y-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-white text-xs sm:text-sm">
+                                {t.schoolName}
+                              </span>
                               {getNodeTypeBadge(t.nodeType)}
                               {t.is_trial && (
                                 <span className="inline-flex items-center px-1.5 py-0.25 rounded text-[8.5px] font-extrabold bg-amber-500/10 border border-amber-500/30 text-amber-400 uppercase tracking-wider">
                                   Trial
                                 </span>
                               )}
-                            </span>
-                            <div className="mt-1 flex items-center gap-2 flex-wrap">
-                              <a 
-                                href={`https://${t.requestedSlug || t.id}.absenta.id`} 
-                                target="_blank" 
-                                rel="noreferrer"
-                                className="text-xs text-indigo-400 hover:text-indigo-300 font-mono inline-flex items-center gap-1 group"
-                                title="Buka portal sekolah online"
-                              >
-                                <span>{t.requestedSlug || t.id}.absenta.id</span>
-                                <ExternalLink className="w-2.5 h-2.5 text-indigo-500/70 group-hover:text-indigo-400 transition" />
-                              </a>
+                            </div>
+
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {t.requestedSlug ? (
+                                <a 
+                                  href={`https://${t.requestedSlug}.absenta.id`} 
+                                  target="_blank" 
+                                  rel="noreferrer"
+                                  className="text-xs text-indigo-400 hover:text-indigo-300 font-mono inline-flex items-center gap-1 group"
+                                  title="Buka portal online"
+                                >
+                                  <span>{t.requestedSlug}.absenta.id</span>
+                                  <ExternalLink className="w-2.5 h-2.5 text-indigo-500/70 group-hover:text-indigo-400 transition" />
+                                </a>
+                              ) : (
+                                <span className="text-[11px] text-slate-400 font-mono">
+                                  Key: {t.licenseKey}
+                                </span>
+                              )}
                               {getDeployModeBadge(t.deployMode)}
                             </div>
+
+                            {/* Daftar Tenant yang Menumpang di Server Node ini */}
+                            {t.hostedTenants && t.hostedTenants.length > 0 && (
+                              <div className="mt-2 pt-2 border-t border-slate-800/80 flex flex-col gap-1">
+                                <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                                  <Building className="w-3 h-3 text-indigo-400" />
+                                  Menampung {t.hostedTenants.length} Tenant Sekolah:
+                                </span>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  {t.hostedTenants.map((ht, idx) => (
+                                    <a
+                                      key={idx}
+                                      href={ht.slug ? `https://${ht.slug}.absenta.id` : '#'}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="px-2 py-0.5 bg-indigo-950/60 hover:bg-indigo-900/80 border border-indigo-800/60 rounded text-[10px] font-mono text-indigo-300 hover:text-white inline-flex items-center gap-1 transition shadow-xs"
+                                      title={`Buka portal https://${ht.slug}.absenta.id`}
+                                    >
+                                      <span>{ht.name}</span>
+                                      {ht.slug && <span className="text-slate-400">({ht.slug}.absenta.id)</span>}
+                                      <ExternalLink className="w-2.5 h-2.5 text-indigo-400" />
+                                    </a>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </td>

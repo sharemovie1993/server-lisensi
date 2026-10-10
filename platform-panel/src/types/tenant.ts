@@ -1,3 +1,8 @@
+export interface HostedTenantItem {
+  name: string;
+  slug: string | null;
+}
+
 export interface Tenant {
   id: string;
   schoolName: string;
@@ -21,6 +26,8 @@ export interface Tenant {
   wireguardIp?: string | null;
   is_trial?: boolean;
   nodeType?: string;
+  hostedTenantsCount?: number;
+  hostedTenants?: HostedTenantItem[];
 }
 
 export interface HardwareInfo {

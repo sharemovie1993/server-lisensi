@@ -167,9 +167,13 @@ export const registerTenantRoutes = (fastify: FastifyInstance) => {
     if (reply.sent) return;
 
     try {
+      // 1. Ambil HANYA Server Host Appliance (hostLicenseKey null) ATAU lisensi Easy Tunnel
       const list = await prisma.license.findMany({
         where: {
-          productId: { in: ['cakola', 'easy-tunnel'] }
+          OR: [
+            { productId: 'cakola', hostLicenseKey: null },
+            { productId: 'easy-tunnel' }
+          ]
         },
         include: {
           activatedDevices: true
@@ -177,25 +181,69 @@ export const registerTenantRoutes = (fastify: FastifyInstance) => {
         orderBy: { createdAt: 'desc' }
       });
 
-      const mapped = list.map(t => ({
-        id: t.id,
-        schoolName: t.schoolName,
-        requestedSlug: t.requestedSlug,
-        licenseKey: t.licenseKey,
-        status: t.status,
-        lastHeartbeatAt: t.lastHeartbeatAt,
-        deployMode: t.deployMode,
-        activeUsers: t.activeUsers,
-        dbSize: t.dbSize,
-        memoryUsage: t.memoryUsage,
-        lastTapped: t.lastTapped,
-        wireguardIp: t.wireguardIp,
-        is_trial: t.status === 'active' && t.isActive === 1 && !t.planId,
-        hostname: t.activeHostname,
-        osType: t.activeOs,
-        activeDevices: t.activatedDevices.length,
-        createdAt: t.createdAt
-      }));
+      // 2. Ambil seluruh lisensi tenant yang menumpang di server-server host ini untuk agregasi
+      const tenantLicenses = await prisma.license.findMany({
+        where: {
+          hostLicenseKey: { not: null },
+          productId: { not: 'easy-tunnel' }
+        },
+        select: {
+          hostLicenseKey: true,
+          schoolName: true,
+          requestedSlug: true
+        }
+      });
+
+      // Buat pemetaan tenant per hostLicenseKey
+      const hostTenantsMap = new Map<string, { name: string; slug: string | null }[]>();
+      for (const t of tenantLicenses) {
+        if (!t.hostLicenseKey) continue;
+        if (!hostTenantsMap.has(t.hostLicenseKey)) {
+          hostTenantsMap.set(t.hostLicenseKey, []);
+        }
+        const parts = t.schoolName.split('|');
+        const name = parts[0].trim();
+        const slug = t.requestedSlug || (parts[1] ? parts[1].trim() : null);
+        const existing = hostTenantsMap.get(t.hostLicenseKey)!;
+        if (!existing.some(e => e.name === name)) {
+          existing.push({ name, slug });
+        }
+      }
+
+      const mapped = list.map(t => {
+        const hostedTenants = t.licenseKey ? (hostTenantsMap.get(t.licenseKey) || []) : [];
+        const isTunnel = t.productId === 'easy-tunnel';
+        const effectiveNodeType = isTunnel ? 'TUNNEL' : (t.nodeType || 'SERVER_SAAS');
+
+        let displayName = t.schoolName;
+        if (!isTunnel && t.schoolName.includes('|')) {
+          displayName = t.schoolName.split('|')[0].trim();
+        }
+
+        return {
+          id: t.id,
+          schoolName: displayName,
+          requestedSlug: t.requestedSlug,
+          licenseKey: t.licenseKey,
+          productId: t.productId,
+          nodeType: effectiveNodeType,
+          status: t.status,
+          lastHeartbeatAt: t.lastHeartbeatAt,
+          deployMode: t.deployMode,
+          activeUsers: t.activeUsers,
+          dbSize: t.dbSize,
+          memoryUsage: t.memoryUsage,
+          lastTapped: t.lastTapped,
+          wireguardIp: t.wireguardIp,
+          is_trial: t.status === 'active' && t.isActive === 1 && !t.planId,
+          hostname: t.activeHostname,
+          osType: t.activeOs,
+          activeDevices: t.activatedDevices.length,
+          hostedTenantsCount: hostedTenants.length,
+          hostedTenants: hostedTenants,
+          createdAt: t.createdAt
+        };
+      });
 
       return reply.send({ success: true, count: mapped.length, data: mapped });
     } catch (err: any) {

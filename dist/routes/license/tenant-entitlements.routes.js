@@ -92,6 +92,7 @@ function registerTenantEntitlementRoutes(fastify) {
                 requested_slug: lic.requestedSlug || '',
                 status: lic.status,
                 is_active: lic.isActive,
+                is_bundled: lic.includeVpn === 1 || (Boolean(lic.hostLicenseKey) && lic.productId === 'easy-tunnel'),
                 entitlement_status: lic.entitlementStatus || 'ACTIVE',
                 expires_at: lic.expiresAt,
                 local_port: lic.localPort || null,

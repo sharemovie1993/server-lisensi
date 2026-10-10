@@ -281,7 +281,7 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
             isActive: 0,
             planId: plan.id,
             requestedSlug: resolvedSlug,
-            includeVpn: include_vpn || 0,
+            includeVpn: (include_vpn || (plan && (plan.id?.includes('PAKET_LENGKAP') || (plan.name || '').includes('Lengkap')))) ? 1 : 0,
             originalDeviceId: device_id || null,
             operatorPhone: targetPhone || null,
             hostLicenseKey: server_license_key || null,
@@ -347,7 +347,7 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
             isActive: 0,
             planId: plan.id,
             requestedSlug: resolvedSlug,
-            includeVpn: include_vpn || 0,
+            includeVpn: (include_vpn || (plan && (plan.id?.includes('PAKET_LENGKAP') || (plan.name || '').includes('Lengkap')))) ? 1 : 0,
             originalDeviceId: device_id || null,
             operatorPhone: targetPhone || null,
             hostLicenseKey: server_license_key || null,
@@ -452,7 +452,7 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
             isActive: 0,
             planId: plan.id,
             requestedSlug: resolvedSlug,
-            includeVpn: include_vpn || 0,
+            includeVpn: (include_vpn || (plan && (plan.id?.includes('PAKET_LENGKAP') || (plan.name || '').includes('Lengkap')))) ? 1 : 0,
             originalDeviceId: device_id || null,
             operatorPhone: targetPhone || null,
             hostLicenseKey: server_license_key || null,
@@ -965,13 +965,32 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
   // 4. Get school active subscriptions list
   fastify.get('/api/license/my-subscriptions/:key', async (request: FastifyRequest, reply: FastifyReply) => {
     const { key } = request.params as { key: string };
+    const query = request.query as any;
+    const tenantSlug = (query?.tenant_slug || query?.slug || '').trim().toLowerCase();
     try {
       const license = await getLicenseByKey(key);
       if (!license) {
         return sendError(reply, 404, 'Lisensi tidak ditemukan.');
       }
+      // 2-Tier: Kumpulkan ID lisensi host + lisensi tenant anak yang terikat ke host ini
+      const childWhere: any = {
+        hostLicenseKey: license.licenseKey
+      };
+      if (tenantSlug) {
+        childWhere.OR = [
+          { requestedSlug: tenantSlug },
+          { tenantIdentifier: tenantSlug },
+          { schoolName: { contains: '|' + tenantSlug } }
+        ];
+      }
+      const childLicenses = await prisma.license.findMany({
+        where: childWhere,
+        select: { id: true }
+      });
+      const allLicenseIds = tenantSlug ? childLicenses.map(c => c.id) : [license.id, ...childLicenses.map(c => c.id)];
+
       const subs = await prisma.subscription.findMany({
-        where: { licenseId: license.id },
+        where: { licenseId: { in: allLicenseIds } },
         orderBy: { id: 'desc' }
       });
       const mapped = subs.map(s => ({
@@ -995,13 +1014,32 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
   // 5. Get school active invoices list
   fastify.get('/api/license/my-invoices/:key', async (request: FastifyRequest, reply: FastifyReply) => {
     const { key } = request.params as { key: string };
+    const query = request.query as any;
+    const tenantSlug = (query?.tenant_slug || query?.slug || '').trim().toLowerCase();
     try {
       const license = await getLicenseByKey(key);
       if (!license) {
         return sendError(reply, 404, 'Lisensi tidak ditemukan.');
       }
+      // 2-Tier: Kumpulkan ID lisensi host + lisensi tenant anak yang terikat ke host ini
+      const childInvWhere: any = {
+        hostLicenseKey: license.licenseKey
+      };
+      if (tenantSlug) {
+        childInvWhere.OR = [
+          { requestedSlug: tenantSlug },
+          { tenantIdentifier: tenantSlug },
+          { schoolName: { contains: '|' + tenantSlug } }
+        ];
+      }
+      const childInvLicenses = await prisma.license.findMany({
+        where: childInvWhere,
+        select: { id: true }
+      });
+      const allInvLicenseIds = tenantSlug ? childInvLicenses.map(c => c.id) : [license.id, ...childInvLicenses.map(c => c.id)];
+
       const list = await prisma.invoice.findMany({
-        where: { licenseId: license.id },
+        where: { licenseId: { in: allInvLicenseIds } },
         orderBy: { createdAt: 'desc' }
       });
       const mapped = list.map(i => ({
