@@ -25,7 +25,7 @@ export default function TenantManager() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [selectedProductId, setSelectedProductId] = useState<string>('all');
+  const [selectedProductId, setSelectedProductId] = useState<string>('cakola');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedNodeType, setSelectedNodeType] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -137,7 +137,7 @@ export default function TenantManager() {
 
   // CALCULATE STATS FOR ANALYTICS CARDS (Murni Fisik Server vs Tunnel)
   const physicalServers = aggregatedTenants.filter(t => t.nodeType !== 'TUNNEL' && t.productId !== 'easy-tunnel');
-  const totalServers = aggregatedTenants.length;
+  const totalServers = physicalServers.length;
   const onlineServers = physicalServers.filter(t => isTenantOnline(t.lastHeartbeatAt)).length;
   const offlineServers = physicalServers.length - onlineServers;
   const activeTunnelsCount = aggregatedTenants.filter(t => (t.productId === 'easy-tunnel' || t.nodeType === 'TUNNEL') && t.status === 'active').length;
@@ -192,16 +192,16 @@ export default function TenantManager() {
           onClick={() => {
             setSelectedStatus('all');
             setSelectedNodeType('all');
-            setSelectedProductId('all');
+            setSelectedProductId('cakola');
           }}
           className={`bg-slate-900/50 backdrop-blur-md border p-5 rounded-2xl flex items-center justify-between shadow-xl cursor-pointer hover:scale-[1.01] transition-all duration-300 group ${
-            selectedStatus === 'all' && selectedNodeType === 'all' && selectedProductId === 'all'
+            selectedStatus === 'all' && selectedNodeType === 'all' && selectedProductId === 'cakola'
               ? 'border-indigo-500/80 shadow-indigo-500/10 ring-1 ring-indigo-500/30'
               : 'border-slate-800/80 hover:border-slate-700/60 hover:shadow-indigo-500/5'
           }`}
         >
           <div className="space-y-1">
-            <span className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider font-mono">Total Server / Node</span>
+            <span className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider font-mono">Total Server Host</span>
             <div className="text-2xl font-bold text-white font-mono">{totalServers}</div>
             <span className="text-[10.5px] text-slate-400 font-sans block">Terdaftar di platform</span>
           </div>
@@ -213,12 +213,12 @@ export default function TenantManager() {
         {/* Server Online */}
         <div 
           onClick={() => {
+            setSelectedProductId('cakola');
             setSelectedStatus('online');
-            // Reset nodeType to all when status-focused to avoid empty filter states
             if (selectedNodeType === 'TUNNEL') setSelectedNodeType('all');
           }}
           className={`bg-slate-900/50 backdrop-blur-md border p-5 rounded-2xl flex items-center justify-between shadow-xl cursor-pointer hover:scale-[1.01] transition-all duration-300 group ${
-            selectedStatus === 'online'
+            selectedStatus === 'online' && selectedProductId === 'cakola'
               ? 'border-emerald-500/80 shadow-emerald-500/10 ring-1 ring-emerald-500/30'
               : 'border-slate-800/80 hover:border-slate-700/60 hover:shadow-emerald-500/5'
           }`}
@@ -239,11 +239,12 @@ export default function TenantManager() {
         {/* Server Offline */}
         <div 
           onClick={() => {
+            setSelectedProductId('cakola');
             setSelectedStatus('offline');
             if (selectedNodeType === 'TUNNEL') setSelectedNodeType('all');
           }}
           className={`bg-slate-900/50 backdrop-blur-md border p-5 rounded-2xl flex items-center justify-between shadow-xl cursor-pointer hover:scale-[1.01] transition-all duration-300 group ${
-            selectedStatus === 'offline'
+            selectedStatus === 'offline' && selectedProductId === 'cakola'
               ? 'border-rose-500/80 shadow-rose-500/10 ring-1 ring-rose-500/30'
               : 'border-slate-800/80 hover:border-slate-700/60 hover:shadow-rose-500/5'
           }`}
@@ -261,6 +262,7 @@ export default function TenantManager() {
         {/* Easy Tunnel Aktif */}
         <div 
           onClick={() => {
+            setSelectedProductId('all');
             setSelectedNodeType('TUNNEL');
             // Reset status filter to all to show both online/offline tunnels
             setSelectedStatus('all');
