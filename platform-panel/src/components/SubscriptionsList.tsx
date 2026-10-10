@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '../api/apiClient';
-import { Calendar, ShieldAlert, CheckCircle, RefreshCw, Search, ChevronRight, Server, ExternalLink } from 'lucide-react';
+import { Calendar, ShieldAlert, CheckCircle, RefreshCw, Search, ChevronRight, Server, ExternalLink, Building, Copy, Check, Zap } from 'lucide-react';
 
 interface Subscription {
   id: string;
@@ -35,6 +35,28 @@ const getCleanModuleName = (productId?: string, planId?: string, productName?: s
   return cleanId.charAt(0).toUpperCase() + cleanId.slice(1);
 };
 
+const formatPlanTitle = (nameOrId?: string) => {
+  if (!nameOrId) return 'Standard';
+  let title = nameOrId;
+  if (title.toLowerCase() === 'saas-node') return 'Akses Portal Utama';
+  if (title.includes('_')) {
+    title = title
+      .split('_')
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+  }
+  return title;
+};
+
+const getRemainingDays = (endDate?: string) => {
+  if (!endDate) return null;
+  const end = new Date(endDate).getTime();
+  if (isNaN(end)) return null;
+  const now = Date.now();
+  const diffDays = Math.ceil((end - now) / (1000 * 60 * 60 * 24));
+  return diffDays;
+};
+
 export default function SubscriptionsList() {
   const [subs, setSubs] = useState<Subscription[]>([]);
   const [products, setProducts] = useState<any[]>([]);
@@ -44,6 +66,14 @@ export default function SubscriptionsList() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [expandedSchools, setExpandedSchools] = useState<Record<string, boolean>>({});
   const [selectedSubIds, setSelectedSubIds] = useState<string[]>([]);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const handleCopyKey = (key: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    navigator.clipboard.writeText(key);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2000);
+  };
 
   // Migrate server states
   const [showMigrateModal, setShowMigrateModal] = useState(false);
@@ -290,10 +320,10 @@ export default function SubscriptionsList() {
                     className="w-4 h-4 rounded border-slate-850 bg-slate-950 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                   />
                 </th>
-                <th className="px-6 py-4">Sekolah</th>
-                <th className="px-6 py-4">Domain Akses</th>
-                <th className="px-6 py-4">Ringkasan Paket</th>
-                <th className="px-6 py-4 text-right">Server / Node</th>
+                <th className="px-6 py-4">Sekolah / Instansi</th>
+                <th className="px-6 py-4">Domain Portal</th>
+                <th className="px-6 py-4">Langganan Aktif</th>
+                <th className="px-6 py-4 text-right">Server Node Host</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800 text-slate-300 text-sm">
@@ -311,6 +341,18 @@ export default function SubscriptionsList() {
                   const sampleItem = rawGroup[0];
                   const slug = rawGroup.find(s => s.slug)?.slug || sampleItem?.slug || '-';
                   const serverName = sampleItem?.serverName || 'Server Induk';
+                  const licenseKey = rawGroup.find(s => s.licenseKey)?.licenseKey || sampleItem?.licenseKey || '';
+
+                  // Pisahkan kategori modul
+                  const coreServerSub = rawGroup.find(s => s.planId === 'saas-node');
+                  const commercialSubs = rawGroup.filter(s => s.planId !== 'saas-node');
+                  const activeSubs = commercialSubs.filter(s => s.status === 'ACTIVE');
+                  const inactiveSubs = commercialSubs.filter(s => s.status !== 'ACTIVE');
+
+                  // Evaluasi status sekolah secara akurat
+                  const hasActivePaid = activeSubs.some(s => !s.isTrial);
+                  const hasActiveTrial = activeSubs.some(s => s.isTrial);
+                  const isExpiredAll = commercialSubs.length > 0 && activeSubs.length === 0;
                   
                   // Dapatkan heartbeat terbaru dari seluruh modul di grup sekolah ini
                   const getGroupHeartbeat = () => {
@@ -325,9 +367,6 @@ export default function SubscriptionsList() {
                   const isServerOnline = latestHeartbeat 
                     ? (Date.now() - new Date(latestHeartbeat).getTime() < 5 * 60 * 1000) 
                     : false;
- 
-                  const activeCount = rawGroup.filter(s => s.status === 'ACTIVE').length;
-                  const hasTrial = rawGroup.some(s => s.isTrial);
 
                   return (
                     <React.Fragment key={schoolName}>
@@ -350,14 +389,30 @@ export default function SubscriptionsList() {
                           />
                         </td>
                         <td className="px-6 py-4">
-                          <span className="font-bold text-white text-sm text-left flex items-center gap-1.5 flex-wrap">
-                            <span>{schoolName}</span>
-                            {hasTrial && (
-                              <span className="inline-flex items-center px-1.5 py-0.25 rounded text-[8.5px] font-extrabold bg-amber-500/10 border border-amber-500/30 text-amber-400 uppercase tracking-wider">
-                                Trial
-                              </span>
-                            )}
-                          </span>
+                          <div className="space-y-1 text-left">
+                            <span className="font-bold text-white text-sm block">
+                              {schoolName}
+                            </span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {hasActivePaid ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[8.5px] font-extrabold bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 uppercase tracking-wider">
+                                  BERLANGGANAN AKTIF
+                                </span>
+                              ) : hasActiveTrial ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[8.5px] font-extrabold bg-amber-500/15 border border-amber-500/30 text-amber-400 uppercase tracking-wider">
+                                  TRIAL
+                                </span>
+                              ) : isExpiredAll ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[8.5px] font-extrabold bg-rose-500/15 border border-rose-500/30 text-rose-400 uppercase tracking-wider">
+                                  KEDALUWARSA
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[8.5px] font-extrabold bg-slate-800 border border-slate-700 text-slate-400 uppercase tracking-wider">
+                                  STANDAR
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </td>
                         <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                           {slug !== '-' ? (
@@ -376,23 +431,35 @@ export default function SubscriptionsList() {
                           )}
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex flex-col gap-1 text-left">
-                            {rawGroup.map(s => {
-                              const isAct = s.status === 'ACTIVE';
-                              const moduleName = getCleanModuleName(s.productId, s.planId, s.productName);
-                              const planLabel = s.planName || 'Standard';
-                              return (
-                                <span key={s.id} className="text-xs font-semibold flex items-center gap-1.5 flex-wrap">
-                                  <span className={`w-1.5 h-1.5 rounded-full ${isAct ? 'bg-emerald-500 animate-pulse' : 'bg-slate-600'}`} />
-                                  <span className="text-slate-200">
-                                    {moduleName} <span className="text-slate-500 font-normal">- {planLabel}</span>
-                                  </span>
-                                  <span className={`text-[9px] font-mono font-bold px-1 py-0.5 rounded leading-none ${isAct ? 'text-emerald-400 bg-emerald-950/20 border border-emerald-900/10' : 'text-slate-500 bg-slate-950/30'}`}>
-                                    ({isAct ? 'Aktif' : 'Nonaktif'})
-                                  </span>
-                                </span>
-                              );
-                            })}
+                          <div className="space-y-1.5 text-left">
+                            {activeSubs.length > 0 ? (
+                              activeSubs.map(s => {
+                                const isBundled = (s.planId || '').toLowerCase().includes('lengkap') || (s.planName || '').toLowerCase().includes('lengkap');
+                                return (
+                                  <div key={s.id} className="flex items-center gap-2 flex-wrap">
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-xs text-emerald-300 font-semibold shadow-sm">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
+                                      <span>{formatPlanTitle(s.planName || s.planId)}</span>
+                                    </span>
+                                    {isBundled && (
+                                      <span className="px-1.5 py-0.5 bg-purple-500/15 border border-purple-500/30 text-purple-300 rounded text-[9.5px] font-mono font-bold flex items-center gap-1" title="Termasuk lisensi Easy Tunnel VPN">
+                                        ⚡ +Easy Tunnel
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })
+                            ) : (
+                              <span className="text-slate-400 text-xs italic">
+                                {coreServerSub ? 'Akses Portal Dasar (Tanpa Add-on)' : 'Belum ada paket aktif'}
+                              </span>
+                            )}
+                            
+                            {inactiveSubs.length > 0 && (
+                              <div className="text-[10px] text-slate-500 font-mono flex items-center gap-1 mt-0.5">
+                                <span>• {inactiveSubs.length} riwayat paket kedaluwarsa/nonaktif</span>
+                              </div>
+                            )}
                           </div>
                         </td>
                         <td className="px-6 py-4 text-right">
@@ -416,78 +483,196 @@ export default function SubscriptionsList() {
                         </td>
                       </tr>
                       {isExpanded && (
-                        <tr className="bg-slate-950/45 border-b border-slate-800">
+                        <tr className="bg-slate-950/60 border-b border-slate-800">
                           <td colSpan={6} className="px-8 py-6 border-l-4 border-indigo-500">
-                            <div className="space-y-4">
-                              <div className="flex justify-between items-center mb-4">
-                                <h4 className="text-white text-[11px] font-bold uppercase tracking-wider flex items-center gap-2 text-indigo-400 text-left">
-                                  📦 Rincian Paket & Langganan Sekolah ({rawGroup.length})
-                                </h4>
+                            <div className="space-y-5">
+                              {/* HEADER BAR EXPAND */}
+                              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-800/80">
+                                <div>
+                                  <h4 className="text-white text-sm font-bold flex items-center gap-2">
+                                    <Building className="w-4 h-4 text-indigo-400" />
+                                    <span>Manajemen Langganan & Node Infrastruktur: <span className="text-indigo-400">{schoolName}</span></span>
+                                  </h4>
+                                  <p className="text-xs text-slate-400 mt-0.5">Informasi lisensi portal, masa aktif paket, dan server appliance yang menaungi sekolah.</p>
+                                </div>
                                 <button
                                   onClick={() => {
                                     setSelectedMigrateSchool(schoolName);
                                     setCurrentLicenseId(sampleItem?.licenseId || '');
                                     setShowMigrateModal(true);
                                   }}
-                                  className="px-3 py-1.5 bg-indigo-650/20 border border-indigo-500/30 hover:bg-indigo-600 text-indigo-400 hover:text-white transition rounded-xl text-[10.5px] font-bold flex items-center gap-1.5 cursor-pointer shadow-md"
+                                  className="px-3.5 py-1.5 bg-indigo-600/20 border border-indigo-500/30 hover:bg-indigo-600 text-indigo-300 hover:text-white transition rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md"
                                 >
                                   <RefreshCw className="w-3.5 h-3.5" />
                                   Pindahkan Server (Migrasi)
                                 </button>
                               </div>
-                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-left">
-                                {rawGroup.map((s) => (
-                                  <div key={s.id} className="bg-slate-900/60 border border-slate-800 p-4 rounded-xl space-y-3 relative hover:border-slate-700 transition shadow-inner">
-                                    <div className="flex justify-between items-start">
-                                      <div>
-                                        <span className="text-xs font-bold text-white block">
-                                          {getCleanModuleName(s.productId, s.planId, s.productName)}
-                                        </span>
-                                        <span className="text-[10px] text-slate-500 font-mono tracking-wider uppercase">
-                                          Produk: {s.productId}
-                                        </span>
-                                      </div>
-                                      
-                                      {s.planId === 'saas-node' ? (
-                                        <span className="px-2 py-0.5 bg-indigo-500/25 border border-indigo-500/30 text-[10px] font-bold text-indigo-300 rounded-md">
-                                          Core Server
-                                        </span>
-                                      ) : s.status === 'ACTIVE' ? (
-                                        <span className="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-bold text-emerald-400 rounded-md">
-                                          Aktif
-                                        </span>
-                                      ) : (
-                                        <span className="px-2 py-0.5 bg-rose-500/10 border border-rose-500/20 text-[10px] font-bold text-rose-400 rounded-md">
-                                          Nonaktif
-                                        </span>
-                                      )}
-                                    </div>
-                                    
-                                    <div className="border-t border-slate-850 pt-2.5 space-y-1.5 text-xs text-slate-400">
-                                      <div className="flex justify-between">
-                                        <span className="text-slate-500">Edisi / Plan:</span>
-                                        <span className="text-slate-200 font-semibold">{s.planName || 'Standard'}</span>
-                                      </div>
-                                      <div className="flex justify-between items-center">
-                                        <span className="text-slate-500">Masa Berlaku:</span>
-                                        <span className="text-slate-300 font-mono text-[11px] flex items-center gap-1.5">
-                                          <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                                          {formatDateRange(s.startDate, s.endDate)}
-                                        </span>
-                                      </div>
-                                      <div className="flex justify-between items-center pt-1">
-                                        <span className="text-slate-500">Pilih Hapus:</span>
-                                        <input
-                                          type="checkbox"
-                                          checked={selectedSubIds.includes(s.id)}
-                                          onChange={() => handleToggleSelectSub(s.id)}
-                                          className="w-4 h-4 rounded border-slate-800 bg-slate-950 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                                        />
-                                      </div>
-                                    </div>
+
+                              {/* BLOK 1: LISENSI DASAR PORTAL & INFRASTRUKTUR */}
+                              <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4.5 grid grid-cols-1 md:grid-cols-3 gap-4 shadow-inner">
+                                <div>
+                                  <span className="text-[10px] font-mono font-bold uppercase text-slate-500 tracking-wider block">Domain Portal Sekolah</span>
+                                  <div className="mt-1 flex items-center gap-2">
+                                    <span className="text-white font-semibold text-sm font-mono">{slug}.absenta.id</span>
+                                    <a 
+                                      href={`https://${slug}.absenta.id`}
+                                      target="_blank" 
+                                      rel="noreferrer"
+                                      className="text-indigo-400 hover:text-indigo-300 transition"
+                                      title="Buka portal sekolah"
+                                    >
+                                      <ExternalLink className="w-3.5 h-3.5" />
+                                    </a>
                                   </div>
-                                ))}
+                                  <span className="text-[11px] text-slate-400 mt-0.5 block">Subdomain aktif terkoneksi</span>
+                                </div>
+
+                                <div>
+                                  <span className="text-[10px] font-mono font-bold uppercase text-slate-500 tracking-wider block">Server Node Appliance</span>
+                                  <div className="mt-1 flex items-center gap-2">
+                                    <span className="text-white font-semibold text-sm">{serverName}</span>
+                                    <span className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-bold ${isServerOnline ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-400'}`}>
+                                      {isServerOnline ? 'ONLINE' : 'OFFLINE'}
+                                    </span>
+                                  </div>
+                                  <span className="text-[11px] text-slate-400 mt-0.5 block">Target eksekusi database sekolah</span>
+                                </div>
+
+                                <div>
+                                  <span className="text-[10px] font-mono font-bold uppercase text-slate-500 tracking-wider block">License Key Host</span>
+                                  <div className="mt-1 flex items-center gap-2">
+                                    <code className="text-amber-400 text-xs font-mono font-bold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                                      {licenseKey || 'N/A'}
+                                    </code>
+                                    {licenseKey && (
+                                      <button
+                                        onClick={(e) => handleCopyKey(licenseKey, e)}
+                                        className="p-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded transition"
+                                        title="Salin License Key"
+                                      >
+                                        {copiedKey === licenseKey ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                                      </button>
+                                    )}
+                                  </div>
+                                  <span className="text-[11px] text-slate-400 mt-0.5 block">
+                                    {coreServerSub ? `Portal Dasar: ${formatDateRange(coreServerSub.startDate, coreServerSub.endDate)}` : 'Lisensi dasar portal'}
+                                  </span>
+                                </div>
                               </div>
+
+                              {/* BLOK 2: DAFTAR PAKET & MODUL LANGGANAN AKTIF */}
+                              <div className="space-y-3">
+                                <h5 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                                  <span>✨ Paket / Modul Berlangganan Aktif ({activeSubs.length})</span>
+                                </h5>
+
+                                {activeSubs.length === 0 ? (
+                                  <div className="p-4 bg-slate-900/40 border border-dashed border-slate-800 rounded-xl text-center text-slate-500 text-xs">
+                                    Sekolah ini belum memiliki modul langganan komersial yang aktif. Hanya lisensi portal dasar.
+                                  </div>
+                                ) : (
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {activeSubs.map((s) => {
+                                      const remaining = getRemainingDays(s.endDate);
+                                      const isBundled = (s.planId || '').toLowerCase().includes('lengkap') || (s.planName || '').toLowerCase().includes('lengkap');
+
+                                      return (
+                                        <div key={s.id} className="bg-slate-900/90 border border-emerald-500/30 p-4.5 rounded-2xl space-y-3 relative hover:border-emerald-500/50 transition shadow-lg shadow-emerald-500/5 flex flex-col justify-between">
+                                          <div className="space-y-2">
+                                            <div className="flex justify-between items-start gap-2">
+                                              <div>
+                                                <span className="text-xs font-bold text-white block">
+                                                  {formatPlanTitle(s.planName || s.planId)}
+                                                </span>
+                                                <span className="text-[10px] text-indigo-400 font-mono tracking-wider uppercase font-semibold">
+                                                  {s.productName || 'Platform Cakola'}
+                                                </span>
+                                              </div>
+                                              <span className="px-2 py-0.5 bg-emerald-500/15 border border-emerald-500/30 text-[10px] font-bold text-emerald-400 rounded-full flex items-center gap-1 flex-shrink-0">
+                                                <CheckCircle className="w-3 h-3" />
+                                                Aktif
+                                              </span>
+                                            </div>
+
+                                            {isBundled && (
+                                              <div className="px-2.5 py-1.5 bg-purple-500/10 border border-purple-500/20 rounded-xl text-[10.5px] font-medium text-purple-300 flex items-center gap-1.5">
+                                                <Zap className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
+                                                <span>Termasuk Easy Tunnel Gateway</span>
+                                              </div>
+                                            )}
+                                          </div>
+
+                                          <div className="border-t border-slate-800/80 pt-2.5 space-y-2 text-xs text-slate-400">
+                                            <div className="flex justify-between items-center">
+                                              <span className="text-slate-500">Masa Berlaku:</span>
+                                              <span className="text-slate-200 font-mono text-[11px] flex items-center gap-1 font-medium">
+                                                <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                                                {formatDateRange(s.startDate, s.endDate)}
+                                              </span>
+                                            </div>
+
+                                            {remaining !== null && (
+                                              <div className="flex justify-between items-center text-[11px]">
+                                                <span className="text-slate-500">Sisa Durasi:</span>
+                                                <span className={`font-mono font-bold ${remaining <= 30 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                                                  {remaining > 0 ? `${remaining} hari tersisa` : 'Berakhir hari ini'}
+                                                </span>
+                                              </div>
+                                            )}
+
+                                            <div className="flex justify-between items-center pt-1 border-t border-slate-850">
+                                              <span className="text-slate-500 text-[11px]">Pilih Hapus:</span>
+                                              <input
+                                                type="checkbox"
+                                                checked={selectedSubIds.includes(s.id)}
+                                                onChange={() => handleToggleSelectSub(s.id)}
+                                                className="w-4 h-4 rounded border-slate-800 bg-slate-950 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                              />
+                                            </div>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* BLOK 3: RIWAYAT NONAKTIF / EXPIRED (JIKA ADA) */}
+                              {inactiveSubs.length > 0 && (
+                                <div className="space-y-3 pt-2">
+                                  <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
+                                    <span>📜 Riwayat Paket Sebelumnya ({inactiveSubs.length})</span>
+                                  </h5>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {inactiveSubs.map((s) => (
+                                      <div key={s.id} className="bg-slate-950/40 border border-slate-850 p-3.5 rounded-xl space-y-2 opacity-75 hover:opacity-100 transition">
+                                        <div className="flex justify-between items-start gap-2">
+                                          <div>
+                                            <span className="text-xs font-semibold text-slate-300 block">
+                                              {formatPlanTitle(s.planName || s.planId)}
+                                            </span>
+                                            <span className="text-[10px] text-slate-500 font-mono">
+                                              {s.productName || 'Platform Cakola'}
+                                            </span>
+                                          </div>
+                                          <span className="px-1.5 py-0.2 bg-slate-800 text-[9.5px] font-bold text-slate-400 rounded">
+                                            Nonaktif
+                                          </span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-[11px] pt-1 border-t border-slate-850 text-slate-500">
+                                          <span>{formatDateRange(s.startDate, s.endDate)}</span>
+                                          <input
+                                            type="checkbox"
+                                            checked={selectedSubIds.includes(s.id)}
+                                            onChange={() => handleToggleSelectSub(s.id)}
+                                            className="w-3.5 h-3.5 rounded border-slate-800 bg-slate-950 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                          />
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </td>
                         </tr>

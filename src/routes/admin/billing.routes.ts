@@ -131,16 +131,19 @@ export const registerBillingRoutes = (fastify: FastifyInstance) => {
         prisma.product.findMany(),
         prisma.invoice.findMany({
           where: { status: { in: ['paid', 'PAID'] } },
-          select: { licenseId: true }
+          select: { licenseId: true, schoolName: true }
         })
       ]);
 
-      const planMap = new Map(plans.map(p => [p.id, p]));
-      const productMap = new Map(products.map(p => [p.id, p]));
-      const paidLicenseIds = new Set(paidInvoices.map(inv => inv.licenseId));
+      const planMap = new Map(plans.map(p => [(p.id || '').toLowerCase(), p]));
+      const productMap = new Map(products.map(p => [(p.id || '').toLowerCase(), p]));
+      const paidLicenseIds = new Set(paidInvoices.map(inv => inv.licenseId).filter(Boolean));
+      const paidSchoolNames = new Set(paidInvoices.map(inv => {
+        const parts = inv.schoolName ? inv.schoolName.split('|') : [];
+        return (parts[0] ? parts[0].trim() : (inv.schoolName || '')).toLowerCase();
+      }).filter(Boolean));
 
       const mapped = list.map(s => {
-        const plan = planMap.get(s.planId);
         const parts = s.schoolName ? s.schoolName.split('|') : [];
         const namePart = parts[0] ? parts[0].trim() : '';
         const realSchoolName = namePart || s.license?.schoolName || 'Sekolah Tidak Dikenal';
@@ -148,11 +151,20 @@ export const registerBillingRoutes = (fastify: FastifyInstance) => {
         const licenseKey = s.license?.licenseKey || '';
 
         const cleanProductId = normalizeProductId(s.productId);
-        const prod = productMap.get(cleanProductId) || productMap.get(s.productId);
+        const prod = productMap.get(cleanProductId.toLowerCase()) || productMap.get((s.productId || '').toLowerCase());
         const productName = prod ? prod.name : 'Platform Cakola';
 
-        const rawPlanName = s.planId === 'saas-node' ? 'Akses Portal Utama' : (plan ? plan.name : s.planId || 'Standard');
-        const isTrial = s.licenseId ? !paidLicenseIds.has(s.licenseId) : true;
+        const plan = planMap.get((s.planId || '').toLowerCase());
+        let rawPlanName = s.planId === 'saas-node' ? 'Akses Portal Utama' : (plan ? plan.name : s.planId || 'Standard');
+        if (rawPlanName && rawPlanName.includes('_')) {
+          rawPlanName = rawPlanName
+            .split('_')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+        }
+
+        const isPaid = (s.licenseId && paidLicenseIds.has(s.licenseId)) || paidSchoolNames.has(realSchoolName.toLowerCase());
+        const isTrial = !isPaid;
 
         return {
           id: s.id,
