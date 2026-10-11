@@ -70,7 +70,7 @@ const dummySocket = {
 const sidebarItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'wireguard', label: 'WireGuard Server', icon: Shield },
-  { id: 'tenants', label: 'Daftar Server & Tunnel', icon: Server },
+  { id: 'tenants', label: 'Daftar Server', icon: Server },
   { id: 'sstp-vpn', label: 'SSTP VPN MikroTik', icon: ShieldCheck },
   { id: 'subscriptions', label: 'Langganan Sekolah', icon: Users },
   { id: 'privateer', label: 'Transaksi Privateer', icon: CreditCard },

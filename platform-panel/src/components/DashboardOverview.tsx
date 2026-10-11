@@ -356,7 +356,7 @@ export default function DashboardOverview({ onSwitchTab }: OverviewProps) {
                 onClick={() => onSwitchTab('tenants')}
                 className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-750 border border-slate-700 text-slate-300 hover:text-white transition flex items-center gap-1 cursor-pointer"
               >
-                Detail di Kelola Server &rarr;
+                Detail di Daftar Server &rarr;
               </button>
             </div>
           </div>
@@ -569,7 +569,7 @@ export default function DashboardOverview({ onSwitchTab }: OverviewProps) {
             onClick={() => onSwitchTab('tenants')}
             className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow-lg shadow-indigo-600/25 transition"
           >
-            Kelola Lisensi Sekolah
+            Daftar Server
           </button>
           <button
             onClick={() => onSwitchTab('tickets')}

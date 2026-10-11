@@ -165,7 +165,7 @@ export default function TenantManager() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-white text-2xl font-bold">Kelola Server & Tunnel</h2>
+          <h2 className="text-white text-2xl font-bold">Daftar Server</h2>
           <p className="text-slate-400 text-sm">Daftar infrastruktur server node (SaaS, On-Premise) dan Easy Tunnel.</p>
         </div>
         <div className="flex gap-3 w-full md:w-auto">
