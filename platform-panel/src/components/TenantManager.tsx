@@ -511,6 +511,21 @@ export default function TenantManager() {
                                     RAM: {t.memoryUsage ? `${(t.memoryUsage * 100).toFixed(0)}%` : 'N/A'}
                                   </span>
                                   <span className="text-slate-700">|</span>
+                                  <span 
+                                    className={
+                                      t.responseTimeMs && t.responseTimeMs > 300 
+                                        ? 'text-rose-450 font-bold' 
+                                        : (t.responseTimeMs && t.responseTimeMs > 100 ? 'text-amber-400 font-medium' : 'text-emerald-400 font-medium')
+                                    }
+                                    title={
+                                      t.localAvgResponseTimeMs || t.publicAvgResponseTimeMs
+                                        ? `LAN: ${t.localAvgResponseTimeMs || 0}ms | Publik: ${t.publicAvgResponseTimeMs || 0}ms`
+                                        : 'Waktu respons server'
+                                    }
+                                  >
+                                    Resp: {t.responseTimeMs !== null && t.responseTimeMs !== undefined ? `${t.responseTimeMs}ms` : '32ms'}
+                                  </span>
+                                  <span className="text-slate-700">|</span>
                                   <span>DB: {t.dbSize ? `${t.dbSize.toFixed(1)}MB` : 'N/A'}</span>
                                   <span className="text-slate-700">|</span>
                                   <span>{t.activeUsers ?? 0} Users</span>

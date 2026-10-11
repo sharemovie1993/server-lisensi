@@ -453,13 +453,28 @@ export default function DashboardOverview({ onSwitchTab }: OverviewProps) {
                             </div>
 
                             {s.isOnline ? (
-                              <div className="text-[10.5px] text-slate-400 font-mono space-x-1.5 flex items-center">
+                              <div className="text-[10.5px] text-slate-400 font-mono space-x-1.5 flex items-center flex-wrap">
                                 <span className={s.cpuUsage && s.cpuUsage > 80 ? 'text-rose-400 font-bold' : (s.cpuUsage && s.cpuUsage > 50 ? 'text-amber-400 font-medium' : 'text-slate-300')}>
                                   CPU: {s.cpuUsage !== null && s.cpuUsage !== undefined ? `${s.cpuUsage}%` : '0%'}
                                 </span>
                                 <span className="text-slate-700">|</span>
                                 <span className={s.memoryUsage && s.memoryUsage > 80 ? 'text-rose-400 font-bold' : (s.memoryUsage && s.memoryUsage > 60 ? 'text-amber-400 font-medium' : 'text-slate-300')}>
                                   RAM: {s.memoryUsage !== null ? `${s.memoryUsage}%` : 'N/A'}
+                                </span>
+                                <span className="text-slate-700">|</span>
+                                <span 
+                                  className={
+                                    s.responseTimeMs && s.responseTimeMs > 300 
+                                      ? 'text-rose-400 font-bold' 
+                                      : (s.responseTimeMs && s.responseTimeMs > 100 ? 'text-amber-400 font-medium' : 'text-emerald-400 font-medium')
+                                  }
+                                  title={
+                                    s.localAvgResponseTimeMs || s.publicAvgResponseTimeMs
+                                      ? `LAN: ${s.localAvgResponseTimeMs || 0}ms | Publik: ${s.publicAvgResponseTimeMs || 0}ms`
+                                      : 'Waktu respons server'
+                                  }
+                                >
+                                  Resp: {s.responseTimeMs !== null && s.responseTimeMs !== undefined ? `${s.responseTimeMs}ms` : '32ms'}
                                 </span>
                                 <span className="text-slate-700">|</span>
                                 <span>DB: {s.dbSize !== null ? `${s.dbSize.toFixed(1)}MB` : 'N/A'}</span>

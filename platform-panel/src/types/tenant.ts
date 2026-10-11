@@ -17,6 +17,9 @@ export interface Tenant {
   dbSize?: number | null;
   memoryUsage?: number | null;
   cpuUsage?: number | null;
+  localAvgResponseTimeMs?: number | null;
+  publicAvgResponseTimeMs?: number | null;
+  responseTimeMs?: number | null;
   lastTapped?: string | null;
   modules?: string[];
   schools?: Array<{ name: string; subdomain: string | null } | string>;
