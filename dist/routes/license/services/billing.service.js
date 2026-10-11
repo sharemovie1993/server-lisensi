@@ -71,9 +71,25 @@ async function createInvoice(data) {
         }
     });
 }
-async function sendBothWaNotifications(phone, schoolName, slug, prodId, planName, key, invoiceNum, amount, paymentMethod, status, payCode, qrUrl) {
+async function sendBothWaNotifications(phone, schoolName, slug, prodId, planName, key, invoiceNum, amount, paymentMethod, status, payCode, qrUrl, isRenewal = false, expiresAt, isBundledVpn = false) {
     await Promise.allSettled([
-        (0, helpers_1.sendLicenseWhatsAppNotification)(phone, schoolName, slug, prodId, planName, key, invoiceNum, amount, paymentMethod, status, payCode, qrUrl),
-        (0, helpers_1.sendOwnerOrderNotification)(schoolName, slug, prodId, planName, key, invoiceNum, amount, paymentMethod)
+        (0, helpers_1.sendLicenseWhatsAppNotification)({
+            phone,
+            schoolName,
+            slug,
+            prodId,
+            planName,
+            key,
+            invoiceNum,
+            amount,
+            paymentMethod,
+            status,
+            payCode,
+            qrUrl,
+            isRenewal,
+            expiresAt,
+            isBundledVpn
+        }),
+        (0, helpers_1.sendOwnerOrderNotification)(schoolName, slug, prodId, planName, key, invoiceNum, amount, paymentMethod, isRenewal)
     ]);
 }

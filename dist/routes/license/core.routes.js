@@ -254,7 +254,9 @@ const registerCoreLicenseRoutes = (fastify) => {
                     expiredTime: String(Math.floor(Date.now() / 1000) + constants_1.INVOICE_EXPIRY_SECONDS),
                     planId: plan.id
                 });
-                (0, billing_service_1.sendBothWaNotifications)(targetPhone || '', resolvedSchoolName, resolvedSlug, prodId, plan.name, newKey, invoiceNumber, 0, 'Gratis', 'paid').catch(e => console.error('[WA Free License Notify Error]', e.message));
+                const isBundledPlan = (include_vpn || (plan && (plan.id?.includes('PAKET_LENGKAP') || (plan.name || '').includes('Lengkap')))) ? true : false;
+                const isRenewalOrder = Boolean(existingLicense);
+                (0, billing_service_1.sendBothWaNotifications)(targetPhone || '', resolvedSchoolName, resolvedSlug, prodId, plan.name, newKey, invoiceNumber, 0, 'Gratis', 'paid', null, null, isRenewalOrder, expiresStr, isBundledPlan).catch(e => console.error('[WA Free License Notify Error]', e.message));
                 return reply.send({
                     success: true,
                     message: 'Pengajuan lisensi gratis berhasil diaktifkan.',
@@ -311,7 +313,9 @@ const registerCoreLicenseRoutes = (fastify) => {
                     expiredTime: String(Math.floor(Date.now() / 1000) + constants_1.INVOICE_EXPIRY_SECONDS),
                     planId: plan.id
                 });
-                (0, billing_service_1.sendBothWaNotifications)(targetPhone || '', resolvedSchoolName, resolvedSlug, prodId, plan.name, newKey, invoiceNumber, basePrice, 'Manual', 'unpaid').catch(e => console.error('[WA Manual License Notify Error]', e.message));
+                const isBundledPlanManual = (include_vpn || (plan && (plan.id?.includes('PAKET_LENGKAP') || (plan.name || '').includes('Lengkap')))) ? true : false;
+                const isRenewalManual = Boolean(existingLicense);
+                (0, billing_service_1.sendBothWaNotifications)(targetPhone || '', resolvedSchoolName, resolvedSlug, prodId, plan.name, newKey, invoiceNumber, basePrice, 'Manual', 'unpaid', null, null, isRenewalManual, null, isBundledPlanManual).catch(e => console.error('[WA Manual License Notify Error]', e.message));
                 if (targetPhone) {
                     // Daftarkan sesi konfirmasi pembayaran WA bot
                     (0, wa_bot_service_1.registerPaymentConfirmSession)(targetPhone, invoiceNumber, newKey, resolvedSchoolName, prodId);
@@ -398,7 +402,9 @@ const registerCoreLicenseRoutes = (fastify) => {
                     expiredTime: String(tx.expired_time),
                     planId: plan.id
                 });
-                (0, billing_service_1.sendBothWaNotifications)(targetPhone || '', resolvedSchoolName, resolvedSlug, prodId, plan.name, newKey, invoiceNumber, tx.amount || basePrice, resolvedPaymentMethod, 'unpaid', tx.pay_code, tx.qr_url).catch(e => console.error('[WA Tripay License Notify Error]', e.message));
+                const isBundledPlanTripay = (include_vpn || (plan && (plan.id?.includes('PAKET_LENGKAP') || (plan.name || '').includes('Lengkap')))) ? true : false;
+                const isRenewalTripay = Boolean(existingLicense);
+                (0, billing_service_1.sendBothWaNotifications)(targetPhone || '', resolvedSchoolName, resolvedSlug, prodId, plan.name, newKey, invoiceNumber, tx.amount || basePrice, resolvedPaymentMethod, 'unpaid', tx.pay_code, tx.qr_url, isRenewalTripay, null, isBundledPlanTripay).catch(e => console.error('[WA Tripay License Notify Error]', e.message));
                 if (targetPhone) {
                     // Daftarkan sesi konfirmasi pembayaran WA bot
                     (0, wa_bot_service_1.registerPaymentConfirmSession)(targetPhone, invoiceNumber, newKey, resolvedSchoolName, prodId);

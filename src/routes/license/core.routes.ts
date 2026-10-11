@@ -306,6 +306,9 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
           planId: plan.id
         });
 
+        const isBundledPlan = (include_vpn || (plan && (plan.id?.includes('PAKET_LENGKAP') || (plan.name || '').includes('Lengkap')))) ? true : false;
+        const isRenewalOrder = Boolean(existingLicense);
+
         sendBothWaNotifications(
           targetPhone || '',
           resolvedSchoolName,
@@ -316,7 +319,12 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
           invoiceNumber,
           0,
           'Gratis',
-          'paid'
+          'paid',
+          null,
+          null,
+          isRenewalOrder,
+          expiresStr,
+          isBundledPlan
         ).catch(e => console.error('[WA Free License Notify Error]', e.message));
 
         return reply.send({
@@ -378,6 +386,9 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
           planId: plan.id
         });
 
+        const isBundledPlanManual = (include_vpn || (plan && (plan.id?.includes('PAKET_LENGKAP') || (plan.name || '').includes('Lengkap')))) ? true : false;
+        const isRenewalManual = Boolean(existingLicense);
+
         sendBothWaNotifications(
           targetPhone || '',
           resolvedSchoolName,
@@ -388,7 +399,12 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
           invoiceNumber,
           basePrice,
           'Manual',
-          'unpaid'
+          'unpaid',
+          null,
+          null,
+          isRenewalManual,
+          null,
+          isBundledPlanManual
         ).catch(e => console.error('[WA Manual License Notify Error]', e.message));
 
         if (targetPhone) {
@@ -482,6 +498,9 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
           planId: plan.id
         });
 
+        const isBundledPlanTripay = (include_vpn || (plan && (plan.id?.includes('PAKET_LENGKAP') || (plan.name || '').includes('Lengkap')))) ? true : false;
+        const isRenewalTripay = Boolean(existingLicense);
+
         sendBothWaNotifications(
           targetPhone || '',
           resolvedSchoolName,
@@ -494,7 +513,10 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
           resolvedPaymentMethod,
           'unpaid',
           tx.pay_code,
-          tx.qr_url
+          tx.qr_url,
+          isRenewalTripay,
+          null,
+          isBundledPlanTripay
         ).catch(e => console.error('[WA Tripay License Notify Error]', e.message));
 
         if (targetPhone) {

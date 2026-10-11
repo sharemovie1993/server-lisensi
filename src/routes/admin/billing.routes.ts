@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { prisma, normalizeProductId, formatWA } from '../license/helpers';
+import { prisma, normalizeProductId, formatWA, sendLicenseWhatsAppNotification } from '../license/helpers';
 import { verifyAdmin } from './middleware';
 import { triggerCaddySync } from '../../services/caddy.service';
 import { getSetting } from '../../config/settings.service';
@@ -466,6 +466,26 @@ export const registerBillingRoutes = (fastify: FastifyInstance) => {
         httpPost(callbackUrl, { license_key: lic.licenseKey, tenant_id: lic.requestedSlug }, {}, 6000)
           .then(res => console.log('[Manual Approval Callback Push Success]', res.status))
           .catch(err => console.log('[Manual Approval Callback Push Offline/NAT]', err.message));
+      }
+
+      // Kirim Notifikasi WA Lunas ke Operator Pembeli
+      if (lic.operatorPhone) {
+        const isBundled = (lic.includeVpn === 1) || planId.includes('paket_lengkap') || (invoice.planTitle || '').toLowerCase().includes('paket lengkap');
+        sendLicenseWhatsAppNotification({
+          phone: lic.operatorPhone,
+          schoolName: invoice.schoolName,
+          slug: lic.requestedSlug,
+          prodId: lic.productId,
+          planName: invoice.planTitle,
+          key: lic.licenseKey,
+          invoiceNum: invoice.invoiceNumber,
+          amount: Number(invoice.amount),
+          paymentMethod: invoice.paymentMethod,
+          status: 'paid',
+          isRenewal: isRenewalAccumulation,
+          expiresAt: expiresStr,
+          isBundledVpn: isBundled
+        }).catch(e => console.error('[Manual Approval WA Notify Error]', e.message));
       }
 
       if (invoice.productId !== 'privateer' && lic.productId !== 'privateer') {

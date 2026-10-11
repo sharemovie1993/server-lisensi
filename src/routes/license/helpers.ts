@@ -102,38 +102,109 @@ export interface RequestBody {
   tenant_identifier?: string;
 }
 
+export interface LicenseWhatsAppNotificationOptions {
+  phone: string;
+  schoolName: string;
+  slug: string | null;
+  prodId: string;
+  planName: string;
+  key: string;
+  invoiceNum: string;
+  amount: number;
+  paymentMethod: string;
+  status: 'paid' | 'unpaid' | 'expired';
+  payCode?: string | null;
+  qrUrl?: string | null;
+  isRenewal?: boolean;
+  expiresAt?: string | null;
+  isBundledVpn?: boolean;
+}
+
 export const sendLicenseWhatsAppNotification = async (
-  phone: string,
-  schoolName: string,
-  slug: string | null,
-  prodId: string,
-  planName: string,
-  key: string,
-  invoiceNum: string,
-  amount: number,
-  paymentMethod: string,
-  status: 'paid' | 'unpaid' | 'expired',
-  payCode?: string | null,
-  qrUrl?: string | null
+  phoneOrOpts: string | LicenseWhatsAppNotificationOptions,
+  rawSchoolName?: string,
+  rawSlug?: string | null,
+  rawProdId?: string,
+  rawPlanName?: string,
+  rawKey?: string,
+  rawInvoiceNum?: string,
+  rawAmount?: number,
+  rawPaymentMethod?: string,
+  rawStatus?: 'paid' | 'unpaid' | 'expired',
+  rawPayCode?: string | null,
+  rawQrUrl?: string | null,
+  rawIsRenewal?: boolean,
+  rawExpiresAt?: string | null,
+  rawIsBundledVpn?: boolean
 ) => {
   try {
+    let opts: LicenseWhatsAppNotificationOptions;
+    if (typeof phoneOrOpts === 'object') {
+      opts = phoneOrOpts;
+    } else {
+      opts = {
+        phone: phoneOrOpts,
+        schoolName: rawSchoolName || '',
+        slug: rawSlug ?? null,
+        prodId: rawProdId || '',
+        planName: rawPlanName || '',
+        key: rawKey || '',
+        invoiceNum: rawInvoiceNum || '',
+        amount: rawAmount ?? 0,
+        paymentMethod: rawPaymentMethod || '',
+        status: rawStatus || 'unpaid',
+        payCode: rawPayCode,
+        qrUrl: rawQrUrl,
+        isRenewal: rawIsRenewal,
+        expiresAt: rawExpiresAt,
+        isBundledVpn: rawIsBundledVpn
+      };
+    }
+
+    const {
+      phone,
+      schoolName,
+      slug,
+      prodId,
+      planName,
+      key,
+      invoiceNum,
+      amount,
+      paymentMethod,
+      status,
+      payCode,
+      qrUrl,
+      isRenewal = false,
+      expiresAt,
+      isBundledVpn
+    } = opts;
+
+    if (!phone || phone.trim() === '') return;
+
+    // Bersihkan nama sekolah jika mengandung pipe '|'
+    const cleanSchoolName = schoolName.includes('|') ? schoolName.split('|')[0].trim() : schoolName.trim();
+    const cleanSlug = slug || (schoolName.includes('|') ? schoolName.split('|')[1].trim() : '');
+
     const amountFormatted = amount === 0 ? 'Rp 0 (Gratis)' : `Rp ${amount.toLocaleString('id-ID')}`;
     const normalizedId = normalizeProductId(prodId);
     const isPrivateer = normalizedId === 'privateer';
 
-    const productLabel = normalizedId === 'cakola' ? 'Platform Cakola'
-      : (normalizedId === 'easy-tunnel' ? 'Easy Tunnel'
+    const productLabel = normalizedId === 'cakola' ? 'Platform Absenta'
+      : (normalizedId === 'easy-tunnel' ? 'Easy Tunnel VPN'
       : (isPrivateer ? 'Privateer' : prodId.toUpperCase()));
 
     let paymentStatusNotes = '';
     if (status === 'paid') {
-      paymentStatusNotes = `*Status*: ✅ *${isPrivateer ? 'PEMBAYARAN BERHASIL' : 'LUNAS'}* (${isPrivateer ? 'Saldo Sesi Bertambah' : 'Lisensi Aktif'})`;
+      paymentStatusNotes = `*Status*: ✅ *${isPrivateer ? 'PEMBAYARAN BERHASIL' : 'LUNAS & AKTIF'}*`;
+      if (expiresAt) {
+        paymentStatusNotes += `\n*Masa Aktif Layanan*: 📅 *Hingga ${expiresAt}*`;
+      }
     } else if (status === 'expired') {
-      paymentStatusNotes = `*Status*: ⏰ *KADALUARSA (EXPIRED)*\nBatas waktu pembayaran tagihan ini telah berakhir. Silakan lakukan pemesanan/tagihan baru melalui panel admin.`;
+      paymentStatusNotes = `*Status*: ⏰ *KADALUARSA (EXPIRED)*\nBatas waktu pembayaran tagihan ini telah berakhir. Silakan lakukan pemesanan/tagihan baru melalui panel layanan.`;
     } else {
       paymentStatusNotes = `*Status*: ⚠️ *MENUNGGU PEMBAYARAN*\n`;
       if (paymentMethod.toLowerCase() === 'manual') {
-        paymentStatusNotes += `Silakan lakukan transfer manual ke rekening BNI yang tertera di panel/dashboard, lalu unggah/kirim bukti transfer ke Admin untuk konfirmasi manual.`;
+        paymentStatusNotes += `Silakan lakukan transfer manual sesuai nominal ke rekening bank yang tertera di panel, lalu konfirmasikan ke Admin.`;
       } else {
         if (payCode) {
           paymentStatusNotes += `*Kode Bayar / VA*: *${payCode}*\n`;
@@ -141,7 +212,7 @@ export const sendLicenseWhatsAppNotification = async (
         if (qrUrl) {
           paymentStatusNotes += `*QR Code Link*: ${qrUrl}\n`;
         }
-        paymentStatusNotes += `Silakan lakukan pembayaran melalui metode ${paymentMethod} sesuai petunjuk di panel.`;
+        paymentStatusNotes += `Silakan lakukan pembayaran melalui metode *${paymentMethod}* sesuai petunjuk di panel.`;
       }
     }
 
@@ -153,16 +224,13 @@ export const sendLicenseWhatsAppNotification = async (
 
     if (isPrivateer) {
       // Branding Privateer (Top-up sesi belajar)
-      const parts = schoolName.split('|').map(p => p.trim());
-      const studentName = parts[0] || schoolName;
-
       message = `*💎 [Privateer] TOP-UP SESI BELAJAR*
 
-Halo Kakak *${studentName}* yang hebat! 👋
-Wah, asyik sekali! Ada pengajuan top-up sesi belajar baru nih. Yuk, segera selesaikan pembayarannya agar kita bisa belajar bareng lagi! 🤗
+Halo Kakak *${cleanSchoolName}* yang hebat! 👋
+Ada pengajuan top-up sesi belajar baru nih. Yuk, segera selesaikan pembayarannya agar kita bisa belajar bareng lagi! 🤗
 
 *✨ Detail Belajar:*
-- *Nama Siswa*: ${studentName}
+- *Nama Siswa*: ${cleanSchoolName}
 - *Paket*: ${planName}
 
 *💳 Rincian Tagihan:*
@@ -174,17 +242,26 @@ ${paymentStatusNotes}${confirmInstructions}
 Terima kasih ya sudah rajin belajar di Privateer. Semangat terus! ✨🚀`;
 
     } else {
-      // Branding Standard (cakola / easy-tunnel / produk lainnya)
-      message = `*🔑 [${productLabel}] PENGAJUAN LISENSI BARU*
+      // Branding Platform Absenta / Easy Tunnel
+      const headerTitle = status === 'paid'
+        ? (isRenewal ? 'PERPANJANGAN LISENSI BERHASIL' : 'AKTIVASI LISENSI BERHASIL')
+        : (isRenewal ? 'TAGIHAN PERPANJANGAN LISENSI' : 'TAGIHAN PEMESANAN LISENSI BARU');
 
-Halo! Pengajuan lisensi server Anda telah berhasil diproses. Berikut adalah rincian lisensi Anda:
+      const greetingText = status === 'paid'
+        ? `Pembayaran Anda telah kami terima dengan sukses. Layanan telah aktif dan siap digunakan!`
+        : `Halo Administrator *${cleanSchoolName}*! Permintaan lisensi Anda telah berhasil dibuat. Silakan lakukan pembayaran sesuai rincian berikut:`;
 
-*📋 Rincian Lisensi:*
-- *Nama Instansi*: ${schoolName}
-- *Subdomain*: ${slug ? slug + '.absenta.id' : '-'}
-- *Produk*: ${productLabel}
-- *Paket/Plan*: ${planName}
-- *Lisensi Key*: \`${key}\`
+      const checkBundled = isBundledVpn || planName.toLowerCase().includes('lengkap') || (opts as any).include_vpn === 1;
+
+      message = `*🔑 [${productLabel}] ${headerTitle}*
+
+${greetingText}
+
+*📋 Rincian Layanan:*
+- *Instansi*: ${cleanSchoolName}
+- *Domain Portal*: ${cleanSlug ? cleanSlug + '.absenta.id' : '-'}
+- *Modul / Paket*: ${planName}
+- *Kode Lisensi*: \`${key}\`${checkBundled ? '\n- *Fitur Tambahan*: ⚡ _Termasuk Easy Tunnel Gateway_' : ''}
 
 *💳 Rincian Tagihan:*
 - *Nomor Invoice*: *${invoiceNum}*
@@ -192,7 +269,7 @@ Halo! Pengajuan lisensi server Anda telah berhasil diproses. Berikut adalah rinc
 - *Metode Pembayaran*: *${paymentMethod}*
 ${paymentStatusNotes}${confirmInstructions}
 
-Terima kasih telah menggunakan layanan kami!`;
+Terima kasih telah mempercayakan operasional sekolah kepada *${productLabel}*! 🚀`;
     }
 
     await waGateway.sendMessage(phone, message, 'BILLING_NOTIFICATION', normalizedId);
@@ -261,29 +338,36 @@ export const sendOwnerOrderNotification = async (
   key: string,
   invoiceNum: string,
   amount: number,
-  paymentMethod: string
+  paymentMethod: string,
+  isRenewal: boolean = false
 ) => {
   try {
     const ownerWA = await getSystemSetting('OWNER_WA_NUMBER', '6287779937341');
     const amountFormatted = amount === 0 ? 'Rp 0 (Gratis)' : `Rp ${amount.toLocaleString('id-ID')}`;
     const normalizedId = normalizeProductId(prodId);
-    const productLabel = normalizedId === 'cakola' ? 'Platform Cakola' : (normalizedId === 'easy-tunnel' ? 'Easy Tunnel' : (normalizedId === 'privateer' ? 'Privateer' : prodId.toUpperCase()));
+    const productLabel = normalizedId === 'cakola' ? 'Platform Absenta' : (normalizedId === 'easy-tunnel' ? 'Easy Tunnel VPN' : (normalizedId === 'privateer' ? 'Privateer' : prodId.toUpperCase()));
+
+    const cleanSchoolName = schoolName.includes('|') ? schoolName.split('|')[0].trim() : schoolName.trim();
+    const cleanSlug = slug || (schoolName.includes('|') ? schoolName.split('|')[1].trim() : '');
 
     const tripayConfig = await getTripayConfigByProductId(normalizedId);
     const modeNote = tripayConfig.mode === 'PRODUCTION'
       ? `_Status: 🟢 Transaksi Mode PRODUCTION (Tripay Live / Real Money)_`
       : `_Catatan: Karena produk ini dalam mode sandbox, Anda dapat membuka dashboard Sandbox Tripay untuk mengubah status invoice *${invoiceNum}* secara manual agar terkonfirmasi otomatis oleh sistem._`;
 
-    const message = `*📢 [NOTIFIKASI OWNER] ORDER LISENSI BARU*
+    const titleAction = isRenewal ? 'PERPANJANGAN LISENSI' : 'ORDER LISENSI BARU';
 
-Halo Owner! Ada transaksi/pengajuan lisensi baru masuk pada sistem.
+    const message = `*📢 [NOTIFIKASI OWNER] ${titleAction}*
+
+Halo Owner! Ada transaksi/pengajuan lisensi masuk pada sistem.
 
 *📋 Rincian Pesanan:*
-- *Nama Instansi*: ${schoolName}
-- *Subdomain*: ${slug ? slug + '.absenta.id' : '-'}
+- *Nama Instansi*: ${cleanSchoolName}
+- *Subdomain*: ${cleanSlug ? cleanSlug + '.absenta.id' : '-'}
+- *Tipe Transaksi*: *${isRenewal ? '🔄 Perpanjangan Masa Aktif' : '✨ Pendaftaran Baru'}*
 - *Produk*: ${productLabel}
 - *Paket/Plan*: ${planName}
-- *Lisensi Key*: \`${key}\`
+- *Kunci Lisensi*: \`${key}\`
 
 *💳 Rincian Tagihan:*
 - *Nomor Invoice*: *${invoiceNum}*

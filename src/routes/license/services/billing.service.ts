@@ -126,10 +126,13 @@ export async function sendBothWaNotifications(
   paymentMethod: string,
   status: 'paid' | 'unpaid',
   payCode?: string | null,
-  qrUrl?: string | null
+  qrUrl?: string | null,
+  isRenewal: boolean = false,
+  expiresAt?: string | null,
+  isBundledVpn: boolean = false
 ) {
   await Promise.allSettled([
-    sendLicenseWhatsAppNotification(
+    sendLicenseWhatsAppNotification({
       phone,
       schoolName,
       slug,
@@ -141,8 +144,11 @@ export async function sendBothWaNotifications(
       paymentMethod,
       status,
       payCode,
-      qrUrl
-    ),
+      qrUrl,
+      isRenewal,
+      expiresAt,
+      isBundledVpn
+    }),
     sendOwnerOrderNotification(
       schoolName,
       slug,
@@ -151,7 +157,8 @@ export async function sendBothWaNotifications(
       key,
       invoiceNum,
       amount,
-      paymentMethod
+      paymentMethod,
+      isRenewal
     )
   ]);
 }

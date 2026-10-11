@@ -421,6 +421,25 @@ const registerBillingRoutes = (fastify) => {
                     .then(res => console.log('[Manual Approval Callback Push Success]', res.status))
                     .catch(err => console.log('[Manual Approval Callback Push Offline/NAT]', err.message));
             }
+            // Kirim Notifikasi WA Lunas ke Operator Pembeli
+            if (lic.operatorPhone) {
+                const isBundled = (lic.includeVpn === 1) || planId.includes('paket_lengkap') || (invoice.planTitle || '').toLowerCase().includes('paket lengkap');
+                (0, helpers_1.sendLicenseWhatsAppNotification)({
+                    phone: lic.operatorPhone,
+                    schoolName: invoice.schoolName,
+                    slug: lic.requestedSlug,
+                    prodId: lic.productId,
+                    planName: invoice.planTitle,
+                    key: lic.licenseKey,
+                    invoiceNum: invoice.invoiceNumber,
+                    amount: Number(invoice.amount),
+                    paymentMethod: invoice.paymentMethod,
+                    status: 'paid',
+                    isRenewal: isRenewalAccumulation,
+                    expiresAt: expiresStr,
+                    isBundledVpn: isBundled
+                }).catch(e => console.error('[Manual Approval WA Notify Error]', e.message));
+            }
             if (invoice.productId !== 'privateer' && lic.productId !== 'privateer') {
                 await (0, caddy_service_1.triggerCaddySync)();
             }

@@ -320,18 +320,37 @@ const registerPaymentLicenseRoutes = (fastify) => {
                 }
                 // 1. Kirim notifikasi WA Lunas ke Pembeli (Operator)
                 if (lic.operatorPhone) {
-                    (0, helpers_1.sendLicenseWhatsAppNotification)(lic.operatorPhone, invoice.schoolName, lic.requestedSlug, lic.productId, invoice.planTitle, lic.licenseKey, invoice.invoiceNumber, Number(invoice.amount), invoice.paymentMethod, 'paid').catch(e => console.error('[WA Paid License Notify Error]', e.message));
+                    (0, helpers_1.sendLicenseWhatsAppNotification)({
+                        phone: lic.operatorPhone,
+                        schoolName: invoice.schoolName,
+                        slug: lic.requestedSlug,
+                        prodId: lic.productId,
+                        planName: invoice.planTitle,
+                        key: lic.licenseKey,
+                        invoiceNum: invoice.invoiceNumber,
+                        amount: Number(invoice.amount),
+                        paymentMethod: invoice.paymentMethod,
+                        status: 'paid',
+                        isRenewal: isRenewalAccumulation,
+                        expiresAt: expiresStr,
+                        isBundledVpn: isBundledTunnel
+                    }).catch(e => console.error('[WA Paid License Notify Error]', e.message));
                 }
                 // 2. Kirim notifikasi WA Info Lunas ke Owner
                 const ownerWA = await (0, helpers_1.getSystemSetting)('OWNER_WA_NUMBER', '6287779937341');
                 if (ownerWA) {
+                    const cleanSchoolName = invoice.schoolName.includes('|') ? invoice.schoolName.split('|')[0].trim() : invoice.schoolName.trim();
+                    const cleanSlug = lic.requestedSlug || (invoice.schoolName.includes('|') ? invoice.schoolName.split('|')[1].trim() : '');
                     const ownerMsg = `*📢 [NOTIFIKASI OWNER] PEMBAYARAN LUNAS (PAID)*
 
 Pembayaran untuk invoice *${invoice.invoiceNumber}* telah berhasil diterima!
 
-- *Instansi*: ${invoice.schoolName}
-- *Produk*: ${lic.productId.toUpperCase()}
+- *Instansi*: ${cleanSchoolName}
+- *Subdomain*: ${cleanSlug ? cleanSlug + '.absenta.id' : '-'}
+- *Tipe Transaksi*: *${isRenewalAccumulation ? '🔄 Perpanjangan' : '✨ Order Baru'}*
+- *Produk*: ${lic.productId === 'cakola' ? 'Platform Absenta' : lic.productId.toUpperCase()}
 - *Paket*: ${invoice.planTitle}
+- *Kunci Lisensi*: \`${lic.licenseKey}\`
 - *Metode*: ${invoice.paymentMethod}
 - *Jumlah*: Rp ${Number(invoice.amount).toLocaleString('id-ID')}
 - *Status*: ✅ *LUNAS (Aktif s.d ${expiresStr})*`;
