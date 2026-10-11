@@ -8,12 +8,13 @@ import {
   ShieldCheck, 
   Cpu, 
   HardDrive, 
-  Database,
-  Smartphone,
-  CheckCircle,
-  Activity,
-  Server
+  Database, 
+  Smartphone, 
+  CheckCircle, 
+  Activity, 
+  Server 
 } from 'lucide-react';
+import { parseHardware } from '../utils/tenant';
 
 const WindowsIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" {...props}>
@@ -26,6 +27,40 @@ const LinuxIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <path d="M12 2a5 5 0 0 0-5 5v3c0 .5.2.9.5 1.2A5.9 5.9 0 0 0 4 16v1a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-1a5.9 5.9 0 0 0-3.5-4.8c.3-.3.5-.7.5-1.2V7a5 5 0 0 0-5-5zm-2.5 5a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm5 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zM12 11c1 0 1.5.5 1.5 1S13 13 12 13s-1.5-.5-1.5-1 1-1 1.5-1z"/>
   </svg>
 );
+
+const getDeployModeBadge = (mode?: string | null) => {
+  if (!mode) return null;
+  if (mode === 'saas') return <span className="px-1.5 py-0.5 bg-sky-500/10 border border-sky-500/20 text-[9px] font-bold text-sky-400 rounded">Cloud SaaS</span>;
+  if (mode === 'hybrid') return <span className="px-1.5 py-0.5 bg-purple-500/10 border border-purple-500/20 text-[9px] font-bold text-purple-400 rounded">Hybrid Tunnel</span>;
+  if (mode === 'local') return <span className="px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/20 text-[9px] font-bold text-amber-400 rounded">On-Premise</span>;
+  return <span className="px-1.5 py-0.5 bg-slate-800 text-[9px] font-bold text-slate-400 rounded">{mode.toUpperCase()}</span>;
+};
+
+const getNodeTypeBadge = (nodeType?: string) => {
+  const type = nodeType || 'SERVER_SAAS';
+  if (type === 'SERVER_SAAS') {
+    return (
+      <span className="px-1.5 py-0.5 bg-indigo-500/10 border border-indigo-500/20 text-[8.5px] font-extrabold text-indigo-400 rounded uppercase tracking-wider">
+        SaaS Node
+      </span>
+    );
+  }
+  if (type === 'SERVER_ONPREMISE') {
+    return (
+      <span className="px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/20 text-[8.5px] font-extrabold text-amber-400 rounded uppercase tracking-wider">
+        On-Premise
+      </span>
+    );
+  }
+  if (type === 'TUNNEL') {
+    return (
+      <span className="px-1.5 py-0.5 bg-purple-500/10 border border-purple-500/20 text-[8.5px] font-extrabold text-purple-400 rounded uppercase tracking-wider">
+        Tunnel Node
+      </span>
+    );
+  }
+  return null;
+};
 
 interface OverviewProps {
   onSwitchTab: (tab: string) => void;
@@ -302,84 +337,219 @@ export default function DashboardOverview({ onSwitchTab }: OverviewProps) {
         </div>
       </div>
 
-      {/* 4. CLIENT SCHOOL SERVERS TABLE */}
+      {/* 4. SERVER & NODE MONITORING TABLE */}
       {activity?.servers && activity.servers.length > 0 && (
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4">
-          <div className="flex justify-between items-center pb-3 border-b border-slate-800">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-800">
             <div>
               <h3 className="text-white text-base font-bold flex items-center gap-2">
                 <Server className="w-4 h-4 text-indigo-400" />
-                Pemantauan Server Klien Sekolah
+                Pemantauan Server & Node Infrastruktur
               </h3>
-              <p className="text-slate-500 text-xs mt-0.5">Pemantauan online/offline dan konsumsi resource server lokal masing-masing sekolah.</p>
+              <p className="text-slate-500 text-xs mt-0.5">Pemantauan online/offline, tunnel, dan utilisasi resource server host secara real-time.</p>
             </div>
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
-              ⚡ {activity.onlineServersCount} / {activity.totalServersCount} Server Online
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                ⚡ {activity.onlineServersCount} / {activity.totalServersCount} Server Online
+              </span>
+              <button
+                onClick={() => onSwitchTab('tenants')}
+                className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-750 border border-slate-700 text-slate-300 hover:text-white transition flex items-center gap-1 cursor-pointer"
+              >
+                Detail di Kelola Server &rarr;
+              </button>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-slate-850">
-                  <th className="pb-3 pr-4">Nama Sekolah</th>
-                  <th className="pb-3 px-4">Status Server</th>
-                  <th className="pb-3 px-4 text-right">RAM Usage</th>
-                  <th className="pb-3 px-4 text-right">DB Size</th>
+                  <th className="pb-3 pr-4">Server / Node</th>
+                  <th className="pb-3 px-4">Status & Resource</th>
+                  <th className="pb-3 px-4">Spesifikasi Perangkat Keras</th>
                   <th className="pb-3 pl-4 text-right">Heartbeat Terakhir</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/40 text-xs text-slate-300">
-                {activity.servers.map((s: any) => (
-                  <tr key={s.id} className="hover:bg-slate-850/20 transition">
-                    <td className="py-3.5 pr-4 font-semibold text-white">
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-1.5">
-                        <span className="truncate max-w-[200px] sm:max-w-none">{s.schoolName}</span>
-                        {s.isOnline && s.osType && (
-                          <div className="inline-flex items-center gap-1 text-[10px] text-slate-500 font-normal px-1.5 py-0.5 rounded bg-slate-950/80 border border-slate-800">
-                            {String(s.osType).toLowerCase().includes('windows') || String(s.osType).toLowerCase().includes('win32') ? (
-                              <span className="text-sky-400 flex items-center gap-1" title={s.osType}>
-                                <WindowsIcon className="w-3 h-3" /> Win
-                              </span>
+                {activity.servers.map((s: any) => {
+                  const isTunnel = s.nodeType === 'TUNNEL' || s.productId === 'easy-tunnel';
+                  const hw = parseHardware(s.osType);
+
+                  return (
+                    <tr key={s.id} className="hover:bg-slate-850/20 transition">
+                      {/* 1. Server / Node */}
+                      <td className="py-3.5 pr-4">
+                        <div className="flex items-start space-x-3">
+                          <div className="pt-1">
+                            {s.isOnline ? (
+                              <span 
+                                className={`h-2.5 w-2.5 rounded-full flex-shrink-0 animate-pulse border block ${
+                                  s.memoryUsage && s.memoryUsage > 85
+                                    ? 'bg-rose-500 border-rose-400'
+                                    : s.memoryUsage && s.memoryUsage > 70
+                                    ? 'bg-amber-500 border-amber-400'
+                                    : 'bg-emerald-500 border-emerald-400'
+                                }`}
+                                title={s.memoryUsage ? `Online | RAM: ${s.memoryUsage}%` : 'Online | Sehat'}
+                              />
                             ) : (
-                              <span className="text-amber-500 flex items-center gap-1" title={s.osType}>
-                                <LinuxIcon className="w-3 h-3" /> Linux
+                              <span 
+                                className="h-2.5 w-2.5 rounded-full flex-shrink-0 bg-slate-650 border border-slate-600 block"
+                                title="Offline / Disconnected"
+                              />
+                            )}
+                          </div>
+                          <div className="flex flex-col space-y-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-white text-xs sm:text-sm">
+                                {s.schoolName || 'Server Node'}
+                              </span>
+                              {getNodeTypeBadge(s.nodeType)}
+                            </div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {s.licenseKey && (
+                                <span className="text-[11px] text-slate-400 font-mono">
+                                  Key: {s.licenseKey}
+                                </span>
+                              )}
+                              {getDeployModeBadge(s.deployMode)}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* 2. Status & Resource */}
+                      <td className="py-3.5 px-4">
+                        {isTunnel ? (
+                          <div className="flex flex-col items-start gap-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-purple-400 font-semibold bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full">
+                                ⚡ Tunnel Aktif
+                              </span>
+                              <span className="text-[10px] font-bold text-emerald-400 uppercase">
+                                • {s.status === 'active' ? 'Aktif' : (s.status?.toUpperCase() || 'AKTIF')}
+                              </span>
+                            </div>
+                            <span className="text-[9.5px] font-bold text-purple-400 bg-purple-950/30 border border-purple-900/30 px-1.5 py-0.5 rounded">
+                              🔑 WireGuard ({s.wireguardIp || 'Cloud Gateway'})
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-start gap-1.5">
+                            <div className="flex items-center gap-2">
+                              {s.isOnline ? (
+                                <span className="text-xs text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                                  ⚡ Online
+                                </span>
+                              ) : (
+                                <span className="text-xs text-slate-500 bg-slate-950/60 border border-slate-800 px-2 py-0.5 rounded-full">
+                                  💤 Offline
+                                </span>
+                              )}
+                              <span className="text-[10px] font-bold text-emerald-400 uppercase">
+                                • {s.status === 'active' ? 'Aktif' : (s.status?.toUpperCase() || 'AKTIF')}
+                              </span>
+                            </div>
+
+                            {s.isOnline ? (
+                              <div className="text-[10.5px] text-slate-400 font-mono space-x-1.5 flex items-center">
+                                <span className={s.memoryUsage && s.memoryUsage > 80 ? 'text-rose-400 font-bold' : 'text-slate-400'}>
+                                  RAM: {s.memoryUsage !== null ? `${s.memoryUsage}%` : 'N/A'}
+                                </span>
+                                <span className="text-slate-700">|</span>
+                                <span>DB: {s.dbSize !== null ? `${s.dbSize.toFixed(1)}MB` : 'N/A'}</span>
+                                <span className="text-slate-700">|</span>
+                                <span>{s.activeUsers ?? 0} Users</span>
+                              </div>
+                            ) : (
+                              <span className="text-[10.5px] text-slate-500 font-mono">
+                                {s.lastTapped 
+                                  ? `Terakhir tap: ${new Date(s.lastTapped).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} (${new Date(s.lastTapped).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })})` 
+                                  : 'Belum pernah online'}
                               </span>
                             )}
-                            {s.hostname && (
-                              <>
-                                <span className="text-slate-800">|</span>
-                                <span className="text-slate-400 font-mono text-[9px] truncate max-w-[100px] sm:max-w-none" title={s.hostname}>{s.hostname}</span>
-                              </>
+
+                            {s.wireguardIp ? (
+                              <span className="text-[9.5px] font-bold text-purple-400 bg-purple-950/30 border border-purple-900/30 px-1.5 py-0.5 rounded">
+                                🔑 Tunnel: {s.wireguardIp}
+                              </span>
+                            ) : (
+                              <span className="text-[9.5px] font-medium text-slate-500 bg-slate-950/40 border border-slate-900/80 px-1.5 py-0.5 rounded">
+                                ☁️ Direct Host (SaaS Local)
+                              </span>
                             )}
                           </div>
                         )}
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      {s.isOnline ? (
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-bold text-emerald-400">
-                          <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse"></span>
-                          ONLINE
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-red-500/10 border border-red-500/20 text-[10px] font-bold text-red-400">
-                          <span className="w-1 h-1 rounded-full bg-red-500"></span>
-                          OFFLINE / DISCONNECTED
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-mono text-slate-400">
-                      {s.memoryUsage !== null ? `${s.memoryUsage.toFixed(0)} MB` : '-'}
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-mono text-slate-400">
-                      {s.dbSize !== null ? `${s.dbSize.toFixed(1)} MB` : '-'}
-                    </td>
-                    <td className="py-3.5 pl-4 text-right text-slate-500 font-mono">
-                      {s.lastTapped ? new Date(s.lastTapped).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : 'Belum Pernah'}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+
+                      {/* 3. Spesifikasi Perangkat Keras */}
+                      <td className="py-3.5 px-4">
+                        {isTunnel ? (
+                          <div className="flex flex-col gap-1 text-xs">
+                            <span className="text-purple-400 flex items-center gap-1 font-mono text-[10.5px]">
+                              <Cpu className="w-3.5 h-3.5 text-purple-400" /> Cloud WireGuard Gateway
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                              Jalur Enkripsi Terowongan Subdomain
+                            </span>
+                          </div>
+                        ) : hw.os === 'N/A' && hw.cpu === 'N/A' ? (
+                          <span className="text-xs text-slate-500 font-mono">-</span>
+                        ) : (
+                          <div className="flex flex-col gap-1 text-xs">
+                            <div className="flex items-center gap-1.5 text-slate-300 font-mono text-[10.5px] flex-wrap">
+                              {String(hw.os).toLowerCase().includes('windows') || String(hw.os).toLowerCase().includes('win32') ? (
+                                <span className="text-sky-400 flex items-center gap-1">
+                                  <WindowsIcon className="w-3 h-3" /> Windows
+                                </span>
+                              ) : (
+                                <span className="text-amber-500 flex items-center gap-1">
+                                  <LinuxIcon className="w-3.5 h-3.5" /> Linux
+                                </span>
+                              )}
+                              {s.hostname && (
+                                <span className="text-slate-500 font-sans text-[10px] truncate max-w-[120px]" title={s.hostname}>
+                                  ({s.hostname})
+                                </span>
+                              )}
+                            </div>
+
+                            {hw.cpu !== 'N/A' && (
+                              <div className="text-[10px] text-slate-400 truncate max-w-[200px]" title={hw.cpu}>
+                                <span className="text-slate-500">CPU:</span> {hw.cpu}
+                              </div>
+                            )}
+
+                            {(hw.ram !== 'N/A' || hw.disk !== 'N/A') && (
+                              <div className="text-[10px] font-mono text-indigo-400">
+                                {hw.ram !== 'N/A' && <span>{hw.ram} RAM</span>}
+                                {hw.ram !== 'N/A' && hw.disk !== 'N/A' && <span className="mx-1 text-slate-700">|</span>}
+                                {hw.disk !== 'N/A' && <span>{hw.disk} Disk</span>}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* 4. Heartbeat Terakhir */}
+                      <td className="py-3.5 pl-4 text-right">
+                        {s.lastTapped ? (
+                          <div className="flex flex-col items-end">
+                            <span className="font-mono text-slate-300 text-xs font-semibold">
+                              {new Date(s.lastTapped).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                            </span>
+                            <span className="text-[10px] text-slate-500">
+                              {new Date(s.lastTapped).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-500 font-mono text-xs">Belum Pernah</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

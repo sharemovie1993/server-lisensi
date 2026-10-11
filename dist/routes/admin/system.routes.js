@@ -110,35 +110,62 @@ const registerSystemRoutes = (fastify) => {
         if (reply.sent)
             return;
         try {
-            const licenses = await helpers_1.prisma.license.findMany({
-                where: { status: 'active' },
-                select: {
-                    id: true,
-                    schoolName: true,
-                    lastHeartbeatAt: true,
-                    memoryUsage: true,
-                    dbSize: true,
-                    lastTapped: true,
-                    activeUsers: true,
-                    activeOs: true,
-                    activeHostname: true
-                }
+            // Ambil HANYA Server Host Node (bukan lisensi anak tenant)
+            const serverNodes = await helpers_1.prisma.license.findMany({
+                where: {
+                    OR: [
+                        { productId: 'cakola', hostLicenseKey: null },
+                        { productId: 'easy-tunnel' }
+                    ]
+                },
+                include: {
+                    subscriptions: true
+                },
+                orderBy: { createdAt: 'desc' }
             });
-            const servers = licenses.map(l => {
+            const servers = serverNodes.map(l => {
                 const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
                 const isOnline = l.lastHeartbeatAt ? new Date(l.lastHeartbeatAt) > fifteenMinutesAgo : false;
                 const rawMem = l.memoryUsage || 0;
                 const memoryUsageVal = rawMem <= 1 ? Math.round(rawMem * 100) : rawMem;
+                // Hitung total tenant di node ini dari subscriptions telemetri
+                let hostedCount = 0;
+                if (l.subscriptions && Array.isArray(l.subscriptions)) {
+                    const names = new Set();
+                    for (const s of l.subscriptions) {
+                        const pName = (s.schoolName || '').split('|')[0].trim();
+                        if (pName && !pName.toLowerCase().startsWith('saas node') && !pName.toLowerCase().startsWith('server host')) {
+                            names.add(pName.toLowerCase());
+                        }
+                    }
+                    hostedCount = names.size;
+                }
+                let displayName = l.schoolName;
+                if (l.productId !== 'easy-tunnel' && l.schoolName.includes('|')) {
+                    displayName = l.schoolName.split('|')[0].trim();
+                }
+                if (hostedCount > 0 && (displayName.toLowerCase().startsWith('saas node') || displayName.includes('Tenant'))) {
+                    displayName = `SaaS Node (${hostedCount} Tenant)`;
+                }
+                const isTunnel = l.productId === 'easy-tunnel';
+                const effectiveNodeType = isTunnel ? 'TUNNEL' : (l.nodeType || 'SERVER_SAAS');
                 return {
                     id: l.id,
-                    schoolName: l.schoolName,
+                    schoolName: displayName,
+                    licenseKey: l.licenseKey,
+                    deployMode: l.deployMode || 'local',
+                    nodeType: effectiveNodeType,
+                    status: l.status,
                     isOnline,
                     memoryUsage: l.lastHeartbeatAt ? memoryUsageVal : null,
                     dbSize: l.lastHeartbeatAt ? l.dbSize : null,
                     lastTapped: l.lastHeartbeatAt ? l.lastHeartbeatAt : null,
                     activeUsers: l.activeUsers || 0,
-                    osType: isOnline ? (l.activeOs || null) : null,
-                    hostname: isOnline ? (l.activeHostname || null) : null
+                    osType: l.activeOs || null,
+                    hostname: l.activeHostname || null,
+                    wireguardIp: l.wireguardIp || null,
+                    hostedTenantsCount: hostedCount,
+                    productId: l.productId
                 };
             });
             let totalActiveStudents = 0;
