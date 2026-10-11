@@ -40,7 +40,7 @@ function registerTenantEntitlementRoutes(fastify) {
                 if (cleanSlug.endsWith('th'))
                     candidateSlugs.add(cleanSlug.slice(0, -1));
             }
-            // 2. Query Lisensi Produk dengan Strict Multi-Tenant Scoping
+            // 2. Query Lisensi Produk dengan Strict Multi-Tenant Scoping (Kecualikan Host Server Key)
             let whereClause = {};
             if (deploy_scenario === 'onpremise') {
                 // Pada onpremise: 1 server = 1 tenant.
@@ -50,12 +50,13 @@ function registerTenantEntitlementRoutes(fastify) {
                 ];
                 if (candidateSlugs.size > 0) {
                     orConditions.push({ requestedSlug: { in: Array.from(candidateSlugs) } });
+                    orConditions.push({ tenantIdentifier: { in: Array.from(candidateSlugs) } });
                 }
                 if (cleanNpsn) {
                     orConditions.push({ npsn: cleanNpsn });
                 }
                 whereClause = {
-                    productId: { not: 'cakola' }, // Hanya produk tenant (easy-tunnel, addons, dll)
+                    licenseKey: { not: server_license_key.trim() }, // Jangan sertakan lisensi host mesin itu sendiri
                     OR: orConditions
                 };
             }
@@ -68,12 +69,13 @@ function registerTenantEntitlementRoutes(fastify) {
                 const orConditions = [];
                 if (candidateSlugs.size > 0) {
                     orConditions.push({ requestedSlug: { in: Array.from(candidateSlugs) } });
+                    orConditions.push({ tenantIdentifier: { in: Array.from(candidateSlugs) } });
                 }
                 if (cleanNpsn) {
                     orConditions.push({ npsn: cleanNpsn });
                 }
                 whereClause = {
-                    productId: { not: 'cakola' },
+                    licenseKey: { not: server_license_key.trim() },
                     OR: orConditions
                 };
             }
@@ -142,9 +144,10 @@ function registerTenantEntitlementRoutes(fastify) {
                 candidateSlugs.push(`${cleanSlug}h`);
             if (cleanSlug.endsWith('th'))
                 candidateSlugs.push(cleanSlug.slice(0, -1));
-            // 2. Cari lisensi produk milik tenant tersebut
+            // 2. Cari lisensi produk milik tenant tersebut (Kecualikan Host Server)
             const orConditions = [
-                { requestedSlug: { in: candidateSlugs } }
+                { requestedSlug: { in: candidateSlugs } },
+                { tenantIdentifier: { in: candidateSlugs } }
             ];
             if (npsn && npsn.trim()) {
                 orConditions.push({ npsn: npsn.trim() });
@@ -154,7 +157,7 @@ function registerTenantEntitlementRoutes(fastify) {
             }
             const tenantLicenses = await prisma.license.findMany({
                 where: {
-                    productId: { not: 'cakola' },
+                    licenseKey: { not: target_host_key.trim() },
                     OR: orConditions
                 }
             });
