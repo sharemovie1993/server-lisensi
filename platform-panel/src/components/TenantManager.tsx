@@ -5,8 +5,9 @@ import { useProducts } from '../hooks/useProducts';
 import { parseHardware, isTenantOnline } from '../utils/tenant';
 import DetailNodeModal from './tenants/DetailNodeModal';
 import AddNodeModal from './tenants/AddNodeModal';
+import NodeMetricsModal from './tenants/NodeMetricsModal';
 import TelemetryStatusIcon from './tenants/TelemetryStatusIcon';
-import { BadgeCheck, ShieldAlert, Key, Plus, Trash2, Check, RefreshCw, Search, ChevronDown, ChevronUp, Database, Users, Activity, Cpu, Building, Eye, ExternalLink, Send } from 'lucide-react';
+import { BadgeCheck, ShieldAlert, Key, Plus, Trash2, Check, RefreshCw, Search, ChevronDown, ChevronUp, Database, Users, Activity, Cpu, Building, Eye, ExternalLink, Send, LineChart } from 'lucide-react';
 
 const WindowsIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" {...props}>
@@ -34,6 +35,10 @@ export default function TenantManager() {
   // States for Detail Node Modal Popup
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedDetailTenant, setSelectedDetailTenant] = useState<Tenant | null>(null);
+
+  // States for Time-series Metrics Modal
+  const [showMetricsModal, setShowMetricsModal] = useState(false);
+  const [selectedMetricsTenant, setSelectedMetricsTenant] = useState<Tenant | null>(null);
 
   const toggleTenant = (id: string) => {
     setExpandedTenants(prev => ({ ...prev, [id]: !prev[id] }));
@@ -677,6 +682,16 @@ export default function TenantManager() {
                         )}
                         <button
                           onClick={() => {
+                            setSelectedMetricsTenant(t);
+                            setShowMetricsModal(true);
+                          }}
+                          className="p-1.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-lg hover:bg-indigo-600 hover:text-white transition inline-flex"
+                          title="Audit Grafik & Time-Series Metrik"
+                        >
+                          <Activity className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => {
                             setSelectedDetailTenant(t);
                             setShowDetailModal(true);
                           }}
@@ -715,6 +730,15 @@ export default function TenantManager() {
           setSelectedDetailTenant(null);
         }}
         onResetSuccess={loadData}
+      />
+
+      <NodeMetricsModal
+        isOpen={showMetricsModal}
+        tenant={selectedMetricsTenant}
+        onClose={() => {
+          setShowMetricsModal(false);
+          setSelectedMetricsTenant(null);
+        }}
       />
     </div>
   );

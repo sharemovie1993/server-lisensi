@@ -19,6 +19,7 @@ interface HeartbeatPayload {
   localAvgResponseTimeMs?: number;
   publicAvgResponseTimeMs?: number;
   avgResponseTimeMs?: number;
+  requestsCount?: number;
   localRequestsToday?: number;
   publicRequestsToday?: number;
   tenants?: Array<{ name: string; subdomain: string | null }>;
@@ -40,6 +41,7 @@ export const heartbeatRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
           localAvgResponseTimeMs,
           publicAvgResponseTimeMs,
           avgResponseTimeMs,
+          requestsCount,
           localRequestsToday,
           publicRequestsToday,
           lastTapped, 
@@ -127,6 +129,30 @@ export const heartbeatRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
         where: { id: license.id },
         data: updateData
       });
+
+      // 0.1 Record time-series metric log (rolling 2-minute window snapshots)
+      try {
+        const respTime = (typeof avgResponseTimeMs !== 'undefined' && avgResponseTimeMs !== null)
+          ? Number(avgResponseTimeMs)
+          : ((typeof localAvgResponseTimeMs !== 'undefined' && localAvgResponseTimeMs !== null) ? Number(localAvgResponseTimeMs) : null);
+
+        await prisma.serverMetricLog.create({
+          data: {
+            licenseId: license.id,
+            cpuUsage: (typeof cpuUsage !== 'undefined' && cpuUsage !== null) ? Number(cpuUsage) : null,
+            memoryUsage: Number(memoryUsage),
+            responseTimeMs: respTime,
+            localLatencyMs: (typeof localAvgResponseTimeMs !== 'undefined' && localAvgResponseTimeMs !== null) ? Number(localAvgResponseTimeMs) : null,
+            publicLatencyMs: (typeof publicAvgResponseTimeMs !== 'undefined' && publicAvgResponseTimeMs !== null) ? Number(publicAvgResponseTimeMs) : null,
+            requestsCount: (typeof requestsCount !== 'undefined' && requestsCount !== null) ? Number(requestsCount) : 0,
+            activeUsers: Number(activeUsers),
+            dbSize: Number(dbSize),
+            recordedAt: new Date()
+          }
+        });
+      } catch (logErr: any) {
+        console.error('[Heartbeat] Failed to insert metric log:', logErr.message);
+      }
 
       // 0.5 Sync tenant list from multi-tenant server into subscriptions table
       if (tenants && Array.isArray(tenants) && tenants.length > 0) {

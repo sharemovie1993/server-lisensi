@@ -28,6 +28,9 @@ export interface Tenant {
   activeDevices?: number | null;
   activatedDevices?: Array<{ id: number; deviceId: string; activatedAt: string }>;
   wireguardIp?: string | null;
+  customDomain?: string | null;
+  networkMode?: string | null;
+  activeHostname?: string | null;
   is_trial?: boolean;
   nodeType?: string;
   hostedTenantsCount?: number;

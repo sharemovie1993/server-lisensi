@@ -15,6 +15,7 @@ import {
   Server 
 } from 'lucide-react';
 import { parseHardware } from '../utils/tenant';
+import NodeMetricsModal from './tenants/NodeMetricsModal';
 
 const WindowsIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" {...props}>
@@ -67,6 +68,9 @@ interface OverviewProps {
 }
 
 export default function DashboardOverview({ onSwitchTab }: OverviewProps) {
+  const [showMetricsModal, setShowMetricsModal] = useState(false);
+  const [selectedMetricsTenant, setSelectedMetricsTenant] = useState<any>(null);
+
   const [stats, setStats] = useState({
     totalTenants: 0,
     activeTenants: 0,
@@ -551,20 +555,33 @@ export default function DashboardOverview({ onSwitchTab }: OverviewProps) {
                         )}
                       </td>
 
-                      {/* 4. Heartbeat Terakhir */}
+                      {/* 4. Heartbeat Terakhir & Aksi */}
                       <td className="py-3.5 pl-4 text-right">
-                        {s.lastTapped ? (
-                          <div className="flex flex-col items-end">
-                            <span className="font-mono text-slate-300 text-xs font-semibold">
-                              {new Date(s.lastTapped).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                            </span>
-                            <span className="text-[10px] text-slate-500">
-                              {new Date(s.lastTapped).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-slate-500 font-mono text-xs">Belum Pernah</span>
-                        )}
+                        <div className="flex items-center justify-end gap-2.5">
+                          {s.lastTapped ? (
+                            <div className="flex flex-col items-end">
+                              <span className="font-mono text-slate-300 text-xs font-semibold">
+                                {new Date(s.lastTapped).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                              </span>
+                              <span className="text-[10px] text-slate-500">
+                                {new Date(s.lastTapped).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-slate-500 font-mono text-xs">Belum Pernah</span>
+                          )}
+
+                          <button
+                            onClick={() => {
+                              setSelectedMetricsTenant(s);
+                              setShowMetricsModal(true);
+                            }}
+                            className="p-1.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-lg hover:bg-indigo-600 hover:text-white transition inline-flex"
+                            title="Audit Grafik & Time-Series Metrik"
+                          >
+                            <Activity className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -598,6 +615,15 @@ export default function DashboardOverview({ onSwitchTab }: OverviewProps) {
           </button>
         </div>
       </div>
+
+      <NodeMetricsModal
+        isOpen={showMetricsModal}
+        tenant={selectedMetricsTenant}
+        onClose={() => {
+          setShowMetricsModal(false);
+          setSelectedMetricsTenant(null);
+        }}
+      />
     </div>
   );
 }

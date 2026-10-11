@@ -24,6 +24,7 @@ absenta.id, www.absenta.id {
 
 # Central License Server API & admin UI
 api.absenta.id {
+    tls /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.absenta.id/wildcard_.absenta.id.crt /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.absenta.id/wildcard_.absenta.id.key
     reverse_proxy 127.0.0.1:5001
 }
 
@@ -44,35 +45,19 @@ pos.absenta.id {
 
 # --- DYNAMIC TENANT GATEWAYS ---
 
-# Tenant: almuth (Easy Tunnel - almuth.absenta.id)
-almuth.absenta.id {
+# Tenant: demo (Easy Tunnel - demo.absenta.id)
+demo.absenta.id {
     tls /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.absenta.id/wildcard_.absenta.id.crt /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.absenta.id/wildcard_.absenta.id.key
-    reverse_proxy * http://10.0.0.24:3000 {
-        header_up Host almuth.absenta.id
-    }
-}
-
-# Tenant: dev-smkn1pld (Easy Tunnel - dev-smkn1pld.absenta.id)
-dev-smkn1pld.absenta.id {
-    tls /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.absenta.id/wildcard_.absenta.id.crt /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.absenta.id/wildcard_.absenta.id.key
-    reverse_proxy * http://10.0.2.2:80 {
-        header_up Host dev-smkn1pld.absenta.id
+    reverse_proxy * http://10.0.2.3:80 {
+        header_up Host demo.absenta.id
     }
 }
 
 # Tenant: smkn1pld (Easy Tunnel - smkn1pld.absenta.id)
 smkn1pld.absenta.id {
     tls /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.absenta.id/wildcard_.absenta.id.crt /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.absenta.id/wildcard_.absenta.id.key
-    reverse_proxy * http://10.0.0.22:80 {
+    reverse_proxy * http://10.0.2.2:80 {
         header_up Host smkn1pld.absenta.id
-    }
-}
-
-# Tenant: luxury (Easy Tunnel - luxury.absenta.id)
-luxury.absenta.id {
-    tls /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.absenta.id/wildcard_.absenta.id.crt /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.absenta.id/wildcard_.absenta.id.key
-    reverse_proxy * http://10.0.2.3:80 {
-        header_up Host luxury.absenta.id
     }
 }
 

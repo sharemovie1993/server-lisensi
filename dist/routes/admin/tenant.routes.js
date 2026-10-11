@@ -500,5 +500,139 @@ const registerTenantRoutes = (fastify) => {
             return reply.status(500).send({ success: false, message: 'Gagal mengirim ulang WhatsApp: ' + err.message });
         }
     });
+    // GET /api/admin/tenants/:id/metrics & /api/admin/nodes/:id/metrics (Time-series audit metrics)
+    const getMetricsHandler = async (request, reply) => {
+        await (0, middleware_1.verifyAdmin)(request, reply);
+        if (reply.sent)
+            return;
+        const { id } = request.params;
+        const query = (request.query || {});
+        const range = (query.range || '24h').toLowerCase();
+        try {
+            let license = await helpers_1.prisma.license.findUnique({ where: { id } });
+            if (!license) {
+                license = await helpers_1.prisma.license.findUnique({ where: { licenseKey: id } });
+            }
+            if (!license) {
+                return reply.status(404).send({ success: false, message: 'Node lisensi tidak ditemukan.' });
+            }
+            const now = new Date();
+            let fromTime;
+            let bucketIntervalMs;
+            switch (range) {
+                case '1h':
+                    fromTime = new Date(now.getTime() - 60 * 60 * 1000);
+                    bucketIntervalMs = 0; // Raw logs (per 2 menit)
+                    break;
+                case '24h':
+                    fromTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+                    bucketIntervalMs = 30 * 60 * 1000; // Tiap 30 menit
+                    break;
+                case '7d':
+                    fromTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                    bucketIntervalMs = 3 * 60 * 60 * 1000; // Tiap 3 jam
+                    break;
+                case '30d':
+                    fromTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                    bucketIntervalMs = 24 * 60 * 60 * 1000; // Tiap 24 jam
+                    break;
+                default:
+                    fromTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+                    bucketIntervalMs = 30 * 60 * 1000;
+                    break;
+            }
+            const logs = await helpers_1.prisma.serverMetricLog.findMany({
+                where: {
+                    licenseId: license.id,
+                    recordedAt: { gte: fromTime }
+                },
+                orderBy: { recordedAt: 'asc' }
+            });
+            const avg = (arr) => arr.length ? Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 10) / 10 : 0;
+            const max = (arr) => arr.length ? Math.round(Math.max(...arr) * 10) / 10 : 0;
+            const allCpus = logs.map(l => l.cpuUsage).filter((v) => v !== null && v !== undefined);
+            const allMems = logs.map(l => l.memoryUsage).filter((v) => v !== null && v !== undefined);
+            const allResps = logs.map(l => l.responseTimeMs).filter((v) => v !== null && v !== undefined);
+            const allUsers = logs.map(l => l.activeUsers || 0);
+            const totalRequests = logs.reduce((sum, l) => sum + (l.requestsCount || 0), 0);
+            const summary = {
+                avgCpu: allCpus.length ? avg(allCpus) : (license.cpuUsage || 0),
+                maxCpu: allCpus.length ? max(allCpus) : (license.cpuUsage || 0),
+                avgMemory: allMems.length ? avg(allMems) : (license.memoryUsage || 0),
+                maxMemory: allMems.length ? max(allMems) : (license.memoryUsage || 0),
+                avgResponseTime: allResps.length ? avg(allResps) : (license.localAvgResponseTimeMs || 0),
+                maxResponseTime: allResps.length ? max(allResps) : (license.localAvgResponseTimeMs || 0),
+                totalRequests: totalRequests || ((license.localRequestsToday || 0) + (license.publicRequestsToday || 0)),
+                peakUsers: allUsers.length ? Math.max(...allUsers) : (license.activeUsers || 0),
+                totalSamples: logs.length
+            };
+            let points = [];
+            if (bucketIntervalMs === 0) {
+                points = logs.map(l => ({
+                    timestamp: l.recordedAt.toISOString(),
+                    cpuUsage: l.cpuUsage != null ? Math.round(l.cpuUsage * 10) / 10 : 0,
+                    memoryUsage: l.memoryUsage != null ? Math.round(l.memoryUsage * 10) / 10 : 0,
+                    responseTimeMs: l.responseTimeMs != null ? Math.round(l.responseTimeMs * 10) / 10 : 0,
+                    localLatencyMs: l.localLatencyMs != null ? Math.round(l.localLatencyMs * 10) / 10 : 0,
+                    publicLatencyMs: l.publicLatencyMs != null ? Math.round(l.publicLatencyMs * 10) / 10 : 0,
+                    requestsCount: l.requestsCount || 0,
+                    activeUsers: l.activeUsers || 0,
+                    dbSize: l.dbSize || 0
+                }));
+            }
+            else {
+                const bucketMap = new Map();
+                for (const l of logs) {
+                    const bucketKey = Math.floor(l.recordedAt.getTime() / bucketIntervalMs) * bucketIntervalMs;
+                    if (!bucketMap.has(bucketKey))
+                        bucketMap.set(bucketKey, []);
+                    bucketMap.get(bucketKey).push(l);
+                }
+                points = Array.from(bucketMap.entries()).map(([ts, group]) => {
+                    const cpuList = group.map(g => g.cpuUsage).filter((v) => v !== null && v !== undefined);
+                    const memList = group.map(g => g.memoryUsage).filter((v) => v !== null && v !== undefined);
+                    const respList = group.map(g => g.responseTimeMs).filter((v) => v !== null && v !== undefined);
+                    const locList = group.map(g => g.localLatencyMs).filter((v) => v !== null && v !== undefined);
+                    const pubList = group.map(g => g.publicLatencyMs).filter((v) => v !== null && v !== undefined);
+                    const reqSum = group.reduce((sum, g) => sum + (g.requestsCount || 0), 0);
+                    const userMax = Math.max(...group.map(g => g.activeUsers || 0), 0);
+                    const lastDb = group[group.length - 1]?.dbSize || 0;
+                    return {
+                        timestamp: new Date(ts).toISOString(),
+                        cpuUsage: avg(cpuList),
+                        memoryUsage: avg(memList),
+                        responseTimeMs: avg(respList),
+                        localLatencyMs: avg(locList),
+                        publicLatencyMs: avg(pubList),
+                        requestsCount: reqSum,
+                        activeUsers: userMax,
+                        dbSize: lastDb
+                    };
+                });
+            }
+            return reply.send({
+                success: true,
+                license: {
+                    id: license.id,
+                    schoolName: license.schoolName,
+                    requestedSlug: license.requestedSlug,
+                    customDomain: license.customDomain,
+                    networkMode: license.networkMode,
+                    lastHeartbeatAt: license.lastHeartbeatAt,
+                    activeHostname: license.activeHostname,
+                    activeOs: license.activeOs
+                },
+                range,
+                summary,
+                points
+            });
+        }
+        catch (err) {
+            console.error('[Admin Node Metrics Error]', err.message);
+            return reply.status(500).send({ success: false, message: 'Gagal memuat metrik time-series: ' + err.message });
+        }
+    };
+    fastify.get('/api/admin/tenants/:id/metrics', getMetricsHandler);
+    fastify.get('/api/admin/nodes/:id/metrics', getMetricsHandler);
 };
 exports.registerTenantRoutes = registerTenantRoutes;

@@ -91,6 +91,7 @@ model License {
   activatedDevices         ActivatedDevice[]
   logs                     ActivityLog[]
   invoices                 Invoice[]
+  metricLogs               ServerMetricLog[]
   plan                     Plan?             @relation(fields: [planId], references: [id])
   product                  Product           @relation(fields: [productId], references: [id])
   subscriptions            Subscription[]
@@ -350,4 +351,23 @@ model TenantMigrationLog {
   @@index([tenantSlug])
   @@index([targetHostKey])
   @@map("tenant_migration_logs")
+}
+
+model ServerMetricLog {
+  id              String   @id @default(uuid())
+  licenseId       String   @map("license_id")
+  cpuUsage        Float?   @map("cpu_usage")
+  memoryUsage     Float?   @map("memory_usage")
+  responseTimeMs  Float?   @map("response_time_ms")
+  localLatencyMs  Float?   @map("local_latency_ms")
+  publicLatencyMs Float?   @map("public_latency_ms")
+  requestsCount   Int?     @default(0) @map("requests_count")
+  activeUsers     Int?     @default(0) @map("active_users")
+  dbSize          Float?   @map("db_size")
+  recordedAt      DateTime @default(now()) @map("recorded_at")
+
+  license         License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+
+  @@index([licenseId, recordedAt])
+  @@map("server_metric_logs")
 }
