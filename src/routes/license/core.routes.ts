@@ -146,7 +146,10 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
           where: {
             requestedSlug: resolvedSlug,
             productId: prodId,
-            nodeType: { notIn: ['SERVER_SAAS', 'SERVER_ONPREMISE'] }
+            OR: [
+              { hostLicenseKey: { not: null } },
+              { nodeType: { notIn: ['SERVER_SAAS', 'SERVER_ONPREMISE'] } }
+            ]
           },
           orderBy: { createdAt: 'desc' }
         });
@@ -1142,6 +1145,108 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
     } catch (err: any) {
       console.error('[Invoice Status Error]', err);
       return reply.status(500).send({ success: false, message: 'Gagal mengecek status invoice.' });
+    }
+  });
+
+  // 6b. Cancel invoice manually (by client/tenant)
+  fastify.post('/api/license/invoice/:invoiceNumber/cancel', async (request: FastifyRequest, reply: FastifyReply) => {
+    const { invoiceNumber } = request.params as { invoiceNumber: string };
+    const body = (request.body as any) || {};
+    const coreKey = (body.license_key || body.licenseKey || '').trim();
+    const tenantSlug = (body.tenant_slug || body.tenantSlug || body.slug || '').trim().toLowerCase();
+
+    try {
+      const cleanInvNum = invoiceNumber.trim().replace(/^#/, '');
+      const invoice = await prisma.invoice.findFirst({
+        where: {
+          OR: [
+            { invoiceNumber: cleanInvNum },
+            { invoiceNumber: `#${cleanInvNum}` },
+            { invoiceNumber: invoiceNumber.trim() }
+          ]
+        },
+        include: { license: true }
+      });
+
+      if (!invoice) {
+        return reply.status(404).send({ success: false, message: 'Invoice tidak ditemukan.' });
+      }
+
+      if (invoice.status === 'paid') {
+        return reply.status(400).send({ success: false, message: 'Invoice yang sudah lunas tidak dapat dibatalkan.' });
+      }
+
+      if (invoice.status === 'cancelled') {
+        return reply.send({
+          success: true,
+          message: 'Invoice sudah dalam status dibatalkan.',
+          data: { invoice_number: invoice.invoiceNumber, status: 'cancelled' }
+        });
+      }
+
+      // Validasi kepemilikan lisensi jika coreKey disediakan
+      if (coreKey) {
+        const isDirect = invoice.license?.licenseKey === coreKey;
+        const isHost = invoice.license?.hostLicenseKey === coreKey;
+        const matchesSlug = tenantSlug && (
+          invoice.schoolName?.toLowerCase().includes(tenantSlug) ||
+          invoice.license?.requestedSlug?.toLowerCase() === tenantSlug ||
+          invoice.license?.tenantIdentifier?.toLowerCase() === tenantSlug
+        );
+
+        if (!isDirect && !isHost && !matchesSlug) {
+          const hostLic = await prisma.license.findUnique({ where: { licenseKey: coreKey } });
+          if (!hostLic || (invoice.license?.hostLicenseKey !== hostLic.licenseKey && !matchesSlug)) {
+            return reply.status(403).send({ success: false, message: 'Anda tidak memiliki hak untuk membatalkan invoice ini.' });
+          }
+        }
+      }
+
+      // Update invoice status ke 'cancelled'
+      await prisma.invoice.update({
+        where: { id: invoice.id },
+        data: { status: 'cancelled' }
+      });
+
+      // Update lisensi terkait jika statusnya masih belum aktif (unpaid)
+      if (invoice.license && (invoice.license.status === 'unpaid' || invoice.license.isActive === 0)) {
+        await prisma.license.update({
+          where: { id: invoice.license.id },
+          data: { status: 'cancelled', isActive: 0 }
+        });
+      }
+
+      // Update subscription pending yang terkait
+      await prisma.subscription.updateMany({
+        where: { licenseId: invoice.licenseId, status: 'pending' },
+        data: { status: 'cancelled' }
+      });
+
+      // Log aktivitas
+      if (invoice.license?.licenseKey) {
+        await prisma.activityLog.create({
+          data: {
+            licenseKey: invoice.license.licenseKey,
+            productId: invoice.productId,
+            ipAddress: request.ip || 'system',
+            action: 'INVOICE_CANCELLED'
+          }
+        }).catch(() => {});
+      }
+
+      console.log(`[Invoice Cancelled] Invoice ${invoice.invoiceNumber} has been successfully cancelled.`);
+
+      return reply.send({
+        success: true,
+        message: `Invoice ${invoice.invoiceNumber} berhasil dibatalkan.`,
+        data: {
+          invoice_number: invoice.invoiceNumber,
+          status: 'cancelled'
+        }
+      });
+    } catch (err: any) {
+      console.error('[Cancel Invoice Error]', err);
+      return reply.status(500).send({ success: false, message: 'Gagal membatalkan invoice: ' + err.message });
     }
   });
 
