@@ -1,9 +1,39 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.renderInvoiceTemplate = renderInvoiceTemplate;
 exports.formatIndonesianDate = formatIndonesianDate;
+const fs_1 = __importDefault(require("fs"));
+const path_1 = __importDefault(require("path"));
+let cachedStampBase64 = null;
+function getBtiStampBase64() {
+    if (cachedStampBase64)
+        return cachedStampBase64;
+    const possiblePaths = [
+        path_1.default.join(__dirname, '../../public/BTI-compact-logo.png'),
+        path_1.default.join(process.cwd(), 'public/BTI-compact-logo.png'),
+        path_1.default.join(__dirname, '../public/BTI-compact-logo.png')
+    ];
+    for (const p of possiblePaths) {
+        try {
+            if (fs_1.default.existsSync(p)) {
+                const buf = fs_1.default.readFileSync(p);
+                cachedStampBase64 = `data:image/png;base64,${buf.toString('base64')}`;
+                return cachedStampBase64;
+            }
+        }
+        catch { }
+    }
+    return 'https://api.absenta.id/BTI-compact-logo.png';
+}
 function renderInvoiceTemplate(data) {
-    const { invoiceNumber, cleanSchoolName, dateStr, statusLabel, isPaid, isExpired = false, payMethodLabel, licenseKey, productName, planTitle, productDesc, planDuration, capacityStr, planPrice, adminFee, totalPrice, verifyHash, items } = data;
+    const { invoiceNumber, cleanSchoolName: rawSchoolName, dateStr, statusLabel, isPaid, isExpired = false, payMethodLabel, licenseKey, productName, planTitle, productDesc, planDuration, capacityStr, planPrice, adminFee, totalPrice, verifyHash, items } = data;
+    const cleanSchoolName = rawSchoolName && rawSchoolName.includes('|')
+        ? rawSchoolName.split('|')[0].trim()
+        : (rawSchoolName || 'Instansi Lembaga');
+    const stampSrc = getBtiStampBase64();
     const statusColor = isPaid
         ? 'var(--success)'
         : (isExpired ? 'var(--text-muted)' : 'var(--warning)');
@@ -474,7 +504,7 @@ function renderInvoiceTemplate(data) {
       <div class="sig-box" style="text-align: center;">
         <div class="sig-label" style="text-align: center;">Petugas Keuangan (Vendor)</div>
         <div class="sig-stamp">
-          <img src="/BTI-compact-logo.png" class="stamp-img" alt="Stempel BTI">
+          <img src="${stampSrc}" class="stamp-img" alt="Stempel BTI">
           <span class="sig-cursive">Baraya Tech</span>
         </div>
         <div class="sig-name" style="text-align: center;">Finance Department</div>

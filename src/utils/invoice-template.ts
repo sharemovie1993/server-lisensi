@@ -1,3 +1,26 @@
+import fs from 'fs';
+import path from 'path';
+
+let cachedStampBase64: string | null = null;
+function getBtiStampBase64(): string {
+  if (cachedStampBase64) return cachedStampBase64;
+  const possiblePaths = [
+    path.join(__dirname, '../../public/BTI-compact-logo.png'),
+    path.join(process.cwd(), 'public/BTI-compact-logo.png'),
+    path.join(__dirname, '../public/BTI-compact-logo.png')
+  ];
+  for (const p of possiblePaths) {
+    try {
+      if (fs.existsSync(p)) {
+        const buf = fs.readFileSync(p);
+        cachedStampBase64 = `data:image/png;base64,${buf.toString('base64')}`;
+        return cachedStampBase64;
+      }
+    } catch {}
+  }
+  return 'https://api.absenta.id/BTI-compact-logo.png';
+}
+
 export interface InvoiceTemplateItem {
   name: string;
   desc: string;
@@ -31,7 +54,7 @@ export interface InvoiceTemplateData {
 export function renderInvoiceTemplate(data: InvoiceTemplateData): string {
   const {
     invoiceNumber,
-    cleanSchoolName,
+    cleanSchoolName: rawSchoolName,
     dateStr,
     statusLabel,
     isPaid,
@@ -49,6 +72,11 @@ export function renderInvoiceTemplate(data: InvoiceTemplateData): string {
     verifyHash,
     items
   } = data;
+
+  const cleanSchoolName = rawSchoolName && rawSchoolName.includes('|')
+    ? rawSchoolName.split('|')[0].trim()
+    : (rawSchoolName || 'Instansi Lembaga');
+  const stampSrc = getBtiStampBase64();
 
   const statusColor = isPaid 
     ? 'var(--success)' 
@@ -521,7 +549,7 @@ export function renderInvoiceTemplate(data: InvoiceTemplateData): string {
       <div class="sig-box" style="text-align: center;">
         <div class="sig-label" style="text-align: center;">Petugas Keuangan (Vendor)</div>
         <div class="sig-stamp">
-          <img src="/BTI-compact-logo.png" class="stamp-img" alt="Stempel BTI">
+          <img src="${stampSrc}" class="stamp-img" alt="Stempel BTI">
           <span class="sig-cursive">Baraya Tech</span>
         </div>
         <div class="sig-name" style="text-align: center;">Finance Department</div>

@@ -711,6 +711,9 @@ Pembayaran untuk invoice *${invoice.invoiceNumber}* telah berhasil diterima!
                     ? inv.license.schoolName
                     : (inv.license?.requestedSlug ? `${inv.license.requestedSlug.toUpperCase()} (Cakola)` : 'Instansi Sekolah');
             }
+            if (cleanSchoolName && cleanSchoolName.includes('|')) {
+                cleanSchoolName = cleanSchoolName.split('|')[0].trim();
+            }
             const invoiceHtml = (0, invoice_template_1.renderInvoiceTemplate)({
                 invoiceNumber: inv.invoiceNumber,
                 cleanSchoolName,
