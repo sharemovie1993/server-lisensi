@@ -28,7 +28,8 @@ async function createLicenseAndSubscription(licenseKey, data) {
                 originalDeviceId: data.originalDeviceId,
                 hostLicenseKey: data.hostLicenseKey || null,
                 tenantIdentifier: data.tenantIdentifier || data.requestedSlug || null,
-                entitlementStatus: data.entitlementStatus || 'ACTIVE'
+                entitlementStatus: data.entitlementStatus || 'ACTIVE',
+                nodeType: data.nodeType || 'CLIENT'
             }
         });
         // 2. Create Subscription

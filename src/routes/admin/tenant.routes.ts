@@ -111,21 +111,28 @@ export const registerTenantRoutes = (fastify: FastifyInstance) => {
     await verifyAdmin(request, reply);
     if (reply.sent) return;
 
-    const { schoolName, requestedSlug, packageId } = request.body as {
-      schoolName: string;
-      requestedSlug: string;
-      packageId: string;
-    };
+    const { 
+      schoolName, 
+      requestedSlug, 
+      packageId,
+      licenseKey,
+      nodeType,
+      deployMode,
+      deviceLimit,
+      isUnlimited,
+      expiresAt,
+      planId
+    } = request.body as any;
 
-    if (!schoolName || !requestedSlug || !packageId) {
-      return reply.status(400).send({ success: false, message: 'Nama sekolah, slug, dan produk wajib diisi.' });
+    if (!schoolName) {
+      return reply.status(400).send({ success: false, message: 'Nama server / sekolah wajib diisi.' });
     }
 
     try {
-      const targetProductId = normalizeProductId(packageId);
+      const targetProductId = normalizeProductId(packageId || 'cakola');
       const product = await prisma.product.findUnique({ where: { id: targetProductId } });
       if (!product) {
-        return reply.status(404).send({ success: false, message: 'Produk tidak ditemukan.' });
+        return reply.status(404).send({ success: false, message: `Produk ${targetProductId} tidak ditemukan.` });
       }
 
       const generateKey = (prefix: string) => {
@@ -133,31 +140,58 @@ export const registerTenantRoutes = (fastify: FastifyInstance) => {
         return `${prefix}-${rand.slice(0, 4)}-${rand.slice(4, 8)}-${rand.slice(8, 12)}`;
       };
 
-      const key = generateKey(product.prefix);
+      let key = (licenseKey || '').trim().toUpperCase();
+      if (key) {
+        const existingKey = await prisma.license.findUnique({ where: { licenseKey: key } });
+        if (existingKey) {
+          return reply.status(400).send({ 
+            success: false, 
+            message: `License key ${key} sudah terdaftar di database Server Lisensi.` 
+          });
+        }
+      } else {
+        key = generateKey(product.prefix);
+      }
+
+      // Default expired 1 tahun jika tidak ditentukan
+      const defaultExpires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const effectiveExpires = expiresAt || defaultExpires;
+
+      const effectiveNodeType = nodeType || 'SERVER_ONPREMISE';
+      const effectiveDeployMode = deployMode || (effectiveNodeType === 'SERVER_SAAS' ? 'saas' : 'local');
+      const effectiveDeviceLimit = Number(deviceLimit) || 1200;
+      const effectiveIsUnlimited = isUnlimited ? 1 : (effectiveDeviceLimit >= 99999 ? 1 : 0);
+
       const license = await prisma.license.create({
         data: {
           licenseKey: key,
           productId: targetProductId,
           schoolName: schoolName.trim(),
-          deviceLimit: 1, // Default limit
-          isUnlimited: 0,
-          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+          deviceLimit: effectiveDeviceLimit,
+          isUnlimited: effectiveIsUnlimited,
+          expiresAt: effectiveExpires,
           status: 'active',
           isActive: 1,
-          requestedSlug: requestedSlug.trim().toLowerCase(),
+          requestedSlug: requestedSlug ? requestedSlug.trim().toLowerCase() : null,
+          nodeType: effectiveNodeType,
+          deployMode: effectiveDeployMode,
+          planId: planId || (effectiveNodeType === 'SERVER_SAAS' ? 'SW_SAAS_ENTERPRISE' : 'SW_ONPREM_ENTERPRISE'),
+          hostLicenseKey: null, // Host Server Appliance adalah root server
         }
       });
 
       // Seed dynamic routing configuration if slug exists
-      await triggerCaddySync();
+      if (requestedSlug) {
+        await triggerCaddySync().catch(() => {});
+      }
 
       return reply.status(201).send({
         success: true,
-        message: 'Tenant berhasil didaftarkan secara manual.',
+        message: 'Lisensi Server / Node Appliance berhasil didaftarkan.',
         data: license
       });
     } catch (err: any) {
-      return reply.status(500).send({ success: false, message: 'Gagal mendaftarkan tenant: ' + err.message });
+      return reply.status(500).send({ success: false, message: 'Gagal mendaftarkan lisensi: ' + err.message });
     }
   });
 
@@ -167,7 +201,7 @@ export const registerTenantRoutes = (fastify: FastifyInstance) => {
     if (reply.sent) return;
 
     try {
-      // 1. Ambil HANYA Server Host Appliance (hostLicenseKey null) ATAU lisensi Easy Tunnel
+      // 1. Ambil Server Host Appliance (hostLicenseKey null) ATAU lisensi Easy Tunnel
       const list = await prisma.license.findMany({
         where: {
           OR: [
@@ -176,48 +210,90 @@ export const registerTenantRoutes = (fastify: FastifyInstance) => {
           ]
         },
         include: {
-          activatedDevices: true
+          activatedDevices: true,
+          subscriptions: true
         },
         orderBy: { createdAt: 'desc' }
       });
 
-      // 2. Ambil seluruh lisensi tenant yang menumpang di server-server host ini untuk agregasi
-      const tenantLicenses = await prisma.license.findMany({
+      // 2. Ambil seluruh lisensi anak (child licenses) yang menumpang di server host ini
+      const childLicenses = await prisma.license.findMany({
         where: {
-          hostLicenseKey: { not: null },
-          productId: { not: 'easy-tunnel' }
+          hostLicenseKey: { not: null }
         },
         select: {
           hostLicenseKey: true,
           schoolName: true,
-          requestedSlug: true
+          requestedSlug: true,
+          productId: true
         }
       });
 
-      // Buat pemetaan tenant per hostLicenseKey
-      const hostTenantsMap = new Map<string, { name: string; slug: string | null }[]>();
-      for (const t of tenantLicenses) {
-        if (!t.hostLicenseKey) continue;
-        if (!hostTenantsMap.has(t.hostLicenseKey)) {
-          hostTenantsMap.set(t.hostLicenseKey, []);
+      // Buat pemetaan child licenses per hostLicenseKey
+      const childLicensesByHost = new Map<string, { schoolName: string; requestedSlug: string | null }[]>();
+      for (const cl of childLicenses) {
+        if (!cl.hostLicenseKey) continue;
+        if (!childLicensesByHost.has(cl.hostLicenseKey)) {
+          childLicensesByHost.set(cl.hostLicenseKey, []);
         }
-        const parts = t.schoolName.split('|');
-        const name = parts[0].trim();
-        const slug = t.requestedSlug || (parts[1] ? parts[1].trim() : null);
-        const existing = hostTenantsMap.get(t.hostLicenseKey)!;
-        if (!existing.some(e => e.name === name)) {
-          existing.push({ name, slug });
-        }
+        childLicensesByHost.get(cl.hostLicenseKey)!.push({
+          schoolName: cl.schoolName,
+          requestedSlug: cl.requestedSlug
+        });
       }
 
       const mapped = list.map(t => {
-        const hostedTenants = t.licenseKey ? (hostTenantsMap.get(t.licenseKey) || []) : [];
+        const hostedTenants: { name: string; slug: string | null }[] = [];
+
+        // Sumber 1: Ambil dari subscriptions yang dikirim langsung oleh Heartbeat telemetri node ini
+        if (t.subscriptions && Array.isArray(t.subscriptions)) {
+          for (const sub of t.subscriptions) {
+            if (!sub.schoolName) continue;
+            const parts = sub.schoolName.split('|');
+            const name = parts[0].trim();
+            const slug = parts[1] ? parts[1].trim().toLowerCase() : null;
+
+            if (name.toLowerCase().startsWith('saas node') || name.toLowerCase().startsWith('server host')) continue;
+
+            if (!hostedTenants.some(h => (slug && h.slug === slug) || h.name.toLowerCase() === name.toLowerCase())) {
+              hostedTenants.push({ name, slug });
+            }
+          }
+        }
+
+        // Sumber 2: Ambil dari child licenses yang terikat ke hostLicenseKey ini (cakola maupun easy-tunnel)
+        const childs = t.licenseKey ? (childLicensesByHost.get(t.licenseKey) || []) : [];
+        for (const cl of childs) {
+          const parts = cl.schoolName.split('|');
+          const name = parts[0].trim();
+          const slug = cl.requestedSlug ? cl.requestedSlug.trim().toLowerCase() : (parts[1] ? parts[1].trim().toLowerCase() : null);
+
+          if (name.toLowerCase().startsWith('saas node') || name.toLowerCase().startsWith('server host')) continue;
+
+          const existingIdx = hostedTenants.findIndex(h => (slug && h.slug === slug) || h.name.toLowerCase() === name.toLowerCase());
+          if (existingIdx >= 0) {
+            if (!hostedTenants[existingIdx].slug && slug) {
+              hostedTenants[existingIdx].slug = slug;
+            }
+          } else {
+            hostedTenants.push({ name, slug });
+          }
+        }
+
         const isTunnel = t.productId === 'easy-tunnel';
         const effectiveNodeType = isTunnel ? 'TUNNEL' : (t.nodeType || 'SERVER_SAAS');
 
+        // Sinkronkan Nama Server / Header secara dinamis:
         let displayName = t.schoolName;
         if (!isTunnel && t.schoolName.includes('|')) {
           displayName = t.schoolName.split('|')[0].trim();
+        }
+
+        // Jika server menampung tenant, sesuaikan angka di judul kartu secara otomatis
+        if (hostedTenants.length > 0) {
+          if (displayName.toLowerCase().startsWith('saas node') || displayName.includes('Tenant')) {
+            displayName = `SaaS Node (${hostedTenants.length} Tenant)`;
+          }
         }
 
         return {

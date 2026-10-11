@@ -86,8 +86,25 @@ export const heartbeatRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
       if (tenants && Array.isArray(tenants) && tenants.length > 0) {
         const existingSubs = await prisma.subscription.findMany({
           where: { licenseId: license.id },
-          select: { id: true, schoolName: true }
+          select: { id: true, schoolName: true, planId: true }
         });
+
+        // Prune saas-node placeholder subscriptions if tenant was removed from node
+        const incomingNames = tenants.map(t => (t.name || '').trim().toLowerCase()).filter(Boolean);
+        const incomingSlugs = tenants.map(t => (t.subdomain || '').trim().toLowerCase()).filter(Boolean);
+
+        for (const s of existingSubs) {
+          if (s.planId === 'saas-node') {
+            const parts = s.schoolName.split('|');
+            const sName = parts[0].trim().toLowerCase();
+            const sSlug = parts[1] ? parts[1].trim().toLowerCase() : '';
+            const matchName = incomingNames.includes(sName);
+            const matchSlug = sSlug && incomingSlugs.includes(sSlug);
+            if (!matchName && !matchSlug) {
+              await prisma.subscription.delete({ where: { id: s.id } }).catch(() => {});
+            }
+          }
+        }
 
         for (const t of tenants) {
           const plainName = t.name ? t.name.trim() : '';

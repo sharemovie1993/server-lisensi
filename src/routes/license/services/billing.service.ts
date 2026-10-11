@@ -45,7 +45,8 @@ export async function createLicenseAndSubscription(licenseKey: string, data: Lic
         originalDeviceId: data.originalDeviceId,
         hostLicenseKey: data.hostLicenseKey || null,
         tenantIdentifier: data.tenantIdentifier || data.requestedSlug || null,
-        entitlementStatus: data.entitlementStatus || 'ACTIVE'
+        entitlementStatus: data.entitlementStatus || 'ACTIVE',
+        nodeType: (data as any).nodeType || 'CLIENT'
       }
     });
 

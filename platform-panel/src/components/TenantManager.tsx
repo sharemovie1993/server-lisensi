@@ -366,7 +366,15 @@ export default function TenantManager() {
                           <div className="flex flex-col space-y-1">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="font-bold text-white text-xs sm:text-sm">
-                                {t.schoolName && t.schoolName.includes('|') ? t.schoolName.split('|')[0].trim() : t.schoolName}
+                                {(() => {
+                                  const rawName = t.schoolName && t.schoolName.includes('|') ? t.schoolName.split('|')[0].trim() : (t.schoolName || 'Server Node');
+                                  if (t.hostedTenants && t.hostedTenants.length > 0) {
+                                    if (rawName.toLowerCase().startsWith('saas node') || rawName.includes('Tenant')) {
+                                      return `SaaS Node (${t.hostedTenants.length} Tenant)`;
+                                    }
+                                  }
+                                  return rawName;
+                                })()}
                               </span>
                               {getNodeTypeBadge(t.nodeType)}
                               {t.is_trial && (
