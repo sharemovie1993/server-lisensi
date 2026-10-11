@@ -499,6 +499,14 @@ export default function TenantManager() {
                               {/* Metrik Real-time */}
                               {isTenantOnline(t.lastHeartbeatAt) ? (
                                 <div className="text-[10.5px] text-slate-400 font-mono space-x-1.5 flex items-center">
+                                  {t.cpuUsage !== undefined && t.cpuUsage !== null && (
+                                    <>
+                                      <span className={t.cpuUsage > (t.cpuUsage <= 1 ? 0.8 : 80) ? 'text-rose-450 font-bold' : (t.cpuUsage > (t.cpuUsage <= 1 ? 0.5 : 50) ? 'text-amber-400 font-medium' : 'text-slate-300')}>
+                                        CPU: {t.cpuUsage <= 1 ? `${(t.cpuUsage * 100).toFixed(0)}%` : `${t.cpuUsage.toFixed(0)}%`}
+                                      </span>
+                                      <span className="text-slate-700">|</span>
+                                    </>
+                                  )}
                                   <span className={t.memoryUsage && t.memoryUsage > 0.8 ? 'text-rose-450 font-bold' : 'text-slate-400'}>
                                     RAM: {t.memoryUsage ? `${(t.memoryUsage * 100).toFixed(0)}%` : 'N/A'}
                                   </span>

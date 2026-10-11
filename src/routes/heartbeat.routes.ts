@@ -9,6 +9,7 @@ interface HeartbeatPayload {
   activeUsers: number;
   dbSize: number;
   memoryUsage: number;
+  cpuUsage?: number;
   lastTapped: string;
   deployMode?: string;
   schoolName?: string;
@@ -26,7 +27,7 @@ export const heartbeatRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
     async (request: FastifyRequest, reply: FastifyReply) => {
       try {
         const license = (request as any).license;
-        const { activeUsers, dbSize, memoryUsage, lastTapped, deployMode, schoolName, appDomain, hostname, osType, tenants, easyTunnelTelemetry } = request.body as HeartbeatPayload;
+        const { activeUsers, dbSize, memoryUsage, cpuUsage, lastTapped, deployMode, schoolName, appDomain, hostname, osType, tenants, easyTunnelTelemetry } = request.body as HeartbeatPayload;
 
       if (typeof activeUsers === 'undefined' || typeof dbSize === 'undefined' || typeof memoryUsage === 'undefined') {
         return reply.status(400).send({ success: false, message: 'Invalid payload metrics.' });
@@ -41,6 +42,10 @@ export const heartbeatRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
         memoryUsage: Number(memoryUsage),
         lastTapped: new Date(lastTapped)
       };
+
+      if (typeof cpuUsage !== 'undefined' && cpuUsage !== null) {
+        updateData.cpuUsage = Number(cpuUsage);
+      }
 
       if (easyTunnelTelemetry && Array.isArray(easyTunnelTelemetry) && easyTunnelTelemetry.length > 0) {
         const item = easyTunnelTelemetry[0];

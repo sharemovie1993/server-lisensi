@@ -385,13 +385,13 @@ export default function DashboardOverview({ onSwitchTab }: OverviewProps) {
                             {s.isOnline ? (
                               <span 
                                 className={`h-2.5 w-2.5 rounded-full flex-shrink-0 animate-pulse border block ${
-                                  s.memoryUsage && s.memoryUsage > 85
+                                  (s.cpuUsage && s.cpuUsage > 85) || (s.memoryUsage && s.memoryUsage > 85)
                                     ? 'bg-rose-500 border-rose-400'
-                                    : s.memoryUsage && s.memoryUsage > 70
+                                    : (s.cpuUsage && s.cpuUsage > 70) || (s.memoryUsage && s.memoryUsage > 70)
                                     ? 'bg-amber-500 border-amber-400'
                                     : 'bg-emerald-500 border-emerald-400'
                                 }`}
-                                title={s.memoryUsage ? `Online | RAM: ${s.memoryUsage}%` : 'Online | Sehat'}
+                                title={`Online | CPU: ${s.cpuUsage !== null && s.cpuUsage !== undefined ? s.cpuUsage + '%' : 'N/A'} | RAM: ${s.memoryUsage !== null ? s.memoryUsage + '%' : 'N/A'}`}
                               />
                             ) : (
                               <span 
@@ -454,7 +454,11 @@ export default function DashboardOverview({ onSwitchTab }: OverviewProps) {
 
                             {s.isOnline ? (
                               <div className="text-[10.5px] text-slate-400 font-mono space-x-1.5 flex items-center">
-                                <span className={s.memoryUsage && s.memoryUsage > 80 ? 'text-rose-400 font-bold' : 'text-slate-400'}>
+                                <span className={s.cpuUsage && s.cpuUsage > 80 ? 'text-rose-400 font-bold' : (s.cpuUsage && s.cpuUsage > 50 ? 'text-amber-400 font-medium' : 'text-slate-300')}>
+                                  CPU: {s.cpuUsage !== null && s.cpuUsage !== undefined ? `${s.cpuUsage}%` : '0%'}
+                                </span>
+                                <span className="text-slate-700">|</span>
+                                <span className={s.memoryUsage && s.memoryUsage > 80 ? 'text-rose-400 font-bold' : (s.memoryUsage && s.memoryUsage > 60 ? 'text-amber-400 font-medium' : 'text-slate-300')}>
                                   RAM: {s.memoryUsage !== null ? `${s.memoryUsage}%` : 'N/A'}
                                 </span>
                                 <span className="text-slate-700">|</span>

@@ -126,6 +126,8 @@ const registerSystemRoutes = (fastify) => {
                 const isOnline = l.lastHeartbeatAt ? new Date(l.lastHeartbeatAt) > fifteenMinutesAgo : false;
                 const rawMem = l.memoryUsage || 0;
                 const memoryUsageVal = rawMem <= 1 ? Math.round(rawMem * 100) : rawMem;
+                const rawCpu = l.cpuUsage !== null && l.cpuUsage !== undefined ? l.cpuUsage : null;
+                const cpuUsageVal = rawCpu !== null ? (rawCpu <= 1 ? Math.round(rawCpu * 100) : Math.round(rawCpu)) : null;
                 // Hitung total tenant di node ini dari subscriptions telemetri
                 let hostedCount = 0;
                 if (l.subscriptions && Array.isArray(l.subscriptions)) {
@@ -156,6 +158,7 @@ const registerSystemRoutes = (fastify) => {
                     status: l.status,
                     isOnline,
                     memoryUsage: l.lastHeartbeatAt ? memoryUsageVal : null,
+                    cpuUsage: l.lastHeartbeatAt ? cpuUsageVal : null,
                     dbSize: l.lastHeartbeatAt ? l.dbSize : null,
                     lastTapped: l.lastHeartbeatAt ? l.lastHeartbeatAt : null,
                     activeUsers: l.activeUsers || 0,

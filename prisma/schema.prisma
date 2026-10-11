@@ -79,6 +79,7 @@ model License {
   activeUsers              Int?              @map("active_users")
   dbSize                   Float?            @map("db_size")
   memoryUsage              Float?            @map("memory_usage")
+  cpuUsage                 Float?            @map("cpu_usage")
   lastTapped               DateTime?         @map("last_tapped")
   networkMode              String?           @default("HYBRID_SPLIT_DNS") @map("network_mode")
   localRequestsToday       Int?              @default(0) @map("local_requests_today")

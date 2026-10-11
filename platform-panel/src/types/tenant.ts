@@ -16,6 +16,7 @@ export interface Tenant {
   activeUsers?: number | null;
   dbSize?: number | null;
   memoryUsage?: number | null;
+  cpuUsage?: number | null;
   lastTapped?: string | null;
   modules?: string[];
   schools?: Array<{ name: string; subdomain: string | null } | string>;
