@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '../api/apiClient';
-import { Calendar, ShieldAlert, CheckCircle, RefreshCw, Search, ChevronRight, Server, ExternalLink, Building, Copy, Check, Zap } from 'lucide-react';
+import { Calendar, ShieldAlert, CheckCircle, RefreshCw, Search, ChevronRight, Server, ExternalLink, Building, Copy, Check, Zap, Key } from 'lucide-react';
 
 interface Subscription {
   id: string;
@@ -341,13 +341,15 @@ export default function SubscriptionsList() {
                   const sampleItem = rawGroup[0];
                   const slug = rawGroup.find(s => s.slug)?.slug || sampleItem?.slug || '-';
                   const serverName = sampleItem?.serverName || 'Server Induk';
-                  const licenseKey = rawGroup.find(s => s.licenseKey)?.licenseKey || sampleItem?.licenseKey || '';
 
                   // Pisahkan kategori modul
                   const coreServerSub = rawGroup.find(s => s.planId === 'saas-node');
                   const commercialSubs = rawGroup.filter(s => s.planId !== 'saas-node');
                   const activeSubs = commercialSubs.filter(s => s.status === 'ACTIVE');
                   const inactiveSubs = commercialSubs.filter(s => s.status !== 'ACTIVE');
+
+                  // Lisensi Server Appliance Host
+                  const hostLicenseKey = coreServerSub?.licenseKey || rawGroup.find(s => s.licenseKey)?.licenseKey || sampleItem?.licenseKey || '';
 
                   // Evaluasi status sekolah secara akurat
                   const hasActivePaid = activeSubs.some(s => !s.isTrial);
@@ -542,15 +544,15 @@ export default function SubscriptionsList() {
                                   <span className="text-[10px] font-mono font-bold uppercase text-slate-500 tracking-wider block">License Key Host</span>
                                   <div className="mt-1 flex items-center gap-2">
                                     <code className="text-amber-400 text-xs font-mono font-bold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                                      {licenseKey || 'N/A'}
+                                      {hostLicenseKey || 'N/A'}
                                     </code>
-                                    {licenseKey && (
+                                    {hostLicenseKey && (
                                       <button
-                                        onClick={(e) => handleCopyKey(licenseKey, e)}
+                                        onClick={(e) => handleCopyKey(hostLicenseKey, e)}
                                         className="p-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded transition"
-                                        title="Salin License Key"
+                                        title="Salin License Key Host"
                                       >
-                                        {copiedKey === licenseKey ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                                        {copiedKey === hostLicenseKey ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                                       </button>
                                     )}
                                   </div>
@@ -598,6 +600,31 @@ export default function SubscriptionsList() {
                                               <div className="px-2.5 py-1.5 bg-purple-500/10 border border-purple-500/20 rounded-xl text-[10.5px] font-medium text-purple-300 flex items-center gap-1.5">
                                                 <Zap className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
                                                 <span>Termasuk Easy Tunnel Gateway</span>
+                                              </div>
+                                            )}
+
+                                            {/* Kode Lisensi Produk Tenant */}
+                                            {s.licenseKey && (
+                                              <div className="px-2.5 py-1.5 bg-slate-950/70 border border-amber-500/25 rounded-xl text-[11px] flex items-center justify-between gap-1.5">
+                                                <div className="flex items-center gap-1.5 min-w-0">
+                                                  <Key className="w-3 h-3 text-amber-400 shrink-0" />
+                                                  <span className="text-[9px] font-mono uppercase font-bold text-slate-400">Lisensi:</span>
+                                                  <code className="text-amber-300 font-mono font-bold text-[10.5px] truncate" title={s.licenseKey}>
+                                                    {s.licenseKey}
+                                                  </code>
+                                                </div>
+                                                <button
+                                                  type="button"
+                                                  onClick={(e) => handleCopyKey(s.licenseKey!, e)}
+                                                  className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition shrink-0"
+                                                  title="Salin Kode Lisensi Produk"
+                                                >
+                                                  {copiedKey === s.licenseKey ? (
+                                                    <Check className="w-3 h-3 text-emerald-400" />
+                                                  ) : (
+                                                    <Copy className="w-3 h-3" />
+                                                  )}
+                                                </button>
                                               </div>
                                             )}
                                           </div>
@@ -654,6 +681,12 @@ export default function SubscriptionsList() {
                                             <span className="text-[10px] text-slate-500 font-mono">
                                               {s.productName || 'Platform Cakola'}
                                             </span>
+                                            {s.licenseKey && (
+                                              <div className="flex items-center gap-1 mt-1 text-[9.5px] font-mono text-slate-400">
+                                                <Key className="w-2.5 h-2.5 text-amber-500/70" />
+                                                <span>{s.licenseKey}</span>
+                                              </div>
+                                            )}
                                           </div>
                                           <span className="px-1.5 py-0.2 bg-slate-800 text-[9.5px] font-bold text-slate-400 rounded">
                                             Nonaktif
