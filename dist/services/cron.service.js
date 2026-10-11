@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.checkUpcomingExpirations = checkUpcomingExpirations;
 exports.checkExpirations = checkExpirations;
 exports.cleanupInactiveTrials = cleanupInactiveTrials;
 exports.cleanupExpiredInvoices = cleanupExpiredInvoices;
@@ -19,6 +20,154 @@ async function sendWaNotif(phone, pesan, triggerType = 'SYSTEM', productId) {
         console.warn(`[CRON-WA] Gagal kirim notifikasi ke ${phone}:`, e.message);
     }
 }
+/**
+ * Membentuk pesan WhatsApp pengingat pra-expire (H-7, H-3, H-1) dengan nama produk & paket lengkap.
+ */
+function buildUpcomingExpirationMessage(params) {
+    const portalUrl = params.slug ? `https://${params.slug}.absenta.id/billing` : 'https://absenta.id/billing';
+    const bundledText = params.isBundled ? '\n• Fitur Tambahan: ⚡ _Termasuk Easy Tunnel Gateway_' : '';
+    const dayText = params.daysRemaining <= 1 ? '1 hari lagi (Besok)' : `${params.daysRemaining} hari lagi`;
+    return `⚠️ *[${params.productName}] PENGINGAT MASA AKTIF LISENSI*
+
+Halo Bapak/Ibu Operator *${params.schoolName}*, 👋
+
+Kami ingin menginformasikan bahwa masa aktif lisensi layanan sekolah Anda akan segera berakhir dalam *${dayText}*.
+
+📋 *Rincian Layanan:*
+• Nama Instansi: *${params.schoolName}*
+• Produk: *${params.productName}*
+• Paket Layanan: *${params.planName}*${bundledText}
+• Kode Lisensi: \`${params.licenseKey}\`
+• Tanggal Berakhir: 📅 *${params.expiresAt}*
+
+Agar layanan presensi, sinkronisasi mesin, dan aplikasi mobile tetap berjalan lancar tanpa kendala atau terputus, silakan lakukan perpanjangan sebelum tanggal di atas.
+
+🔗 *Perpanjangan Mandiri:*
+Silakan akses menu Tagihan di portal sekolah Anda:
+${portalUrl}
+
+Jika membutuhkan bantuan administrasi atau teknis, Anda dapat langsung membalas pesan WhatsApp ini.
+
+Terima kasih atas kerja sama dan kepercayaan Anda bersama *${params.productName}*! ✨`;
+}
+/**
+ * Membentuk pesan WhatsApp pemberitahuan saat lisensi resmi kedaluwarsa.
+ */
+function buildLicenseExpiredMessage(params) {
+    const portalUrl = params.slug ? `https://${params.slug}.absenta.id/billing` : 'https://absenta.id/billing';
+    const bundledText = params.isBundled ? '\n• Fitur Tambahan: ⚡ _Termasuk Easy Tunnel Gateway_' : '';
+    return `⏰ *[${params.productName}] PEMBERITAHUAN MASA AKTIF BERAKHIR*
+
+Halo Bapak/Ibu Operator *${params.schoolName}*, 👋
+
+Kami menginformasikan bahwa masa aktif lisensi layanan untuk instansi Anda telah *resmi berakhir* pada tanggal *${params.expiresAt}*.
+
+📋 *Rincian Lisensi:*
+• Nama Instansi: *${params.schoolName}*
+• Produk: *${params.productName}*
+• Paket Layanan: *${params.planName}*${bundledText}
+• Kode Lisensi: \`${params.licenseKey}\`
+• Status Layanan: ⛔ *Dinonaktifkan Sementara*
+
+⚠️ *Informasi Penting:*
+Seluruh data presensi dan konfigurasi sekolah Anda tetap tersimpan dengan aman di server. Namun, akses portal dan sinkronisasi mesin dinonaktifkan sementara hingga perpanjangan berhasil dilakukan.
+
+🚀 *Cara Mengaktifkan Kembali:*
+1. Kunjungi portal perpanjangan: ${portalUrl}
+2. Buat tagihan perpanjangan paket dan selesaikan pembayaran.
+3. Layanan akan otomatis aktif kembali begitu pembayaran terverifikasi.
+
+Butuh bantuan atau ingin konfirmasi? Silakan balas pesan WhatsApp ini untuk terhubung dengan tim teknis kami.`;
+}
+/**
+ * Pengecekan lisensi aktif yang akan kedaluwarsa dalam 7 hari, 3 hari, atau 1 hari (H-7, H-3, H-1).
+ */
+async function checkUpcomingExpirations() {
+    console.log('[CRON] Running upcoming license expiration reminders check (H-7, H-3, H-1)...');
+    let remindersH7Sent = 0;
+    let remindersH3Sent = 0;
+    let remindersH1Sent = 0;
+    const now = new Date();
+    const nowDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    try {
+        const activeLicenses = await prisma.license.findMany({
+            where: {
+                operatorPhone: { not: null },
+                OR: [
+                    { status: 'active' },
+                    { isActive: 1 }
+                ]
+            },
+            include: {
+                product: true,
+                plan: true
+            }
+        });
+        for (const lic of activeLicenses) {
+            if (!lic.operatorPhone || !lic.expiresAt)
+                continue;
+            const expDate = new Date(lic.expiresAt.replace(' ', 'T'));
+            if (isNaN(expDate.getTime()))
+                continue;
+            // Skip lisensi seumur hidup / permanen (tahun >= 2090)
+            if (expDate.getFullYear() >= 2090)
+                continue;
+            const expDateOnly = new Date(expDate.getFullYear(), expDate.getMonth(), expDate.getDate());
+            const calendarDiffDays = Math.round((expDateOnly.getTime() - nowDateOnly.getTime()) / (1000 * 60 * 60 * 24));
+            let triggerType = null;
+            if (calendarDiffDays === 7) {
+                triggerType = 'CRON_REMINDER_H7';
+            }
+            else if (calendarDiffDays === 3) {
+                triggerType = 'CRON_REMINDER_H3';
+            }
+            else if (calendarDiffDays === 1) {
+                triggerType = 'CRON_REMINDER_H1';
+            }
+            if (!triggerType)
+                continue;
+            // Anti-Spam: Cek apakah sudah pernah dikirim dalam 24 jam terakhir untuk lisensi ini
+            const alreadySent = await prisma.whatsAppLog.findFirst({
+                where: {
+                    recipient: lic.operatorPhone,
+                    triggerType,
+                    message: { contains: lic.licenseKey },
+                    createdAt: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) }
+                }
+            });
+            if (alreadySent) {
+                continue;
+            }
+            const cleanSchoolName = lic.schoolName.includes('|') ? lic.schoolName.split('|')[0].trim() : lic.schoolName.trim();
+            const slug = lic.requestedSlug || (lic.schoolName.includes('|') ? lic.schoolName.split('|')[1].trim() : '') || lic.tenantIdentifier || '';
+            const productName = lic.product?.name || (lic.productId === 'cakola' ? 'Platform Absenta' : lic.productId === 'easy-tunnel' ? 'Easy Tunnel VPN' : lic.productId.toUpperCase());
+            const planName = lic.plan?.name || 'Paket Standar';
+            const isBundled = lic.includeVpn === 1 || planName.toLowerCase().includes('lengkap') || planName.toLowerCase().includes('easy tunnel');
+            const msg = buildUpcomingExpirationMessage({
+                schoolName: cleanSchoolName,
+                productName,
+                planName,
+                licenseKey: lic.licenseKey,
+                expiresAt: lic.expiresAt,
+                daysRemaining: calendarDiffDays,
+                slug,
+                isBundled
+            });
+            await sendWaNotif(lic.operatorPhone, msg, triggerType, lic.productId);
+            console.log(`[CRON-WA] Pengingat ${triggerType} terkirim ke operator ${cleanSchoolName} (${lic.operatorPhone}) untuk lisensi ${lic.licenseKey}`);
+            if (calendarDiffDays === 7)
+                remindersH7Sent++;
+            else if (calendarDiffDays === 3)
+                remindersH3Sent++;
+            else if (calendarDiffDays === 1)
+                remindersH1Sent++;
+        }
+    }
+    catch (err) {
+        console.error('[CRON] Error during upcoming expirations check:', err.message);
+    }
+    return { remindersH7Sent, remindersH3Sent, remindersH1Sent };
+}
 async function checkExpirations() {
     console.log('[CRON] Running automatic license & subscription expiration check...');
     // 1. Buat record awal CronJobLog dengan status RUNNING
@@ -37,13 +186,17 @@ async function checkExpirations() {
     const seconds = String(nowLocal.getSeconds()).padStart(2, '0');
     const currentTimestamp = `${year}-${month}-${date} ${hours}:${minutes}:${seconds}`;
     let expiredRevoked = 0;
+    let expiredNotifsSent = 0;
+    let remindersH7Sent = 0;
+    let remindersH3Sent = 0;
+    let remindersH1Sent = 0;
     let warningsSent = 0;
     let deletedLicensesFromTrials = 0;
     let markedExpiredInvoices = 0;
     let deletedInvoicesCount = 0;
     let deletedLicensesFromInvoices = 0;
     try {
-        // 1. Find newly expired active licenses
+        // 1. Find newly expired active licenses (include product & plan)
         const expiredLicenses = await prisma.license.findMany({
             where: {
                 expiresAt: { lt: currentTimestamp },
@@ -51,6 +204,10 @@ async function checkExpirations() {
                     { status: 'active' },
                     { isActive: 1 }
                 ]
+            },
+            include: {
+                product: true,
+                plan: true
             }
         });
         if (expiredLicenses.length === 0) {
@@ -83,12 +240,47 @@ async function checkExpirations() {
                         action: 'CRON_EXPIRED'
                     }
                 });
+                // Kirim notifikasi WA pemberitahuan lisensi kedaluwarsa ke operator
+                if (lic.operatorPhone) {
+                    const alreadySentExpired = await prisma.whatsAppLog.findFirst({
+                        where: {
+                            recipient: lic.operatorPhone,
+                            triggerType: 'CRON_LICENSE_EXPIRED',
+                            message: { contains: lic.licenseKey },
+                            createdAt: { gte: new Date(nowLocal.getTime() - 24 * 60 * 60 * 1000) }
+                        }
+                    });
+                    if (!alreadySentExpired) {
+                        const cleanSchoolName = lic.schoolName.includes('|') ? lic.schoolName.split('|')[0].trim() : lic.schoolName.trim();
+                        const slug = lic.requestedSlug || (lic.schoolName.includes('|') ? lic.schoolName.split('|')[1].trim() : '') || lic.tenantIdentifier || '';
+                        const productName = lic.product?.name || (lic.productId === 'cakola' ? 'Platform Absenta' : lic.productId === 'easy-tunnel' ? 'Easy Tunnel VPN' : lic.productId.toUpperCase());
+                        const planName = lic.plan?.name || 'Paket Standar';
+                        const isBundled = lic.includeVpn === 1 || planName.toLowerCase().includes('lengkap') || planName.toLowerCase().includes('easy tunnel');
+                        const expMsg = buildLicenseExpiredMessage({
+                            schoolName: cleanSchoolName,
+                            productName,
+                            planName,
+                            licenseKey: lic.licenseKey,
+                            expiresAt: lic.expiresAt,
+                            slug,
+                            isBundled
+                        });
+                        await sendWaNotif(lic.operatorPhone, expMsg, 'CRON_LICENSE_EXPIRED', lic.productId);
+                        console.log(`[CRON-WA] Notifikasi lisensi kedaluwarsa terkirim ke operator ${cleanSchoolName} (${lic.operatorPhone}) untuk lisensi ${lic.licenseKey}`);
+                        expiredNotifsSent++;
+                    }
+                }
                 expiredRevoked++;
             }
             // Trigger Caddy sync to remove routing for expired licenses
             console.log(`[CRON] Triggering Caddy sync to remove routing for ${expiredLicenses.length} expired licenses...`);
             await (0, caddy_service_1.triggerCaddySync)();
         }
+        // Jalankan pengingat pra-expire (H-7, H-3, H-1)
+        const upcomingResult = await checkUpcomingExpirations();
+        remindersH7Sent = upcomingResult.remindersH7Sent;
+        remindersH3Sent = upcomingResult.remindersH3Sent;
+        remindersH1Sent = upcomingResult.remindersH1Sent;
         // Run cleanup of inactive trial/test licenses
         const trialsResult = await cleanupInactiveTrials();
         warningsSent = trialsResult.warningsSent;
@@ -110,6 +302,10 @@ async function checkExpirations() {
                 meta: {
                     durationMs,
                     expiredRevoked,
+                    expiredNotifsSent,
+                    remindersH7Sent,
+                    remindersH3Sent,
+                    remindersH1Sent,
                     warningsSent,
                     deletedLicensesFromTrials,
                     markedExpiredInvoices,
