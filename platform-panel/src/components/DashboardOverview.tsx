@@ -344,13 +344,13 @@ export default function DashboardOverview({ onSwitchTab }: OverviewProps) {
             <div>
               <h3 className="text-white text-base font-bold flex items-center gap-2">
                 <Server className="w-4 h-4 text-indigo-400" />
-                Pemantauan Server & Node Infrastruktur
+                Pemantauan Server Node
               </h3>
-              <p className="text-slate-500 text-xs mt-0.5">Pemantauan online/offline, tunnel, dan utilisasi resource server host secara real-time.</p>
+              <p className="text-slate-500 text-xs mt-0.5">Pemantauan kesehatan, konsumsi resource, dan status online/offline server host secara real-time.</p>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
-                ⚡ {activity.onlineServersCount} / {activity.totalServersCount} Server Online
+                ⚡ {activity.onlineServersCount} / {activity.totalServersCount} Server Node Online
               </span>
               <button
                 onClick={() => onSwitchTab('tenants')}

@@ -109,13 +109,11 @@ export const registerSystemRoutes = (fastify: FastifyInstance) => {
     if (reply.sent) return;
 
     try {
-      // Ambil HANYA Server Host Node (bukan lisensi anak tenant)
+      // Ambil HANYA Server Host Node murni (tanpa lisensi anak tenant dan tanpa tunnel)
       const serverNodes = await prisma.license.findMany({
         where: {
-          OR: [
-            { productId: 'cakola', hostLicenseKey: null },
-            { productId: 'easy-tunnel' }
-          ]
+          productId: 'cakola',
+          hostLicenseKey: null
         },
         include: {
           subscriptions: true
