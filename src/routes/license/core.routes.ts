@@ -1007,11 +1007,13 @@ export const registerCoreLicenseRoutes = (fastify: FastifyInstance) => {
 
       const subs = await prisma.subscription.findMany({
         where: subWhere,
+        include: { license: true },
         orderBy: { id: 'desc' }
       });
       const mapped = subs.map(s => ({
         id: s.id,
         license_id: s.licenseId,
+        license_key: s.license?.licenseKey || null,
         school_name: s.schoolName,
         product_id: s.productId,
         plan_id: s.planId,
