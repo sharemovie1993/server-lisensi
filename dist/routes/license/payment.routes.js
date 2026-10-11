@@ -157,6 +157,24 @@ const registerPaymentLicenseRoutes = (fastify) => {
                 const existingLic = await helpers_1.prisma.license.findUnique({
                     where: { id: invoice.licenseId }
                 });
+                // 🛡️ Guard Lock: Jika invoice salah menempel ke server node, redirect ke lisensi tenant
+                let targetLic = existingLic;
+                let tenantSlugForGuard = (existingLic?.requestedSlug || existingLic?.tenantIdentifier || '').trim().toLowerCase();
+                if (!tenantSlugForGuard && invoice.schoolName && invoice.schoolName.includes('|')) {
+                    tenantSlugForGuard = invoice.schoolName.split('|')[1].trim().toLowerCase();
+                }
+                if (existingLic && (existingLic.nodeType === 'SERVER_SAAS' || existingLic.nodeType === 'SERVER_ONPREMISE') && tenantSlugForGuard) {
+                    const realTenantLic = await helpers_1.prisma.license.findFirst({
+                        where: {
+                            requestedSlug: tenantSlugForGuard,
+                            productId: invoice.productId || 'cakola',
+                            nodeType: { notIn: ['SERVER_SAAS', 'SERVER_ONPREMISE'] }
+                        }
+                    });
+                    if (realTenantLic) {
+                        targetLic = realTenantLic;
+                    }
+                }
                 // Resolve license duration
                 const planId = (invoice.planId || '').toLowerCase();
                 let days = 30;
@@ -167,52 +185,45 @@ const registerPaymentLicenseRoutes = (fastify) => {
                 else if (planId.includes('lifetime'))
                     days = 3650;
                 // Akumulasi masa aktif jika lisensi saat ini masih aktif
+                const today = new Date();
+                const todayStr = today.toISOString().slice(0, 10);
                 let baseDate = new Date();
-                if (existingLic && existingLic.expiresAt) {
-                    const currentExp = new Date(existingLic.expiresAt);
-                    if (!isNaN(currentExp.getTime()) && currentExp > baseDate) {
-                        baseDate = currentExp;
+                let isRenewalAccumulation = false;
+                if (targetLic && targetLic.nodeType !== 'SERVER_SAAS' && targetLic.nodeType !== 'SERVER_ONPREMISE') {
+                    // Hanya akumulasi jika lisensi SEBELUMNYA memang sudah ACTIVE dan belum kedaluwarsa
+                    if (targetLic.status === 'active' && targetLic.expiresAt && targetLic.expiresAt > todayStr) {
+                        // Anti-permanent overflow: jika tanggal >= 2090, jangan tambah hari ke 2099/2100
+                        if (targetLic.expiresAt < '2090-01-01') {
+                            const currentExp = new Date(targetLic.expiresAt);
+                            if (!isNaN(currentExp.getTime())) {
+                                baseDate = currentExp;
+                                isRenewalAccumulation = true;
+                            }
+                        }
                     }
                 }
+                const cycleStartDate = isRenewalAccumulation && targetLic?.expiresAt
+                    ? targetLic.expiresAt
+                    : todayStr;
                 baseDate.setDate(baseDate.getDate() + days);
                 const expiresStr = baseDate.toISOString().slice(0, 10);
-                // Activate license
+                // Activate / Update target license
                 const lic = await helpers_1.prisma.license.update({
-                    where: { id: invoice.licenseId },
+                    where: { id: targetLic?.id || invoice.licenseId },
                     data: { status: 'active', isActive: 1, expiresAt: expiresStr }
                 });
-                // Upsert subscription
-                const existingSub = await helpers_1.prisma.subscription.findFirst({
-                    where: {
+                // Simpan Subscription Cycle baru (Mendukung multi-siklus linimasa)
+                await helpers_1.prisma.subscription.create({
+                    data: {
                         licenseId: lic.id,
+                        schoolName: invoice.schoolName,
+                        productId: lic.productId,
                         planId,
-                        schoolName: invoice.schoolName
+                        status: 'active',
+                        startDate: cycleStartDate,
+                        endDate: expiresStr
                     }
                 });
-                if (existingSub) {
-                    await helpers_1.prisma.subscription.update({
-                        where: { id: existingSub.id },
-                        data: {
-                            status: 'active',
-                            startDate: new Date().toISOString().slice(0, 10),
-                            endDate: expiresStr,
-                            schoolName: invoice.schoolName
-                        }
-                    });
-                }
-                else {
-                    await helpers_1.prisma.subscription.create({
-                        data: {
-                            licenseId: lic.id,
-                            schoolName: invoice.schoolName,
-                            productId: lic.productId,
-                            planId,
-                            status: 'active',
-                            startDate: new Date().toISOString().slice(0, 10),
-                            endDate: expiresStr
-                        }
-                    });
-                }
                 // === AUTO-BUNDLING PROVISIONING & CO-TERMINATION: EASY TUNNEL ===
                 const isBundledTunnel = (lic.includeVpn === 1) ||
                     planId.includes('paket_lengkap') ||

@@ -92,32 +92,33 @@ const registerCoreLicenseRoutes = (fastify) => {
             // Set expiry and limits
             const isUnlimited = is_unlimited || (plan.deviceLimit === 0 ? 1 : 0);
             const limit = device_limit || plan.deviceLimit;
-            const placeholderExpire = new Date();
-            placeholderExpire.setFullYear(placeholderExpire.getFullYear() + 1);
-            const expiresStr = placeholderExpire.toISOString().slice(0, 10);
-            // Verify License renewal or key generation
+            // Safe base date for pending license (tanpa placeholder 1 tahun)
+            const expiresStr = new Date().toISOString().slice(0, 10);
+            // Verify License renewal or key generation (Guard Lock: 2-Tier Isolation)
+            const resolvedSlug = (requested_slug || tenant_identifier || '').trim().toLowerCase() || null;
             let existingLicense = null;
-            if (renew_license_key) {
-                existingLicense = await helpers_1.prisma.license.findUnique({
+            // 1. Jika ada identitas tenant (resolvedSlug), cari lisensi milik tenant tersebut
+            if (resolvedSlug) {
+                const tenantLic = await helpers_1.prisma.license.findFirst({
+                    where: {
+                        requestedSlug: resolvedSlug,
+                        productId: prodId,
+                        nodeType: { notIn: ['SERVER_SAAS', 'SERVER_ONPREMISE'] }
+                    },
+                    orderBy: { createdAt: 'desc' }
+                });
+                if (tenantLic) {
+                    existingLicense = tenantLic;
+                }
+            }
+            // 2. Jika belum ditemukan dan ada renew_license_key (misal direct standalone / onpremise)
+            if (!existingLicense && renew_license_key) {
+                const lic = await helpers_1.prisma.license.findUnique({
                     where: { licenseKey: renew_license_key.trim() }
                 });
-            }
-            const resolvedSlug = requested_slug ? requested_slug.trim().toLowerCase() : null;
-            // Idempotency: If no license by renew key, check if there is a pending/inactive license with the same requested slug
-            if (!existingLicense && resolvedSlug) {
-                const matchingSlugLicense = await helpers_1.prisma.license.findFirst({
-                    where: { requestedSlug: resolvedSlug, productId: prodId }
-                });
-                if (matchingSlugLicense) {
-                    if (matchingSlugLicense.status === 'pending' || matchingSlugLicense.isActive === 0) {
-                        existingLicense = matchingSlugLicense;
-                    }
-                    else {
-                        return reply.status(400).send({
-                            success: false,
-                            message: `Subdomain / Slug '${resolvedSlug}' sudah digunakan oleh ${matchingSlugLicense.schoolName} dan masih aktif. Silakan gunakan subdomain yang berbeda.`
-                        });
-                    }
+                // Guard Lock: Pastikan bukan lisensi Server Node
+                if (lic && lic.nodeType !== 'SERVER_SAAS' && lic.nodeType !== 'SERVER_ONPREMISE') {
+                    existingLicense = lic;
                 }
             }
             const generateKey = (_prod, prefix) => {
