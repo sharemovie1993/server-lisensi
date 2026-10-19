@@ -248,7 +248,7 @@ export const registerPaymentLicenseRoutes = (fastify: FastifyInstance) => {
         
         // === AUTO-BUNDLING PROVISIONING & CO-TERMINATION: EASY TUNNEL ===
         const isBundledTunnel = (lic.includeVpn === 1) || 
-                                planId.includes('paket_lengkap') || 
+                                (planId || '').toLowerCase().includes('paket_lengkap') || 
                                 (invoice.planTitle || '').toLowerCase().includes('paket lengkap');
 
         let extractedSlug = (lic.requestedSlug || lic.tenantIdentifier || '').trim().toLowerCase();
@@ -259,7 +259,7 @@ export const registerPaymentLicenseRoutes = (fastify: FastifyInstance) => {
         if (isBundledTunnel && extractedSlug) {
           const tenantSlug = extractedSlug;
           const hostKey = lic.hostLicenseKey || lic.licenseKey;
-          const tunnelPlanId = (planId.includes('annual') || planId.includes('tahun') || planId.includes('yearly')) ? 'easy_tunnel_annual' : 'easy_tunnel_monthly';
+          const tunnelPlanId = ((planId || '').toLowerCase().includes('annual') || (planId || '').toLowerCase().includes('tahun') || (planId || '').toLowerCase().includes('yearly')) ? 'easy_tunnel_annual' : 'easy_tunnel_monthly';
 
           try {
             console.log(`[AUTO-BUNDLING] Processing Easy Tunnel for bundled plan: ${planId}, Tenant: ${tenantSlug}, Host: ${hostKey}...`);
@@ -307,7 +307,7 @@ export const registerPaymentLicenseRoutes = (fastify: FastifyInstance) => {
             } else {
               // Jika belum ada: Generate lisensi easy-tunnel baru
               const randBytes = crypto.randomBytes(8).toString('hex').toUpperCase();
-              const newTunnelKey = `TUN-${randBytes.slice(0, 4)}-${randBytes.slice(4, 8)}-${randBytes.slice(8, 12)}`;
+              const newTunnelKey = `ET-${randBytes.slice(0, 4)}-${randBytes.slice(4, 8)}-${randBytes.slice(8, 12)}`;
               
               console.log(`[AUTO-BUNDLING] Creating NEW Easy Tunnel license: ${newTunnelKey} for tenant ${tenantSlug}`);
               const createdTunnelLic = await prisma.license.create({
