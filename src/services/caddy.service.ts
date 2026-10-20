@@ -237,20 +237,21 @@ https://${domainClean} {
       });
     });
 
-    // Add fallback for inactive subdomains to show blocked.html
+    // Add fallback for inactive subdomains: Send 421 Misdirected Request
+    // RFC 7540 / RFC 9113: Browser MUST drop connection, re-resolve DNS, and reconnect to local Split-DNS IP
     caddyfile += `
 # Fallback catch-all for inactive/unmapped subdomains
 *.${MAIN_DOMAIN} {
     ${wildcardTlsDirective}
     root * /var/www/${MAIN_DOMAIN}
-    @notAssets {
-        not path /assets/* /css/* /js/* /_expo/* /favicon.ico /metadata.json /BTI-compact-logo.png /logo.png
+    header Connection close
+    header Alt-Svc "clear"
+    header Cache-Control "no-store, no-cache, must-revalidate"
+    handle_errors {
+        rewrite * /blocked.html
+        file_server
     }
-    header @notAssets Connection close
-    header @notAssets Alt-Svc "clear"
-    header @notAssets Cache-Control "no-store, no-cache, must-revalidate"
-    rewrite @notAssets /blocked.html
-    file_server
+    error 421
 }
 `;
 
