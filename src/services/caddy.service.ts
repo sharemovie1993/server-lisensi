@@ -246,6 +246,9 @@ https://${domainClean} {
     @notAssets {
         not path /assets/* /css/* /js/* /_expo/* /favicon.ico /metadata.json /BTI-compact-logo.png /logo.png
     }
+    header @notAssets Connection close
+    header @notAssets Alt-Svc "clear"
+    header @notAssets Cache-Control "no-store, no-cache, must-revalidate"
     rewrite @notAssets /blocked.html
     file_server
 }

@@ -400,6 +400,74 @@
             transform: translateY(0);
         }
 
+        /* ===== LOCAL NETWORK DETECTED BOX ===== */
+        .local-detected-box {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(6, 78, 59, 0.25));
+            border: 1px solid rgba(16, 185, 129, 0.35);
+            border-radius: 16px;
+            padding: 18px 20px;
+            margin-bottom: 22px;
+            text-align: left;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        .local-detected-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .local-badge {
+            background: #10B981;
+            color: #04080F;
+            font-size: 10px;
+            font-weight: 800;
+            padding: 3px 8px;
+            border-radius: 999px;
+            letter-spacing: 0.5px;
+        }
+
+        .local-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 14.5px;
+            font-weight: 700;
+            color: #FFFFFF;
+        }
+
+        .local-desc {
+            font-size: 12.5px;
+            color: #CBD5E1;
+            line-height: 1.5;
+            margin-bottom: 14px;
+        }
+
+        .btn-local {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            background: #10B981;
+            color: #04080F;
+            font-family: 'Outfit', sans-serif;
+            font-size: 14px;
+            font-weight: 800;
+            padding: 12px 18px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+        }
+
+        .btn-local:hover {
+            background: #059669;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(16, 185, 129, 0.45);
+        }
+
         .footer {
             margin-top: 24px;
             font-size: 12px;
@@ -465,7 +533,29 @@
             </div>
         </div>
 
+        <!-- LOCAL NETWORK SHORTCUT (Muncul jika server fisik menyala & terdeteksi berada di Wi-Fi sekolah) -->
+        <div id="localDetectedBox" class="local-detected-box" style="display: none;">
+            <div class="local-detected-header">
+                <span class="local-badge">🚀 JALUR LOKAL TERSEDIA</span>
+                <span class="local-title">Terhubung ke Wi-Fi Sekolah?</span>
+            </div>
+            <p class="local-desc">
+                Server fisik sekolah saat ini <strong>AKTIF / MENYALA</strong>. Jika perangkat Anda terhubung ke jaringan Wi-Fi sekolah, Anda dapat langsung masuk melalui jalur server lokal tanpa internet publik.
+            </p>
+            <button type="button" class="btn-local" onclick="forceReconnectLocal()">
+                ⚡ Masuk Lewat Jalur Wi-Fi Lokal
+            </button>
+        </div>
+
         <div class="info-sections">
+            <div id="mobileWifiTip" class="section-box" style="border-left: 3px solid #10B981; display: none;">
+                <div class="section-title" style="color: #10B981;">📱 Pengguna HP di Wi-Fi Sekolah Masih Muncul Halaman Ini?</div>
+                <div class="section-desc">
+                    1. <strong>Tutup Penuh Browser</strong>: Tutup tab ini lalu buang/swipe close aplikasi Chrome atau Safari dari Recent Apps HP Anda, lalu buka kembali.<br>
+                    2. <strong>Matikan Fitur Private DNS</strong>: Di Android (<em>Pengaturan &rarr; Koneksi / Jaringan &rarr; DNS Pribadi</em>), pilih <strong>Mati</strong> atau <strong>Otomatis</strong> agar HP tidak mem-bypass router Wi-Fi sekolah.
+                </div>
+            </div>
+
             <div class="section-box" style="border-left: 3px solid var(--warning);">
                 <div class="section-title" style="color: var(--warning);">🏫 Bagi Pengguna Sekolah (Guru / Siswa / Operator)</div>
                 <div class="section-desc">Agar aplikasi dapat diakses dari rumah atau luar sekolah, mohon hubungi <strong>Teknisi IT Sekolah</strong> untuk mengaktifkan modul koneksi online pusat.</div>
@@ -571,8 +661,21 @@
                     statusAlert.className = 'status-detail-alert online';
                     alertIcon.textContent = '🟢';
                     alertMessage.innerHTML = `<strong>Server fisik di sekolah AKTIF & MENYALA</strong> (detak terakhir: ${data.lastHeartbeatHuman}). Aplikasi sudah bisa diakses di jaringan lokal sekolah. Namun jalur online publik (Easy Tunnel) belum aktif, sehingga belum bisa diakses dari luar sekolah.`;
+
+                    // Tampilkan opsi beralih ke jalur Wi-Fi lokal & tips HP
+                    const localBox = document.getElementById('localDetectedBox');
+                    const mobileTip = document.getElementById('mobileWifiTip');
+                    if (localBox) localBox.style.display = 'block';
+                    if (mobileTip) mobileTip.style.display = 'block';
+
+                    // Lakukan auto-probing senyap ke server lokal
+                    attemptLocalAutoBypass();
                 } else {
                     // SERVER OFFLINE
+                    const localBox = document.getElementById('localDetectedBox');
+                    const mobileTip = document.getElementById('mobileWifiTip');
+                    if (localBox) localBox.style.display = 'none';
+                    if (mobileTip) mobileTip.style.display = 'none';
                     box.className = 'status-box offline';
                     badge.className = 'badge-live offline';
                     badgeText.textContent = 'OFFLINE (MATI)';
@@ -597,6 +700,64 @@
                 alertIcon.textContent = '⚠️';
                 alertMessage.textContent = 'Tidak dapat menghubungi Server Lisensi Pusat untuk memeriksa kondisi server sekolah. Silakan klik tombol "Periksa Ulang".';
             }
+        }
+
+        // ===== SMART LOCAL PROBING & BYPASS =====
+        let hasAttemptedBypass = false;
+
+        async function attemptLocalAutoBypass() {
+            // Hindari looping redirect tak berujung jika memang di luar jaringan
+            if (hasAttemptedBypass) return;
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('_tried_local')) return;
+
+            hasAttemptedBypass = true;
+            try {
+                // Buat request cache-reload ke API backend lokal
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 1800);
+
+                const probeUrl = `${window.location.origin}/api/health?_probe=${Date.now()}`;
+                const res = await fetch(probeUrl, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' },
+                    cache: 'reload',
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+
+                // Jika server lokal merespons 200 dengan JSON Absenta, langsung alihkan!
+                if (res.ok) {
+                    const data = await res.json().catch(() => null);
+                    if (data && (data.success !== undefined || data.status !== undefined || data.data !== undefined)) {
+                        console.log('[LocalBypass] Server lokal merespons! Mengalihkan...');
+                        window.location.replace(`${window.location.origin}/?_from_local_bypass=1`);
+                    }
+                }
+            } catch (e) {
+                // Di luar jaringan lokal atau timeout, abaikan secara senyap
+            }
+        }
+
+        async function forceReconnectLocal() {
+            const btn = document.querySelector('.btn-local');
+            if (btn) {
+                btn.innerHTML = '<span>⏳</span> Menghubungkan ke Wi-Fi Lokal...';
+                btn.disabled = true;
+            }
+
+            try {
+                // Pemicu putus soket lama dengan cache: reload
+                await fetch(`${window.location.origin}/?_reset_sock=${Date.now()}`, {
+                    cache: 'reload',
+                    mode: 'no-cors'
+                }).catch(() => {});
+            } catch (e) {}
+
+            // Alihkan halaman ke alamat lokal dengan cache buster
+            setTimeout(() => {
+                window.location.replace(`${window.location.origin}/?_tried_local=1&_t=${Date.now()}`);
+            }, 500);
         }
 
         // Jalankan pengecekan pertama kali
