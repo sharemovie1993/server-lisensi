@@ -156,12 +156,14 @@ pos.${MAIN_DOMAIN} {
                     const upstreamProtocol = isDevVitePort ? 'https' : 'http';
                     const tlsConfig = isDevVitePort ? ` {
         header_up Host ${domainClean}
+        header_up X-Access-Gateway "easy-tunnel"
         transport http {
             tls_insecure_skip_verify
             tls_server_name ${domainClean}
         }
     }` : ` {
         header_up Host ${domainClean}
+        header_up X-Access-Gateway "easy-tunnel"
     }`;
                     if (isInternalSubdomain) {
                         caddyfile += `
@@ -190,10 +192,16 @@ https://${domainClean} {
 # Tenant: ${up.slug} (${domainClean})
 ${domainClean} {${wildcardTlsBlock}
     # Route backend API
-    reverse_proxy /api/* http://${up.wireguard_ip}:${ports.backend}
+    reverse_proxy /api/* http://${up.wireguard_ip}:${ports.backend} {
+        header_up Host ${domainClean}
+        header_up X-Access-Gateway "easy-tunnel"
+    }
     
     # Route frontend Vite / Web client
-    reverse_proxy * http://${up.wireguard_ip}:${ports.frontend}
+    reverse_proxy * http://${up.wireguard_ip}:${ports.frontend} {
+        header_up Host ${domainClean}
+        header_up X-Access-Gateway "easy-tunnel"
+    }
 }
 `;
                     }
@@ -202,35 +210,51 @@ ${domainClean} {${wildcardTlsBlock}
 # Tenant: ${up.slug} (${domainClean})
 http://${domainClean} {
     # Route backend API
-    reverse_proxy /api/* http://${up.wireguard_ip}:${ports.backend}
+    reverse_proxy /api/* http://${up.wireguard_ip}:${ports.backend} {
+        header_up Host ${domainClean}
+        header_up X-Access-Gateway "easy-tunnel"
+    }
     
     # Route frontend Vite / Web client
-    reverse_proxy * http://${up.wireguard_ip}:${ports.frontend}
+    reverse_proxy * http://${up.wireguard_ip}:${ports.frontend} {
+        header_up Host ${domainClean}
+        header_up X-Access-Gateway "easy-tunnel"
+    }
 }
 
 https://${domainClean} {
     # Route backend API
-    reverse_proxy /api/* http://${up.wireguard_ip}:${ports.backend}
+    reverse_proxy /api/* http://${up.wireguard_ip}:${ports.backend} {
+        header_up Host ${domainClean}
+        header_up X-Access-Gateway "easy-tunnel"
+    }
     
     # Route frontend Vite / Web client
-    reverse_proxy * http://${up.wireguard_ip}:${ports.frontend}
+    reverse_proxy * http://${up.wireguard_ip}:${ports.frontend} {
+        header_up Host ${domainClean}
+        header_up X-Access-Gateway "easy-tunnel"
+    }
 }
 `;
                     }
                 }
             });
         });
-        // Add fallback for inactive subdomains to show blocked.html
+        // Add fallback for inactive subdomains: Send 421 Misdirected Request
+        // RFC 7540 / RFC 9113: Browser MUST drop connection, re-resolve DNS, and reconnect to local Split-DNS IP
         caddyfile += `
 # Fallback catch-all for inactive/unmapped subdomains
 *.${MAIN_DOMAIN} {
     ${wildcardTlsDirective}
     root * /var/www/${MAIN_DOMAIN}
-    @notAssets {
-        not path /assets/* /css/* /js/* /_expo/* /favicon.ico /metadata.json /BTI-compact-logo.png /logo.png
+    header Connection close
+    header Alt-Svc "clear"
+    header Cache-Control "no-store, no-cache, must-revalidate"
+    handle_errors {
+        rewrite * /blocked.html
+        file_server
     }
-    rewrite @notAssets /blocked.html
-    file_server
+    error 421
 }
 `;
         // Write to Caddyfile

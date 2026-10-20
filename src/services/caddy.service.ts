@@ -174,12 +174,14 @@ pos.${MAIN_DOMAIN} {
           const upstreamProtocol = isDevVitePort ? 'https' : 'http';
           const tlsConfig = isDevVitePort ? ` {
         header_up Host ${domainClean}
+        header_up X-Access-Gateway "easy-tunnel"
         transport http {
             tls_insecure_skip_verify
             tls_server_name ${domainClean}
         }
     }` : ` {
         header_up Host ${domainClean}
+        header_up X-Access-Gateway "easy-tunnel"
     }`;
 
           if (isInternalSubdomain) {
@@ -207,10 +209,16 @@ https://${domainClean} {
 # Tenant: ${up.slug} (${domainClean})
 ${domainClean} {${wildcardTlsBlock}
     # Route backend API
-    reverse_proxy /api/* http://${up.wireguard_ip}:${ports.backend}
+    reverse_proxy /api/* http://${up.wireguard_ip}:${ports.backend} {
+        header_up Host ${domainClean}
+        header_up X-Access-Gateway "easy-tunnel"
+    }
     
     # Route frontend Vite / Web client
-    reverse_proxy * http://${up.wireguard_ip}:${ports.frontend}
+    reverse_proxy * http://${up.wireguard_ip}:${ports.frontend} {
+        header_up Host ${domainClean}
+        header_up X-Access-Gateway "easy-tunnel"
+    }
 }
 `;
           } else {
@@ -218,18 +226,30 @@ ${domainClean} {${wildcardTlsBlock}
 # Tenant: ${up.slug} (${domainClean})
 http://${domainClean} {
     # Route backend API
-    reverse_proxy /api/* http://${up.wireguard_ip}:${ports.backend}
+    reverse_proxy /api/* http://${up.wireguard_ip}:${ports.backend} {
+        header_up Host ${domainClean}
+        header_up X-Access-Gateway "easy-tunnel"
+    }
     
     # Route frontend Vite / Web client
-    reverse_proxy * http://${up.wireguard_ip}:${ports.frontend}
+    reverse_proxy * http://${up.wireguard_ip}:${ports.frontend} {
+        header_up Host ${domainClean}
+        header_up X-Access-Gateway "easy-tunnel"
+    }
 }
 
 https://${domainClean} {
     # Route backend API
-    reverse_proxy /api/* http://${up.wireguard_ip}:${ports.backend}
+    reverse_proxy /api/* http://${up.wireguard_ip}:${ports.backend} {
+        header_up Host ${domainClean}
+        header_up X-Access-Gateway "easy-tunnel"
+    }
     
     # Route frontend Vite / Web client
-    reverse_proxy * http://${up.wireguard_ip}:${ports.frontend}
+    reverse_proxy * http://${up.wireguard_ip}:${ports.frontend} {
+        header_up Host ${domainClean}
+        header_up X-Access-Gateway "easy-tunnel"
+    }
 }
 `;
           }
