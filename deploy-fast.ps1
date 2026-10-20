@@ -5,7 +5,10 @@ $ErrorActionPreference = "Stop"
 
 $VPS_IP     = "103.196.155.87"
 $VPS_USER   = "asepsuryadi"
-$VPS_PEM    = "ls-key.pem"
+$VPS_PEM    = Join-Path $PSScriptRoot "ls-key.pem"
+if (-not (Test-Path $VPS_PEM)) {
+    $VPS_PEM = Join-Path $PSScriptRoot "..\deployer\ls-key.pem"
+}
 $REMOTE_DIR = "/var/www/licensing-server"
 
 Write-Host "==========================================================================" -ForegroundColor Cyan
@@ -43,7 +46,7 @@ try {
 
 # 4. EKSTRAKSI & RESTART PM2 DI VPS
 Write-Host "`n[4/4] Meng-ekstrak & merestart PM2 di VPS (Tanpa Build di VPS)..." -ForegroundColor Green
-$remoteCmd = "cd $REMOTE_DIR && sudo tar -xzf release_dist.tar.gz && npx prisma db push && npx prisma generate && pm2 restart licensing-server"
+$remoteCmd = "cd $REMOTE_DIR && tar -xzf release_dist.tar.gz && npx prisma db push --skip-generate && npx prisma generate && pm2 restart licensing-server"
 try {
     ssh -i $VPS_PEM -o StrictHostKeyChecking=no "${VPS_USER}@${VPS_IP}" $remoteCmd
     Write-Host "`n==========================================================================" -ForegroundColor Cyan
