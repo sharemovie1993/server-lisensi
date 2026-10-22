@@ -46,7 +46,7 @@ try {
 
 # 4. EKSTRAKSI & RESTART PM2 DI VPS
 Write-Host "`n[4/4] Meng-ekstrak & merestart PM2 di VPS (Tanpa Build di VPS)..." -ForegroundColor Green
-$remoteCmd = "cd $REMOTE_DIR && tar -xzf release_dist.tar.gz && npx prisma db push --skip-generate && npx prisma generate && node scripts/seed_skkni.js && pm2 restart licensing-server"
+$remoteCmd = "cd $REMOTE_DIR && tar --no-same-owner -xzf release_dist.tar.gz && npx prisma db push --skip-generate && npx prisma generate && node scripts/seed_skkni.js && pm2 restart licensing-server"
 try {
     ssh -i $VPS_PEM -o StrictHostKeyChecking=no "${VPS_USER}@${VPS_IP}" $remoteCmd
     Write-Host "`n==========================================================================" -ForegroundColor Cyan

@@ -573,6 +573,454 @@ const SKKNI_DATA = [
       },
     ],
   },
+
+  // =========================================================================
+  // 9. TEKNIK INSTALASI TENAGA LISTRIK (TITL)
+  // =========================================================================
+  {
+    rumpun: 'Teknologi & Rekayasa',
+    kodeSkema: 'SKEMA-KKNI-TITL-L2',
+    namaSkema: 'Skema Sertifikasi KKNI Level II Pada Kompetensi Keahlian Teknik Instalasi Tenaga Listrik',
+    namaSkemaEn: 'KKNI Level II Certification Scheme in Electrical Power Installation Engineering',
+    levelKkni: 2,
+    deskripsi: 'Standar kompetensi keahlian TITL mencakup instalasi penerangan listrik 1 fasa dan 3 fasa, panel hubung bagi (PHB), rangkaian pengendali motor listrik, dan pemrograman PLC dasar.',
+    defaultJudulId: 'Pemasangan Instalasi Penerangan dan Tenaga Listrik Bangunan Gedung dengan Pengendali PLC',
+    defaultJudulEn: 'Installation of Building Lighting and Electrical Power with Programmable Logic Controller (PLC)',
+    units: [
+      {
+        kode_unit: 'KTL.IK02.101.01',
+        judul_unit_id: 'Menerapkan Keselamatan dan Kesehatan Kerja (K3) pada Pekerjaan Ketenagalistrikan',
+        judul_unit_en: 'Applying Workplace Safety and Health Procedures in Electrical Works',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'KTL.IK02.102.01',
+        judul_unit_id: 'Membaca dan Memahami Gambar Teknik Sirkit Kelistrikan (Single Line Diagram)',
+        judul_unit_en: 'Reading and Interpreting Electrical Circuit Technical Drawings',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'KTL.IK02.105.01',
+        judul_unit_id: 'Memasang Instalasi Penerangan Listrik Bangunan Gedung 1 Fasa dan 3 Fasa',
+        judul_unit_en: 'Installing Single-Phase and Three-Phase Building Lighting Installation',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'KTL.IK02.108.01',
+        judul_unit_id: 'Memasang Panel Hubung Bagi (PHB) Penerangan dan Tenaga',
+        judul_unit_en: 'Installing Distribution Boards for Lighting and Power',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'KTL.IK02.112.01',
+        judul_unit_id: 'Mengoperasikan dan Menguji Rangkaian Kontrol Motor Listrik 3 Fasa (DOL / Star-Delta)',
+        judul_unit_en: 'Operating and Testing 3-Phase Electric Motor Control Circuits',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'KTL.IK02.115.01',
+        judul_unit_id: 'Memasang Sistem Pengaman Hubung Singkat dan Pembumian (Grounding)',
+        judul_unit_en: 'Installing Short Circuit Protection and Grounding Systems',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'KTL.IK02.118.01',
+        judul_unit_id: 'Memprogram dan Mengoperasikan Pengendali Logika Terprogram (PLC Dasar)',
+        judul_unit_en: 'Programming and Operating Programmable Logic Controllers',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'KTL.IK02.120.01',
+        judul_unit_id: 'Melakukan Pemeriksaan dan Pengujian Tahanan Isolasi Instalasi Listrik',
+        judul_unit_en: 'Inspecting and Testing Insulation Resistance of Electrical Installations',
+        kategori: 'INTI',
+      },
+    ],
+  },
+
+  // =========================================================================
+  // 10. TEKNIK PEMESINAN (TP / MESIN PERKAKAS)
+  // =========================================================================
+  {
+    rumpun: 'Teknologi & Rekayasa',
+    kodeSkema: 'SKEMA-KKNI-TP-L2',
+    namaSkema: 'Skema Sertifikasi KKNI Level II Pada Kompetensi Keahlian Teknik Pemesinan',
+    namaSkemaEn: 'KKNI Level II Certification Scheme in Machining Engineering',
+    levelKkni: 2,
+    deskripsi: 'Standar kompetensi keahlian TP mencakup pengoperasian mesin bubut konvensional, mesin frais (milling), mesin gerinda presisi, pengukuran presisi, dan pemrograman mesin CNC dasar.',
+    defaultJudulId: 'Pembuatan Komponen Mekanik Presisi Menggunakan Mesin Bubut dan Mesin Frais Konvensional Sesuai Gambar Kerja',
+    defaultJudulEn: 'Manufacture of Precision Mechanical Components Using Conventional Lathe and Milling Machines per Blueprint',
+    units: [
+      {
+        kode_unit: 'LOG.OO01.002.01',
+        judul_unit_id: 'Menerapkan Prinsip Keselamatan dan Kesehatan Kerja di Lingkungan Bengkel Mesin',
+        judul_unit_en: 'Applying Workplace Health and Safety Principles in Machine Shop',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'LOG.OO01.004.01',
+        judul_unit_id: 'Membaca dan Menginterpretasikan Gambar Teknik Mesin Manufaktur',
+        judul_unit_en: 'Reading and Interpreting Manufacturing Engineering Drawings',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'LOG.OO02.005.01',
+        judul_unit_id: 'Menggunakan Alat Ukur Presisi (Mikrometer, Vernier Caliper, Dial Indicator)',
+        judul_unit_en: 'Using Precision Measuring Instruments',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'LOG.OO07.006.01',
+        judul_unit_id: 'Mengoperasikan Mesin Bubut Konvensional (Turning Operation)',
+        judul_unit_en: 'Operating Conventional Lathe Machines',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'LOG.OO07.007.01',
+        judul_unit_id: 'Melakukan Pekerjaan Pembubutan Kompleks (Ulir, Tirus, dan Alur)',
+        judul_unit_en: 'Performing Complex Turning Operations (Threading, Tapering, and Grooving)',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'LOG.OO07.011.01',
+        judul_unit_id: 'Mengoperasikan Mesin Frais Konvensional (Milling Operation)',
+        judul_unit_en: 'Operating Conventional Milling Machines',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'LOG.OO07.015.01',
+        judul_unit_id: 'Mengoperasikan Mesin Gerinda Permukaan dan Silindris',
+        judul_unit_en: 'Operating Surface and Cylindrical Grinding Machines',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'LOG.OO07.021.01',
+        judul_unit_id: 'Mengoperasikan Mesin CNC Bubut dan Frais Dasar (G-Code)',
+        judul_unit_en: 'Operating CNC Lathe and Milling Machines with Basic G-Code',
+        kategori: 'INTI',
+      },
+    ],
+  },
+
+  // =========================================================================
+  // 11. TEKNIK PENGELASAN (LAS / WELDING)
+  // =========================================================================
+  {
+    rumpun: 'Teknologi & Rekayasa',
+    kodeSkema: 'SKEMA-KKNI-LAS-L2',
+    namaSkema: 'Skema Sertifikasi KKNI Level II Pada Kompetensi Keahlian Teknik Pengelasan',
+    namaSkemaEn: 'KKNI Level II Certification Scheme in Welding Engineering',
+    levelKkni: 2,
+    deskripsi: 'Standar kompetensi keahlian Teknik Pengelasan mencakup pemotongan termal gas OAW/plasma, pengelasan busur manual SMAW pelat posisi 1F/1G hingga 3F/3G, pengelasan GMAW/MIG, dan uji visual hasil las.',
+    defaultJudulId: 'Penyambungan Sambungan Pelat Baja Karbon Posisi 3G Vertikal Menggunakan Proses SMAW dan GMAW',
+    defaultJudulEn: 'Jointing Carbon Steel Plate in 3G Vertical Position Using SMAW and GMAW Welding Processes',
+    units: [
+      {
+        kode_unit: 'JDS.MW01.002.01',
+        judul_unit_id: 'Melaksanakan Prosedur K3 Pengelasan dan Pemotongan Logam',
+        judul_unit_en: 'Executing Health and Safety Procedures in Welding and Metal Cutting',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'JDS.MW01.004.01',
+        judul_unit_id: 'Membaca dan Memahami Gambar Simbol Las (Welding Symbols & WPS)',
+        judul_unit_en: 'Interpreting Welding Symbols and Welding Procedure Specifications',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'JDS.MW02.001.01',
+        judul_unit_id: 'Melakukan Pemotongan Logam dengan Gas Oksi-Asetilin (OAW) dan Plasma Cutting',
+        judul_unit_en: 'Cutting Metals Using Oxy-Acetylene and Plasma Cutting',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'JDS.MW02.003.01',
+        judul_unit_id: 'Melakukan Pengelasan Pelat dengan Pelat Posisi Di Bawah Tangan (1F/1G) SMAW',
+        judul_unit_en: 'Welding Carbon Steel Plates in Flat Position (1F/1G) SMAW',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'JDS.MW02.004.01',
+        judul_unit_id: 'Melakukan Pengelasan Pelat Posisi Horizontal (2F/2G) SMAW',
+        judul_unit_en: 'Welding Carbon Steel Plates in Horizontal Position (2F/2G) SMAW',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'JDS.MW02.005.01',
+        judul_unit_id: 'Melakukan Pengelasan Pelat Posisi Vertikal Naik (3F/3G) SMAW',
+        judul_unit_en: 'Welding Carbon Steel Plates in Vertical Up Position (3F/3G) SMAW',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'JDS.MW02.011.01',
+        judul_unit_id: 'Melakukan Pengelasan Pelat Baja dengan Proses Las Gas Metal (GMAW / MIG / MAG)',
+        judul_unit_en: 'Welding Steel Plates Using Gas Metal Arc Welding (GMAW)',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'JDS.MW03.001.01',
+        judul_unit_id: 'Melakukan Pemeriksaan Visual dan Pengujian Kerataan Hasil Lasan (Visual Inspection)',
+        judul_unit_en: 'Performing Visual Inspection of Weldments',
+        kategori: 'INTI',
+      },
+    ],
+  },
+
+  // =========================================================================
+  // 12. BISNIS DIGITAL & PEMASARAN (BDP)
+  // =========================================================================
+  {
+    rumpun: 'Bisnis & Manajemen',
+    kodeSkema: 'SKEMA-KKNI-BDP-L2',
+    namaSkema: 'Skema Sertifikasi KKNI Level II Pada Kompetensi Keahlian Bisnis Digital dan Pemasaran',
+    namaSkemaEn: 'KKNI Level II Certification Scheme in Digital Business and Marketing',
+    levelKkni: 2,
+    deskripsi: 'Standar kompetensi keahlian Bisnis Digital mencakup riset pasar online, pembuatan konten media sosial, pengelolaan marketplace toko online, kasir POS digital, dan penataan display barang ritel.',
+    defaultJudulId: 'Pengelolaan Toko Online E-Commerce, Pemasaran Konten Media Sosial, dan Transaksi Kasir POS Digital',
+    defaultJudulEn: 'E-Commerce Online Store Management, Social Media Content Marketing, and Digital POS Cashier Transactions',
+    units: [
+      {
+        kode_unit: 'M.702090.001.01',
+        judul_unit_id: 'Mengidentifikasi Peluang Pasar dan Riset Tren Konsumen Online',
+        judul_unit_en: 'Identifying Market Opportunities and Online Consumer Trends',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'M.702090.004.01',
+        judul_unit_id: 'Membuat dan Mengelola Konten Promosi Media Sosial (Social Media Marketing)',
+        judul_unit_en: 'Creating and Managing Social Media Promotional Content',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'M.702090.006.01',
+        judul_unit_id: 'Mengoperasikan Toko Online pada Marketplace (E-Commerce Storefront)',
+        judul_unit_en: 'Operating Online Store on E-Commerce Marketplaces',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'M.702090.008.01',
+        judul_unit_id: 'Melakukan Komunikasi Pemasaran dan Layanan Pelanggan Digital (CRM Chat)',
+        judul_unit_en: 'Delivering Digital Marketing Communication and Customer Relations',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'M.702090.010.01',
+        judul_unit_id: 'Mengoperasikan Mesin Kasir / Point of Sale (POS) dan Transaksi Non-Tunai QRIS',
+        judul_unit_en: 'Operating Point of Sale (POS) Terminal and QRIS Cashless Payment',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'M.702090.012.01',
+        judul_unit_id: 'Melakukan Penataan Produk Barang Dagang (Visual Merchandising / Display)',
+        judul_unit_en: 'Arranging Merchandise Displays (Visual Merchandising)',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'M.702090.015.01',
+        judul_unit_id: 'Melakukan Administrasi Penjualan dan Pengendalian Stok Barang Ritel',
+        judul_unit_en: 'Managing Sales Administration and Retail Stock Inventory',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'M.702090.018.01',
+        judul_unit_id: 'Menerapkan Teknik Negosiasi dan Closing Penjualan Tatap Muka',
+        judul_unit_en: 'Applying Sales Negotiation and Closing Techniques',
+        kategori: 'INTI',
+      },
+    ],
+  },
+
+  // =========================================================================
+  // 13. PERHOTELAN (HOSPITALITY)
+  // =========================================================================
+  {
+    rumpun: 'Kuliner & Pariwisata',
+    kodeSkema: 'SKEMA-KKNI-HOTEL-L2',
+    namaSkema: 'Skema Sertifikasi KKNI Level II Pada Kompetensi Keahlian Perhotelan',
+    namaSkemaEn: 'KKNI Level II Certification Scheme in Hospitality and Hotel Operations',
+    levelKkni: 2,
+    deskripsi: 'Standar kompetensi keahlian Perhotelan mencakup layanan penerimaan tamu (Front Office), reservasi kamar, kebersihan kamar (Housekeeping / Room Attendant), penanganan linen, dan layanan porter.',
+    defaultJudulId: 'Pelaksanaan Layanan Front Desk Check-in Check-out dan Penyiapan Kamar Tamu Housekeeping Standar Bintang',
+    defaultJudulEn: 'Execution of Front Desk Check-in Check-out Services and Housekeeping Guest Room Preparation',
+    units: [
+      {
+        kode_unit: 'I.55HDR00.001.02',
+        judul_unit_id: 'Menerapkan Prosedur Kesehatan, Keselamatan, dan Keamanan di Industri Perhotelan',
+        judul_unit_en: 'Practicing Workplace Safety and Security in Hospitality Industry',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'I.55HDR00.004.02',
+        judul_unit_id: 'Berkomunikasi Efektif Menggunakan Bahasa Indonesia dan Bahasa Inggris Perhotelan',
+        judul_unit_en: 'Communicating Effectively in Hotel English and Indonesian',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'I.55HDR00.007.02',
+        judul_unit_id: 'Menyediakan Layanan Penerimaan Tamu (Front Office / Reception / Check-in & Check-out)',
+        judul_unit_en: 'Providing Front Desk Reception Check-in and Check-out Services',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'I.55HDR00.009.02',
+        judul_unit_id: 'Menangani Reservasi Kamar dan Pembayaran Tagihan Tamu (Billing)',
+        judul_unit_en: 'Handling Guest Room Reservations and Billing Transactions',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'I.55HDR00.011.02',
+        judul_unit_id: 'Menyiapkan dan Merapikan Kamar Tamu Hotel (Housekeeping / Making Bed)',
+        judul_unit_en: 'Preparing and Servicing Hotel Guest Rooms (Making Bed)',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'I.55HDR00.013.02',
+        judul_unit_id: 'Melakukan Pembersihan Area Umum Hotel (Public Area Attendant)',
+        judul_unit_en: 'Cleaning and Maintaining Hotel Public Areas',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'I.55HDR00.018.02',
+        judul_unit_id: 'Melakukan Pengelolaan dan Penanganan Linen Hotel (Laundry & Linen Service)',
+        judul_unit_en: 'Managing Hotel Linen and Laundry Handling',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'I.55HDR00.022.02',
+        judul_unit_id: 'Memberikan Layanan Bellboy dan Porter Barang Bawaan Tamu',
+        judul_unit_en: 'Providing Bellboy and Guest Luggage Porterage Services',
+        kategori: 'INTI',
+      },
+    ],
+  },
+
+  // =========================================================================
+  // 14. LAYANAN KESEHATAN (ASISTEN KEPERAWATAN)
+  // =========================================================================
+  {
+    rumpun: 'Kesehatan & Pekerjaan Sosial',
+    kodeSkema: 'SKEMA-KKNI-KEPERAWATAN-L2',
+    namaSkema: 'Skema Sertifikasi KKNI Level II Pada Kompetensi Keahlian Layanan Penunjang Kesehatan',
+    namaSkemaEn: 'KKNI Level II Certification Scheme in Healthcare Support Services',
+    levelKkni: 2,
+    deskripsi: 'Standar kompetensi keahlian Layanan Kesehatan mencakup pengukuran tanda vital (TTV), kebersihan diri pasien, mobilisasi tempat tidur, pemberian nutrisi dasar, dan pencegahan infeksi.',
+    defaultJudulId: 'Pemberian Layanan Dasar Pemenuhan Kebutuhan Personal Hygiene, Mobilisasi, dan Pengukuran Tanda Vital Pasien',
+    defaultJudulEn: 'Delivery of Basic Patient Care for Personal Hygiene, Bed Mobilization, and Vital Sign Measurement',
+    units: [
+      {
+        kode_unit: 'Q.869041.001.01',
+        judul_unit_id: 'Menerapkan Prinsip Pencegahan dan Pengendalian Infeksi (PPI) di Fasilitas Kesehatan',
+        judul_unit_en: 'Applying Infection Prevention and Control Principles in Healthcare Facilities',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'Q.869041.003.01',
+        judul_unit_id: 'Melakukan Pengukuran Tanda-Tanda Vital (Tekanan Darah, Nadi, Suhu, Pernapasan)',
+        judul_unit_en: 'Measuring Patient Vital Signs (Blood Pressure, Pulse, Temperature, Respiration)',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'Q.869041.006.01',
+        judul_unit_id: 'Membantu Pemenuhan Kebutuhan Kebersihan Diri Pasien (Memandikan di Tempat Tidur)',
+        judul_unit_en: 'Assisting Patient Personal Hygiene Needs in Bed',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'Q.869041.008.01',
+        judul_unit_id: 'Membantu Mobilisasi dan Mengatur Posisi Pasien di Tempat Tidur (Fowler / Sim / Miring)',
+        judul_unit_en: 'Assisting Patient Mobilization and Bed Positioning',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'Q.869041.010.01',
+        judul_unit_id: 'Membantu Pemenuhan Kebutuhan Nutrisi dan Cairan Oral Pasien',
+        judul_unit_en: 'Assisting Patient Oral Nutritional and Fluid Needs',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'Q.869041.012.01',
+        judul_unit_id: 'Menyiapkan Tempat Tidur Pasien Terbuka dan Tertutup (Bed Making)',
+        judul_unit_en: 'Preparing Open and Closed Hospital Beds (Bed Making)',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'Q.869041.015.01',
+        judul_unit_id: 'Melakukan Tindakan Pertolongan Pertama pada Kecelakaan (P3K Dasar)',
+        judul_unit_en: 'Performing Basic First Aid Procedures',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'Q.869041.018.01',
+        judul_unit_id: 'Melakukan Komunikasi Terapeutik pada Pasien dan Keluarga Pasien',
+        judul_unit_en: 'Delivering Therapeutic Communication to Patients and Families',
+        kategori: 'INTI',
+      },
+    ],
+  },
+
+  // =========================================================================
+  // 15. FARMASI KLINIS DAN KOMUNITAS
+  // =========================================================================
+  {
+    rumpun: 'Kesehatan & Pekerjaan Sosial',
+    kodeSkema: 'SKEMA-KKNI-FARMASI-L2',
+    namaSkema: 'Skema Sertifikasi KKNI Level II Pada Kompetensi Keahlian Farmasi Klinis dan Komunitas',
+    namaSkemaEn: 'KKNI Level II Certification Scheme in Clinical and Community Pharmacy',
+    levelKkni: 2,
+    deskripsi: 'Standar kompetensi keahlian Farmasi mencakup skrining resep dokter, penimbangan dan peracikan sediaan obat (puyer/kapsul/salep), pembuatan etiket obat, dan pelayanan KIE dasar.',
+    defaultJudulId: 'Skrining Resep Dokter, Peracikan Sediaan Obat Serbuk Bagi (Pulveres) dan Salep, serta Penyerahan Informasi Obat',
+    defaultJudulEn: 'Prescription Screening, Compounding of Divided Powders (Pulveres) and Ointments, and Drug Dispensing Information',
+    units: [
+      {
+        kode_unit: 'Q.869050.001.01',
+        judul_unit_id: 'Menerapkan Standar K3 dan Higiene Sanitasi di Ruang Peracikan Farmasi',
+        judul_unit_en: 'Practicing Workplace Safety and Hygiene in Pharmacy Compounding Area',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'Q.869050.003.01',
+        judul_unit_id: 'Membaca dan Memeriksa Kelengkapan Resep Dokter (Administratif dan Farmasetis)',
+        judul_unit_en: 'Reading and Screening Doctor Prescriptions for Administrative and Pharmaceutical Completeness',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'Q.869050.005.01',
+        judul_unit_id: 'Melakukan Penimbangan Bahan Obat dan Peracikan Sediaan Serbuk Bagi (Pulveres / Puyer)',
+        judul_unit_en: 'Weighing Raw Ingredients and Compounding Divided Powders (Pulveres)',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'Q.869050.007.01',
+        judul_unit_id: 'Melakukan Peracikan Sediaan Obat Kapsul dan Sediaan Semi Padat (Salep / Krim / Pasta)',
+        judul_unit_en: 'Compounding Capsules and Semi-Solid Dosage Forms (Ointments/Creams)',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'Q.869050.009.01',
+        judul_unit_id: 'Melakukan Pengemasan Sediaan Obat dan Penulisan Etiket / Label Obat (Signa)',
+        judul_unit_en: 'Packaging Finished Medicines and Preparing Proper Prescription Labels',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'Q.869050.012.01',
+        judul_unit_id: 'Melakukan Pengelolaan Stok, Kartu Stok, dan Penyimpanan Perbekalan Farmasi di Apotek',
+        judul_unit_en: 'Managing Stock Inventory Cards and Pharmaceutical Storage in Dispensary',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'Q.869050.015.01',
+        judul_unit_id: 'Memberikan Informasi Dasar Cara Penggunaan dan Penyimpanan Obat kepada Pasien (KIE)',
+        judul_unit_en: 'Delivering Basic Patient Information on Drug Usage and Storage',
+        kategori: 'INTI',
+      },
+      {
+        kode_unit: 'Q.869050.018.01',
+        judul_unit_id: 'Melakukan Administrasi Pengarsipan Resep dan Pencatatan Khusus Surat Pesanan Narkotika',
+        judul_unit_en: 'Managing Prescription Archiving and Narcotic Order Records',
+        kategori: 'INTI',
+      },
+    ],
+  },
 ];
 
 async function main() {
