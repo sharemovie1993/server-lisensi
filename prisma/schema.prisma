@@ -371,3 +371,46 @@ model ServerMetricLog {
   @@index([licenseId, recordedAt])
   @@map("server_metric_logs")
 }
+
+// =========================================================================
+// MASTER KATALOG SKKNI & UNIT KOMPETENSI TERPUSAT
+// Single Source of Truth untuk diadopsi sekolah-sekolah client Absenta
+// =========================================================================
+model SkkniKatalog {
+  id              String      @id @default(uuid())
+  rumpun          String      // e.g. "Teknologi Informasi & Komunikasi", "Teknik Otomotif", "Bisnis & Manajemen", "Kuliner & Pariwisata"
+  kodeSkema       String      @unique @map("kode_skema") // e.g. "SKEMA-KKNI-TKJ-L2", "SKEMA-KKNI-RPL-L2"
+  namaSkema       String      @map("nama_skema") // e.g. "Skema Sertifikasi KKNI Level II Pada Kompetensi Keahlian Teknik Komputer dan Jaringan"
+  namaSkemaEn     String?     @map("nama_skema_en")
+  levelKkni       Int         @default(2) @map("level_kkni")
+  deskripsi       String?     @db.Text
+  defaultJudulId  String?     @map("default_judul_id") // Rekomendasi Judul Penugasan ID
+  defaultJudulEn  String?     @map("default_judul_en") // Rekomendasi Judul Penugasan EN
+  isActive        Boolean     @default(true) @map("is_active")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  units           SkkniUnit[]
+
+  @@index([rumpun])
+  @@map("skkni_katalog")
+}
+
+model SkkniUnit {
+  id              String        @id @default(uuid())
+  katalogId       String        @map("katalog_id")
+  kodeUnit        String        @map("kode_unit") // e.g. "J.611000.001.01"
+  judulUnitId     String        @map("judul_unit_id")
+  judulUnitEn     String?       @map("judul_unit_en")
+  urutan          Int           @default(1)
+  kategori        String?       @default("INTI") // "INTI" | "PILIHAN" | "UMUM"
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  katalog         SkkniKatalog  @relation(fields: [katalogId], references: [id], onDelete: Cascade)
+
+  @@index([katalogId])
+  @@index([kodeUnit])
+  @@map("skkni_units")
+}
+

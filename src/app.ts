@@ -11,6 +11,7 @@ import { analyticsAdminRoutes } from './modules/analytics/routes/analytics-admin
 import { revenueAdminRoutes } from './modules/revenue/routes/revenue-admin.routes';
 import { upgradeIntelligenceAdminRoutes } from './modules/upgrade-intelligence/routes/upgrade-intelligence-admin.routes';
 import { registerPortalRoutes } from './routes/portal/portal.routes';
+import { skkniRoutes } from './routes/skkni.routes';
 
 export function buildApp(): FastifyInstance {
   const app = fastify({
@@ -82,6 +83,7 @@ export function buildApp(): FastifyInstance {
   app.register(revenueAdminRoutes);
   app.register(upgradeIntelligenceAdminRoutes);
   app.register(registerPortalRoutes);
+  app.register(skkniRoutes);
 
   return app;
 }
