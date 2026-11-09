@@ -9,9 +9,15 @@ const isLinux = process.platform === 'linux';
 const caddyfilePath = isLinux ? '/etc/caddy/Caddyfile' : path.join(__dirname, '../../Caddyfile.generated');
 const caddySslBase = process.env.CADDY_SSL_BASE || '/var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory';
 const cfToken = process.env.CLOUDFLARE_API_TOKEN;
-const wildcardTlsDirective = cfToken
-  ? `tls {\n        dns cloudflare ${cfToken}\n    }`
-  : `tls ${caddySslBase}/wildcard_.${MAIN_DOMAIN}/wildcard_.${MAIN_DOMAIN}.crt ${caddySslBase}/wildcard_.${MAIN_DOMAIN}/wildcard_.${MAIN_DOMAIN}.key`;
+const wildcardCertPath = `${caddySslBase}/wildcard_.${MAIN_DOMAIN}/wildcard_.${MAIN_DOMAIN}.crt`;
+const wildcardKeyPath = `${caddySslBase}/wildcard_.${MAIN_DOMAIN}/wildcard_.${MAIN_DOMAIN}.key`;
+const hasWildcardOnDisk = fs.existsSync(wildcardCertPath) && fs.existsSync(wildcardKeyPath);
+
+const wildcardTlsDirective = hasWildcardOnDisk
+  ? `tls ${wildcardCertPath} ${wildcardKeyPath}`
+  : (cfToken
+    ? `tls {\n        dns cloudflare ${cfToken}\n    }`
+    : `tls ${wildcardCertPath} ${wildcardKeyPath}`);
 
 const PORT_EXCEPTIONS: Record<string, { backend: number; frontend: number }> = {
   'cibinong': { backend: 5006, frontend: 5176 },
@@ -94,7 +100,7 @@ export async function triggerCaddySync(): Promise<void> {
             domains,
             wireguard_ip: lic.wireguardIp!,
             product_id: lic.productId,
-            local_port: lic.productId === 'easy-tunnel' ? (lic.localPort || 5002) : undefined
+            local_port: (lic.productId === 'easy-tunnel' || lic.productId === 'cakola') ? (lic.localPort || 80) : undefined
           });
         }
       }

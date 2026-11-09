@@ -17,6 +17,7 @@ const analytics_admin_routes_1 = require("./modules/analytics/routes/analytics-a
 const revenue_admin_routes_1 = require("./modules/revenue/routes/revenue-admin.routes");
 const upgrade_intelligence_admin_routes_1 = require("./modules/upgrade-intelligence/routes/upgrade-intelligence-admin.routes");
 const portal_routes_1 = require("./routes/portal/portal.routes");
+const skkni_routes_1 = require("./routes/skkni.routes");
 function buildApp() {
     const app = (0, fastify_1.default)({
         logger: false,
@@ -77,5 +78,6 @@ function buildApp() {
     app.register(revenue_admin_routes_1.revenueAdminRoutes);
     app.register(upgrade_intelligence_admin_routes_1.upgradeIntelligenceAdminRoutes);
     app.register(portal_routes_1.registerPortalRoutes);
+    app.register(skkni_routes_1.skkniRoutes);
     return app;
 }

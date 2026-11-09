@@ -15,6 +15,12 @@ import { triggerCaddySync } from '../../services/caddy.service';
  *  GET  /api/license/easy-tunnel/check-vnc-port/:license_key
  *  GET  /api/license/easy-tunnel/by-slug/:slug
  */
+function isTunnelProduct(license: { productId: string; includeVpn?: number | null; planId?: string | null }): boolean {
+  if (license.productId === 'easy-tunnel' || license.productId === 'vpn-tunnel') return true;
+  if (license.productId === 'cakola' && (license.includeVpn === 1 || (license.planId || '').toUpperCase().includes('LENGKAP'))) return true;
+  return false;
+}
+
 export const registerEasyTunnelRoutes = (fastify: FastifyInstance) => {
 
   // 1. GET /api/license/easy-tunnel/packages — Ambil daftar paket Easy Tunnel
@@ -38,7 +44,7 @@ export const registerEasyTunnelRoutes = (fastify: FastifyInstance) => {
       const license = await prisma.license.findUnique({
         where: { licenseKey: key.trim() }
       });
-      if (!license || license.productId !== 'easy-tunnel') {
+      if (!license || !isTunnelProduct(license)) {
         return reply.status(404).send({ success: false, message: 'Kunci lisensi Easy Tunnel tidak ditemukan.' });
       }
       const todayStr = new Date().toISOString().slice(0, 10);
@@ -101,12 +107,17 @@ export const registerEasyTunnelRoutes = (fastify: FastifyInstance) => {
         return reply.status(400).send({ success: false, message: 'Port lokal tidak valid (1-65535).' });
       }
 
-      // 1. Verifikasi lisensi aktif easy-tunnel
+      // 1. Verifikasi lisensi aktif easy-tunnel atau paket lengkap cakola
       const license = await prisma.license.findFirst({
         where: {
           licenseKey: license_key.trim(),
           isActive: 1,
-          productId: 'easy-tunnel'
+          OR: [
+            { productId: 'easy-tunnel' },
+            { productId: 'vpn-tunnel' },
+            { productId: 'cakola', includeVpn: 1 },
+            { productId: 'cakola', planId: { contains: 'LENGKAP', mode: 'insensitive' } }
+          ]
         }
       });
 
@@ -271,7 +282,12 @@ PersistentKeepalive = 25
       const license = await prisma.license.findFirst({
         where: {
           licenseKey: license_key.trim(),
-          productId: 'easy-tunnel'
+          OR: [
+            { productId: 'easy-tunnel' },
+            { productId: 'vpn-tunnel' },
+            { productId: 'cakola', includeVpn: 1 },
+            { productId: 'cakola', planId: { contains: 'LENGKAP', mode: 'insensitive' } }
+          ]
         }
       });
 
@@ -315,7 +331,12 @@ PersistentKeepalive = 25
       const license = await prisma.license.findFirst({
         where: {
           licenseKey: license_key.trim(),
-          productId: 'easy-tunnel'
+          OR: [
+            { productId: 'easy-tunnel' },
+            { productId: 'vpn-tunnel' },
+            { productId: 'cakola', includeVpn: 1 },
+            { productId: 'cakola', planId: { contains: 'LENGKAP', mode: 'insensitive' } }
+          ]
         }
       });
 
@@ -394,8 +415,13 @@ PersistentKeepalive = 25
     try {
       const licenses = await prisma.license.findMany({
         where: {
-          productId: 'easy-tunnel',
-          requestedSlug: slug.trim().toLowerCase()
+          requestedSlug: slug.trim().toLowerCase(),
+          OR: [
+            { productId: 'easy-tunnel' },
+            { productId: 'vpn-tunnel' },
+            { productId: 'cakola', includeVpn: 1 },
+            { productId: 'cakola', planId: { contains: 'LENGKAP', mode: 'insensitive' } }
+          ]
         },
         orderBy: { createdAt: 'desc' }
       });

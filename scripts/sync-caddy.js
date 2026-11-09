@@ -235,37 +235,23 @@ pos.${MAIN_DOMAIN} {
           tenantTlsBlock = `\n    tls /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.${MAIN_DOMAIN}/wildcard_.${MAIN_DOMAIN}.crt /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.${MAIN_DOMAIN}/wildcard_.${MAIN_DOMAIN}.key`;
         }
 
-        if (up.product_id === 'easy-tunnel') {
-          // Jika port lokal adalah 443, asumsikan target menggunakan HTTPS (Caddy Lokal)
-          const isHttps = up.local_port === 443;
+        if (up.product_id === 'easy-tunnel' || up.product_id === 'cakola') {
+          const isSplitDnsCaddyPort = up.local_port === 443 || up.local_port === 80;
+          const targetPort = isSplitDnsCaddyPort ? 80 : (up.local_port || 5002);
           
-          if (isHttps) {
-            caddyfile += `
-# Tenant: ${up.slug} (Easy Tunnel - End-to-End HTTPS - ${domainClean})
-${domainClean} {${tenantTlsBlock}
-    reverse_proxy /socket.io/* https://${up.wireguard_ip}:${up.local_port} {
-        header_up Host {host}
-        transport http {
-            tls_server_name ${domainClean}
-        }
-    }
-    reverse_proxy https://${up.wireguard_ip}:${up.local_port} {
-        header_up Host {host}
-        transport http {
-            tls_server_name ${domainClean}
-        }
-    }
-}
-`;
-          } else {
-            caddyfile += `
+          caddyfile += `
 # Tenant: ${up.slug} (Easy Tunnel - ${domainClean})
 ${domainClean} {${tenantTlsBlock}
-    reverse_proxy /socket.io/* http://${up.wireguard_ip}:${up.local_port || 5002}
-    reverse_proxy http://${up.wireguard_ip}:${up.local_port || 5002}
+    reverse_proxy /socket.io/* http://${up.wireguard_ip}:${targetPort} {
+        header_up Host {host}
+        header_up X-Access-Gateway "easy-tunnel"
+    }
+    reverse_proxy * http://${up.wireguard_ip}:${targetPort} {
+        header_up Host {host}
+        header_up X-Access-Gateway "easy-tunnel"
+    }
 }
 `;
-          }
         } else {
           caddyfile += `
 # Tenant: ${up.slug} (${domainClean})
