@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.registerTenantEntitlementRoutes = registerTenantEntitlementRoutes;
 const client_1 = require("@prisma/client");
+const caddy_service_1 = require("../../services/caddy.service");
 const prisma = new client_1.PrismaClient();
 function registerTenantEntitlementRoutes(fastify) {
     /**
@@ -215,6 +216,209 @@ function registerTenantEntitlementRoutes(fastify) {
             return reply.status(500).send({
                 success: false,
                 message: 'Gagal melakukan re-binding lisensi: ' + err.message
+            });
+        }
+    });
+    /**
+     * 3. POST /api/license/tenant/sync-metadata
+     * Sinkronisasi real-time perubahan metadata tenant (nama, subdomain, custom_domain, status)
+     * dari Superadmin Absenta ke License Server (License + Subscription) dan trigger reload Caddy.
+     */
+    fastify.post('/api/license/tenant/sync-metadata', async (request, reply) => {
+        const body = (request.body || {});
+        const serverKey = body.server_license_key?.trim();
+        if (!serverKey) {
+            return reply.status(401).send({
+                success: false,
+                message: 'Otorisasi server ditolak: server_license_key wajib disertakan.'
+            });
+        }
+        try {
+            const hostLicense = await prisma.license.findUnique({
+                where: { licenseKey: serverKey }
+            });
+            if (!hostLicense) {
+                return reply.status(401).send({
+                    success: false,
+                    message: 'Server License Key tidak valid atau tidak terdaftar pada Server Lisensi.'
+                });
+            }
+            const oldSub = body.old_subdomain?.trim().toLowerCase() || undefined;
+            const newSub = body.new_subdomain?.trim().toLowerCase() || undefined;
+            const oldCustom = body.old_custom_domain?.trim().toLowerCase() || undefined;
+            const hasCustomField = body.custom_domain !== undefined;
+            const newCustom = hasCustomField
+                ? (body.custom_domain ? body.custom_domain.trim().toLowerCase() : null)
+                : undefined;
+            const oldName = body.old_name?.trim() || undefined;
+            const newName = body.new_name?.trim() || undefined;
+            const cleanNpsn = body.npsn?.trim() || undefined;
+            const deployScenario = body.deploy_scenario?.trim().toLowerCase();
+            const upperStatus = body.status?.trim().toUpperCase();
+            const subdomainChanged = Boolean(newSub && newSub !== oldSub);
+            const customDomainChanged = hasCustomField && (newCustom ?? null) !== (oldCustom ?? null);
+            const nameChanged = Boolean(newName && newName !== oldName);
+            const statusChanged = Boolean(upperStatus);
+            // 1. Cari lisensi terkait milik tenant ini
+            const licenseOrConditions = [];
+            if (deployScenario === 'onpremise') {
+                licenseOrConditions.push({ id: hostLicense.id });
+                licenseOrConditions.push({ hostLicenseKey: hostLicense.licenseKey });
+            }
+            if (oldSub) {
+                licenseOrConditions.push({ hostLicenseKey: hostLicense.licenseKey, requestedSlug: oldSub });
+                licenseOrConditions.push({ hostLicenseKey: hostLicense.licenseKey, tenantIdentifier: oldSub });
+                licenseOrConditions.push({
+                    requestedSlug: oldSub,
+                    productId: { in: ['easy-tunnel', 'absenta-vpn'] },
+                    OR: [{ hostLicenseKey: hostLicense.licenseKey }, { hostLicenseKey: null }]
+                });
+            }
+            if (oldCustom) {
+                licenseOrConditions.push({ hostLicenseKey: hostLicense.licenseKey, customDomain: oldCustom });
+            }
+            if (cleanNpsn) {
+                licenseOrConditions.push({ hostLicenseKey: hostLicense.licenseKey, npsn: cleanNpsn });
+            }
+            const matchedLicenses = licenseOrConditions.length > 0
+                ? await prisma.license.findMany({ where: { OR: licenseOrConditions } })
+                : [];
+            const matchedLicenseIds = new Set(matchedLicenses.map((l) => l.id));
+            // 2. Cek bentrok subdomain baru (jika subdomain berubah)
+            if (subdomainChanged && newSub) {
+                const conflictingLicense = await prisma.license.findFirst({
+                    where: {
+                        id: { notIn: Array.from(matchedLicenseIds) },
+                        isActive: 1,
+                        OR: [
+                            { requestedSlug: newSub },
+                            { tenantIdentifier: newSub }
+                        ]
+                    },
+                    select: { licenseKey: true, schoolName: true, requestedSlug: true }
+                });
+                if (conflictingLicense) {
+                    return reply.status(409).send({
+                        success: false,
+                        code: 'SUBDOMAIN_CONFLICT',
+                        message: `Subdomain '${newSub}' sudah digunakan oleh lisensi aktif lain di Server Lisensi.`
+                    });
+                }
+                const otherHostSubs = await prisma.subscription.findMany({
+                    where: {
+                        licenseId: { not: hostLicense.id },
+                        status: 'active',
+                        schoolName: { endsWith: `|${newSub}`, mode: 'insensitive' }
+                    },
+                    select: { id: true, schoolName: true }
+                });
+                if (otherHostSubs.length > 0) {
+                    return reply.status(409).send({
+                        success: false,
+                        code: 'SUBDOMAIN_CONFLICT',
+                        message: `Subdomain '${newSub}' sudah digunakan oleh tenant pada server lain.`
+                    });
+                }
+            }
+            // 3. Cek bentrok custom domain baru (jika custom_domain diisi & berubah)
+            if (customDomainChanged && newCustom) {
+                const conflictingCustom = await prisma.license.findFirst({
+                    where: {
+                        id: { notIn: Array.from(matchedLicenseIds) },
+                        isActive: 1,
+                        customDomain: { equals: newCustom, mode: 'insensitive' }
+                    },
+                    select: { licenseKey: true, customDomain: true }
+                });
+                if (conflictingCustom) {
+                    return reply.status(409).send({
+                        success: false,
+                        code: 'CUSTOM_DOMAIN_CONFLICT',
+                        message: `Custom domain '${newCustom}' sudah terpasang pada lisensi lain di Server Lisensi.`
+                    });
+                }
+            }
+            // 4. Update Subscription pada Host License (format schoolName: "Nama Sekolah|subdomain")
+            let updatedSubscriptions = 0;
+            const hostSubscriptions = await prisma.subscription.findMany({
+                where: { licenseId: hostLicense.id }
+            });
+            const effectiveName = newName || oldName;
+            const effectiveSub = newSub || oldSub;
+            for (const sub of hostSubscriptions) {
+                const parts = sub.schoolName.split('|');
+                const subPartName = parts[0]?.trim().toLowerCase();
+                const subPartSlug = parts[1]?.trim().toLowerCase();
+                const matchesBySlug = Boolean(oldSub && subPartSlug === oldSub);
+                const matchesByName = Boolean(oldName && subPartName === oldName.toLowerCase());
+                if (!matchesBySlug && !matchesByName)
+                    continue;
+                const targetName = effectiveName || parts[0]?.trim() || sub.schoolName;
+                const targetSlug = effectiveSub || parts[1]?.trim();
+                const nextSchoolName = targetSlug ? `${targetName}|${targetSlug}` : targetName;
+                if (nextSchoolName !== sub.schoolName) {
+                    await prisma.subscription.update({
+                        where: { id: sub.id },
+                        data: { schoolName: nextSchoolName }
+                    });
+                    updatedSubscriptions++;
+                }
+            }
+            // 5. Update matched License records (slug, customDomain, schoolName, entitlementStatus)
+            let updatedLicenses = 0;
+            for (const lic of matchedLicenses) {
+                const isHostSelf = lic.id === hostLicense.id;
+                // Pada SaaS multi-tenant, jangan pernah timpa slug/status host utama jika lolos filter
+                if (isHostSelf && deployScenario !== 'onpremise')
+                    continue;
+                const updateData = {};
+                if (newSub && (subdomainChanged || lic.requestedSlug !== newSub)) {
+                    updateData.requestedSlug = newSub;
+                    updateData.tenantIdentifier = newSub;
+                }
+                if (nameChanged && newName) {
+                    updateData.schoolName = newName;
+                }
+                if (customDomainChanged) {
+                    updateData.customDomain = newCustom;
+                }
+                if (!isHostSelf && upperStatus) {
+                    if (upperStatus === 'SUSPENDED' || upperStatus === 'INACTIVE') {
+                        updateData.entitlementStatus = 'SUSPENDED';
+                    }
+                    else if (upperStatus === 'ACTIVE' && lic.entitlementStatus === 'SUSPENDED') {
+                        updateData.entitlementStatus = 'ACTIVE';
+                    }
+                }
+                if (Object.keys(updateData).length > 0) {
+                    await prisma.license.update({
+                        where: { id: lic.id },
+                        data: updateData
+                    });
+                    updatedLicenses++;
+                }
+            }
+            // 6. Trigger reload Caddy jika ada perubahan routing domain/subdomain/status
+            let caddySynced = false;
+            if (subdomainChanged || customDomainChanged || statusChanged) {
+                await (0, caddy_service_1.triggerCaddySync)();
+                caddySynced = true;
+            }
+            return reply.send({
+                success: true,
+                message: 'Metadata tenant berhasil disinkronkan ke Server Lisensi.',
+                data: {
+                    updated_licenses: updatedLicenses,
+                    updated_subscriptions: updatedSubscriptions,
+                    caddy_synced: caddySynced
+                }
+            });
+        }
+        catch (err) {
+            console.error('[Tenant Metadata Sync Error]', err.message);
+            return reply.status(500).send({
+                success: false,
+                message: 'Gagal menyinkronkan metadata tenant: ' + err.message
             });
         }
     });
