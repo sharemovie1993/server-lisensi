@@ -24,6 +24,19 @@ interface RebindTenantBody {
 
 export function registerTenantEntitlementRoutes(fastify: FastifyInstance) {
   /**
+   * 0. GET /api/license/ping
+   * Health-check & konektivitas pre-flight untuk consumer (Absenta Backend)
+   */
+  fastify.get('/api/license/ping', async (_request: FastifyRequest, reply: FastifyReply) => {
+    return reply.send({
+      success: true,
+      status: 'ONLINE',
+      timestamp: new Date().toISOString(),
+      service: 'central-licensing-server'
+    });
+  });
+
+  /**
    * 1. POST /api/license/tenant/products
    * Mencari produk/lisensi yang dimiliki oleh tenant secara terotentikasi & terisolasi
    */
