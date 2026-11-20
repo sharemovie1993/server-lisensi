@@ -532,7 +532,7 @@ export function registerTenantEntitlementRoutes(fastify: FastifyInstance) {
     const sourceSlug = body.source_slug?.trim().toLowerCase();
     const targetSlug = body.target_slug?.trim().toLowerCase();
     const targetName = body.target_name?.trim();
-    const durationDays = body.duration_days && body.duration_days > 0 ? body.duration_days : 30;
+    const durationDays = body.duration_days && body.duration_days > 0 ? body.duration_days : 14;
 
     if (!serverKey || !targetSlug) {
       return reply.status(400).send({
