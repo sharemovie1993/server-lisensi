@@ -188,6 +188,10 @@ pos.${MAIN_DOMAIN} {
     }` : ` {
         header_up Host ${domainClean}
         header_up X-Access-Gateway "easy-tunnel"
+        transport http {
+            keepalive 120s
+            keepalive_idle_conns 500
+        }
     }`;
 
           if (isInternalSubdomain) {

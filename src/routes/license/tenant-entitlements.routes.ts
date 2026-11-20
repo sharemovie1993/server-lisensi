@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { PrismaClient } from '@prisma/client';
 import { triggerCaddySync } from '../../services/caddy.service';
+import crypto from 'crypto';
 
 const prisma = new PrismaClient();
 
@@ -494,6 +495,191 @@ export function registerTenantEntitlementRoutes(fastify: FastifyInstance) {
       return reply.status(500).send({
         success: false,
         message: 'Gagal menyinkronkan metadata tenant: ' + err.message
+      });
+    }
+  });
+
+  /**
+   * 4. POST /api/license/tenant/provision-clone
+   * Menerbitkan lisensi mandiri bertipe TRIAL / CLONE untuk tenant hasil kloning baru,
+   * menyalin hak produk dari tenant sumber (atau paket default), mendaftarkan slug ke database lisensi,
+   * dan memicu triggerCaddySync() agar Caddy On-Demand TLS langsung menyetujui domain tenant baru.
+   */
+  fastify.post('/api/license/tenant/provision-clone', async (request: FastifyRequest, reply: FastifyReply) => {
+    const body = (request.body || {}) as {
+      server_license_key?: string;
+      source_slug?: string;
+      target_slug?: string;
+      target_name?: string;
+      duration_days?: number;
+      deploy_scenario?: string;
+    };
+
+    const serverKey = body.server_license_key?.trim();
+    const sourceSlug = body.source_slug?.trim().toLowerCase();
+    const targetSlug = body.target_slug?.trim().toLowerCase();
+    const targetName = body.target_name?.trim();
+    const durationDays = body.duration_days && body.duration_days > 0 ? body.duration_days : 30;
+
+    if (!serverKey || !targetSlug) {
+      return reply.status(400).send({
+        success: false,
+        message: 'server_license_key dan target_slug wajib disertakan.'
+      });
+    }
+
+    try {
+      // 1. Verifikasi Validitas Host Server Key
+      const hostLicense = await prisma.license.findUnique({
+        where: { licenseKey: serverKey }
+      });
+
+      if (!hostLicense) {
+        return reply.status(401).send({
+          success: false,
+          message: 'Server License Key tidak valid atau tidak terdaftar pada Server Lisensi.'
+        });
+      }
+
+      const expiresAtStr = new Date(Date.now() + durationDays * 24 * 3600 * 1000).toISOString().split('T')[0];
+
+      // 2. Periksa apakah lisensi untuk target_slug sudah ada
+      let targetLicenses = await prisma.license.findMany({
+        where: {
+          requestedSlug: targetSlug,
+          licenseKey: { not: serverKey }
+        },
+        include: { plan: true, product: true }
+      });
+
+      if (targetLicenses.length > 0) {
+        // Perbarui masa aktif lisensi yang ada
+        for (const lic of targetLicenses) {
+          await prisma.license.update({
+            where: { id: lic.id },
+            data: {
+              status: 'active',
+              isActive: 1,
+              entitlementStatus: 'ACTIVE',
+              expiresAt: expiresAtStr,
+              schoolName: targetName || lic.schoolName
+            }
+          });
+        }
+      } else {
+        // Cari lisensi milik tenant sumber
+        const sourceLicenses = sourceSlug
+          ? await prisma.license.findMany({
+              where: {
+                requestedSlug: sourceSlug,
+                licenseKey: { not: serverKey }
+              },
+              include: { plan: true, product: true }
+            })
+          : [];
+
+        if (sourceLicenses.length > 0) {
+          // Kloning setiap lisensi dari tenant sumber
+          for (const sLic of sourceLicenses) {
+            const newKey = 'ABS-' + crypto.randomBytes(2).toString('hex').toUpperCase() + '-' + crypto.randomBytes(2).toString('hex').toUpperCase() + '-' + crypto.randomBytes(2).toString('hex').toUpperCase();
+            await prisma.license.create({
+              data: {
+                licenseKey: newKey,
+                productId: sLic.productId,
+                planId: sLic.planId,
+                schoolName: targetName || `${sLic.schoolName} (Demo)`,
+                deviceLimit: sLic.deviceLimit || 1000,
+                isUnlimited: 1,
+                expiresAt: expiresAtStr,
+                status: 'active',
+                isActive: 1,
+                requestedSlug: targetSlug,
+                tenantIdentifier: targetSlug,
+                hostLicenseKey: serverKey,
+                entitlementStatus: 'ACTIVE'
+              }
+            });
+          }
+        } else {
+          // Jika tidak ada lisensi sumber, terbitkan lisensi default Cakola Paket Lengkap
+          const defaultPlan = await prisma.plan.findFirst({
+            where: {
+              OR: [
+                { id: { contains: 'PAKET_LENGKAP' } },
+                { productId: 'cakola' }
+              ]
+            }
+          });
+
+          const newKey = 'ABS-' + crypto.randomBytes(2).toString('hex').toUpperCase() + '-' + crypto.randomBytes(2).toString('hex').toUpperCase() + '-' + crypto.randomBytes(2).toString('hex').toUpperCase();
+          await prisma.license.create({
+            data: {
+              licenseKey: newKey,
+              productId: defaultPlan?.productId || 'cakola',
+              planId: defaultPlan?.id || null,
+              schoolName: targetName || `${targetSlug} (Demo)`,
+              deviceLimit: 1000,
+              isUnlimited: 1,
+              expiresAt: expiresAtStr,
+              status: 'active',
+              isActive: 1,
+              requestedSlug: targetSlug,
+              tenantIdentifier: targetSlug,
+              hostLicenseKey: serverKey,
+              entitlementStatus: 'ACTIVE'
+            }
+          });
+        }
+
+        // Ambil kembali seluruh lisensi yang baru dibuat untuk target_slug
+        targetLicenses = await prisma.license.findMany({
+          where: {
+            requestedSlug: targetSlug,
+            licenseKey: { not: serverKey }
+          },
+          include: { plan: true, product: true }
+        });
+      }
+
+      // 3. Picu Sinkronisasi Caddy agar Caddy On-Demand TLS langsung menyetujui domain baru
+      let caddySynced = false;
+      try {
+        await triggerCaddySync();
+        caddySynced = true;
+      } catch (caddyErr: any) {
+        console.warn('[ProvisionClone] Notice syncing Caddy:', caddyErr.message);
+      }
+
+      // 4. Format keluaran produk (kompatibel dengan consumer fetchTenantProducts)
+      const formatted = targetLicenses.map((lic: any) => ({
+        license_key: lic.licenseKey,
+        product_id: lic.productId,
+        product_name: lic.product?.name || lic.productId,
+        package_title: lic.plan?.name || lic.schoolName || 'Paket Lisensi Demo',
+        school_name: lic.schoolName,
+        subdomain: lic.requestedSlug || '',
+        requested_slug: lic.requestedSlug || '',
+        status: lic.status,
+        is_active: lic.isActive,
+        is_bundled: lic.includeVpn === 1 || (Boolean(lic.hostLicenseKey) && lic.productId === 'easy-tunnel'),
+        entitlement_status: lic.entitlementStatus || 'ACTIVE',
+        expires_at: lic.expiresAt,
+        local_port: lic.localPort || null,
+        app_name: lic.appName || lic.schoolName || null,
+        wireguard_ip: lic.wireguardIp || null
+      }));
+
+      return reply.send({
+        success: true,
+        message: `Berhasil menerbitkan lisensi mandiri untuk tenant kloning ${targetSlug}.`,
+        caddy_synced: caddySynced,
+        data: formatted
+      });
+    } catch (err: any) {
+      console.error('[Tenant Entitlements Provision Clone Error]', err.message);
+      return reply.status(500).send({
+        success: false,
+        message: 'Gagal menerbitkan lisensi tenant kloning: ' + err.message
       });
     }
   });
