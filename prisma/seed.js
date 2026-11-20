@@ -1,6 +1,10 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+const { seedHardware } = require('../scripts/seed_hardware_plans');
+const { seedSettings } = require('../scripts/seed-settings');
+const { seedSkkni } = require('../scripts/seed_skkni');
+
 const products = [
   {
     "id": "cakola",
@@ -46,6 +50,11 @@ const products = [
     "id": "undangan-digital",
     "name": "Undangan Digital Multi-Event & Print Kit",
     "prefix": "UND"
+  },
+  {
+    "id": "hardware",
+    "name": "Hardware & Perangkat Pendukung",
+    "prefix": "HW"
   }
 ];
 
@@ -2407,14 +2416,87 @@ const plans = [
     "isActive": true,
     "moduleId": "ABSENSI",
     "serviceCode": "cakola"
+  },
+  {
+    "id": "PVT_SESSION_1",
+    "productId": "privateer",
+    "name": "1 Sesi Praktik",
+    "priceMonthly": 10000,
+    "priceYearly": 10000,
+    "deviceLimit": 1,
+    "featuresJson": [
+      "1 Sesi Pertemuan Langsung",
+      "Akses Materi Praktik Terstruktur",
+      "Berlaku Selamanya"
+    ],
+    "billingPeriod": "MONTH",
+    "isActive": true,
+    "moduleId": "SESSIONS",
+    "serviceCode": "SESSIONS"
+  },
+  {
+    "id": "PVT_SESSION_10",
+    "productId": "privateer",
+    "name": "Paket 10 Sesi Belajar",
+    "priceMonthly": 100000,
+    "priceYearly": 100000,
+    "deviceLimit": 1,
+    "featuresJson": [
+      "10 Sesi Pertemuan Langsung",
+      "Akses Materi Praktik Terstruktur",
+      "Log Evaluasi dari Master Coach",
+      "Berlaku Selamanya"
+    ],
+    "billingPeriod": "MONTH",
+    "isActive": true,
+    "moduleId": "SESSIONS",
+    "serviceCode": "SESSIONS"
+  },
+  {
+    "id": "PVT_SESSION_25",
+    "productId": "privateer",
+    "name": "Paket 25 Sesi Belajar",
+    "priceMonthly": 250000,
+    "priceYearly": 250000,
+    "deviceLimit": 1,
+    "featuresJson": [
+      "25 Sesi Pertemuan Langsung",
+      "Akses Materi Praktik Terstruktur",
+      "Log Evaluasi dari Master Coach",
+      "Prioritas Penjadwalan Sesi",
+      "Berlaku Selamanya"
+    ],
+    "billingPeriod": "MONTH",
+    "isActive": true,
+    "moduleId": "SESSIONS",
+    "serviceCode": "SESSIONS"
+  },
+  {
+    "id": "PVT_SESSION_50",
+    "productId": "privateer",
+    "name": "Paket 50 Sesi Belajar (Pro)",
+    "priceMonthly": 500000,
+    "priceYearly": 500000,
+    "deviceLimit": 1,
+    "featuresJson": [
+      "50 Sesi Pertemuan Langsung",
+      "Akses Materi Praktik Terstruktur",
+      "Log Evaluasi dari Master Coach",
+      "Konsultasi Karir & Portofolio",
+      "Berlaku Selamanya"
+    ],
+    "billingPeriod": "MONTH",
+    "isActive": true,
+    "moduleId": "SESSIONS",
+    "serviceCode": "SESSIONS"
   }
 ];
 
 async function main() {
-  console.log('🌱 Starting database seeding for central License Server using live data...');
+  console.log('🌱 Starting Master Database Seeding for Central License Server (Unified SSOT)...');
 
-  // 1. Seed Products
-  console.log('📦 Seeding Products...');
+  // 1. Seed Products (10 Products)
+  console.log('\n📦 [1/5] Seeding Master Products...');
   for (const product of products) {
     await prisma.product.upsert({
       where: { id: product.id },
@@ -2427,10 +2509,9 @@ async function main() {
     console.log(`  Upserted product: ${product.id}`);
   }
 
-  // 2. Seed Plans
-  console.log('🎫 Seeding Plans...');
+  // 2. Seed Software Plans (126 Plans)
+  console.log('\n🎫 [2/5] Seeding Software Plans...');
   for (const plan of plans) {
-    console.log(`  Attempting plan: ${plan.id} (productId: ${plan.productId})`);
     await prisma.plan.upsert({
       where: { id: plan.id },
       update: {
@@ -2447,10 +2528,33 @@ async function main() {
       },
       create: plan
     });
-    console.log(`  Upserted plan: ${plan.id}`);
   }
+  console.log(`  ✅ Successfully upserted ${plans.length} Software Plans.`);
 
-  console.log('✅ Central database seeding finished successfully.');
+  // 3. Seed Hardware & Physical Service Plans (54 Plans)
+  console.log('\n🖥️ [3/5] Seeding Hardware & Physical Service Plans...');
+  await seedHardware(prisma);
+
+  // 4. Seed Initial System Settings
+  console.log('\n⚙️ [4/5] Seeding System Settings...');
+  await seedSettings(prisma);
+
+  // 5. Seed SKKNI Vocational Catalog (15 Skema & 130 Units)
+  console.log('\n📚 [5/5] Seeding SKKNI Master Catalog...');
+  await seedSkkni(prisma);
+
+  const totalProducts = await prisma.product.count();
+  const totalPlans = await prisma.plan.count();
+  const totalSettings = await prisma.systemSetting.count();
+  const totalSkkni = await prisma.skkniKatalog.count();
+
+  console.log('\n========================================================================');
+  console.log('🎉 UNIFIED SSOT DATABASE SEEDING FINISHED SUCCESSFULLY!');
+  console.log(`📊 Total Products: ${totalProducts}`);
+  console.log(`📊 Total Plans   : ${totalPlans} (126 Software + 54 Hardware)`);
+  console.log(`📊 Total Settings: ${totalSettings}`);
+  console.log(`📊 Total SKKNI   : ${totalSkkni} Skema`);
+  console.log('========================================================================');
 }
 
 main()

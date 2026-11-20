@@ -1,17 +1,18 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-async function seedHardware() {
+async function seedHardware(customPrisma) {
+  const pClient = customPrisma || prisma;
   console.log('Seeding hardware products and plans into Server Lisensi DB...');
 
   // 1. Pastikan product "cakola" sudah ada
-  const cakolaProduct = await prisma.product.findUnique({ where: { id: 'cakola' } });
+  const cakolaProduct = await pClient.product.findUnique({ where: { id: 'cakola' } });
   if (!cakolaProduct) {
-    await prisma.product.create({ data: { id: 'cakola', name: 'Cakola Platform', prefix: 'CKL' } });
+    await pClient.product.create({ data: { id: 'cakola', name: 'Cakola Platform', prefix: 'CKL' } });
   }
 
   // Hapus plan legacy / duplikat yang tidak valid
-  await prisma.plan.deleteMany({
+  await pClient.plan.deleteMany({
     where: {
       OR: [
         { id: { in: ['HW_RFID_LAN_BUDGET_ETH', 'HW_FACE_ZKTECO_MB20', 'BUNDLE_HYBRID_HYDRA', 'BUNDLE_FULL_RFID_VELOX', 'BUNDLE_FULL_RAKITAN_LAN', 'HW_FP_HIKVISION_K1T804', 'HW_FP_HIKVISION_804_OLD'] } },
@@ -1395,7 +1396,7 @@ async function seedHardware() {
   }
 
   // Deactivate old legacy card packages & non-standard card variants
-  await prisma.plan.updateMany({
+  await pClient.plan.updateMany({
     where: {
       id: { 
         in: [
@@ -1414,11 +1415,15 @@ async function seedHardware() {
   console.log('Seeding hardware plans completed successfully!');
 }
 
-seedHardware()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+module.exports = { seedHardware };
+
+if (require.main === module) {
+  seedHardware()
+    .catch((e) => {
+      console.error(e);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
+}

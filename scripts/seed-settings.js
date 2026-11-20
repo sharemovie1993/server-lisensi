@@ -1,7 +1,8 @@
 const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const defaultPrisma = new PrismaClient();
 
-async function main() {
+async function seedSettings(customPrisma) {
+  const prisma = customPrisma || defaultPrisma;
   const initialSettings = [
     { key: 'contact_phone', value: '087779937341' },
     { key: 'billing_email', value: 'billing@absenta.id' },
@@ -20,14 +21,18 @@ async function main() {
     });
     console.log(`- Upserted: ${setting.key} = "${setting.value}"`);
   }
-  console.log('Done!');
+  console.log('System settings seeding done!');
 }
 
-main()
-  .catch(e => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+module.exports = { seedSettings };
+
+if (require.main === module) {
+  seedSettings()
+    .catch(e => {
+      console.error(e);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await defaultPrisma.$disconnect();
+    });
+}

@@ -1,5 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const defaultPrisma = new PrismaClient();
 
 const SKKNI_DATA = [
   // =========================================================================
@@ -1023,7 +1023,8 @@ const SKKNI_DATA = [
   },
 ];
 
-async function main() {
+async function seedSkkni(customPrisma) {
+  const prisma = customPrisma || defaultPrisma;
   console.log('🚀 Memulai Seeding Master Katalog SKKNI di Server Lisensi...');
 
   for (const item of SKKNI_DATA) {
@@ -1078,11 +1079,15 @@ async function main() {
   console.log(`📊 Total Unit Kompetensi: ${totalUnits}`);
 }
 
-main()
-  .catch((e) => {
-    console.error('❌ Gagal seeding SKKNI:', e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+module.exports = { seedSkkni };
+
+if (require.main === module) {
+  seedSkkni()
+    .catch((e) => {
+      console.error('❌ Gagal seeding SKKNI:', e);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await defaultPrisma.$disconnect();
+    });
+}
