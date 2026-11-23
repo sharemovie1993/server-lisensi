@@ -653,8 +653,8 @@ const plans = [
     "id": "KOPERASI_SEKOLAH_MICRO_BULANAN",
     "productId": "cakola",
     "name": "Koperasi Sekolah (Micro) - Bulanan",
-    "priceMonthly": 150000,
-    "priceYearly": 1440000,
+    "priceMonthly": 300000,
+    "priceYearly": 2880000,
     "deviceLimit": 100,
     "featuresJson": [
       "Manajemen Anggota & Tabungan Siswa",
@@ -673,8 +673,8 @@ const plans = [
     "id": "KOPERASI_SEKOLAH_MICRO_TAHUNAN",
     "productId": "cakola",
     "name": "Koperasi Sekolah (Micro) - Tahunan",
-    "priceMonthly": 120000,
-    "priceYearly": 1440000,
+    "priceMonthly": 240000,
+    "priceYearly": 2880000,
     "deviceLimit": 100,
     "featuresJson": [
       "Manajemen Anggota & Tabungan Siswa",
@@ -693,8 +693,8 @@ const plans = [
     "id": "KOPERASI_SEKOLAH_SMALL_BULANAN",
     "productId": "cakola",
     "name": "Koperasi Sekolah (Small) - Bulanan",
-    "priceMonthly": 300000,
-    "priceYearly": 2880000,
+    "priceMonthly": 500000,
+    "priceYearly": 4800000,
     "deviceLimit": 300,
     "featuresJson": [
       "Manajemen Anggota & Tabungan Siswa",
@@ -713,8 +713,8 @@ const plans = [
     "id": "KOPERASI_SEKOLAH_SMALL_TAHUNAN",
     "productId": "cakola",
     "name": "Koperasi Sekolah (Small) - Tahunan",
-    "priceMonthly": 240000,
-    "priceYearly": 2880000,
+    "priceMonthly": 400000,
+    "priceYearly": 4800000,
     "deviceLimit": 300,
     "featuresJson": [
       "Manajemen Anggota & Tabungan Siswa",
@@ -733,8 +733,8 @@ const plans = [
     "id": "KOPERASI_SEKOLAH_MEDIUM_BULANAN",
     "productId": "cakola",
     "name": "Koperasi Sekolah (Medium) - Bulanan",
-    "priceMonthly": 500000,
-    "priceYearly": 4800000,
+    "priceMonthly": 850000,
+    "priceYearly": 8160000,
     "deviceLimit": 600,
     "featuresJson": [
       "Manajemen Anggota & Tabungan Siswa",
@@ -753,8 +753,8 @@ const plans = [
     "id": "KOPERASI_SEKOLAH_MEDIUM_TAHUNAN",
     "productId": "cakola",
     "name": "Koperasi Sekolah (Medium) - Tahunan",
-    "priceMonthly": 400000,
-    "priceYearly": 4800000,
+    "priceMonthly": 680000,
+    "priceYearly": 8160000,
     "deviceLimit": 600,
     "featuresJson": [
       "Manajemen Anggota & Tabungan Siswa",
@@ -773,8 +773,8 @@ const plans = [
     "id": "KOPERASI_SEKOLAH_LARGE_BULANAN",
     "productId": "cakola",
     "name": "Koperasi Sekolah (Large) - Bulanan",
-    "priceMonthly": 850000,
-    "priceYearly": 8160000,
+    "priceMonthly": 1750000,
+    "priceYearly": 16800000,
     "deviceLimit": 1200,
     "featuresJson": [
       "Manajemen Anggota & Tabungan Siswa",
@@ -793,8 +793,8 @@ const plans = [
     "id": "KOPERASI_SEKOLAH_LARGE_TAHUNAN",
     "productId": "cakola",
     "name": "Koperasi Sekolah (Large) - Tahunan",
-    "priceMonthly": 680000,
-    "priceYearly": 8160000,
+    "priceMonthly": 1400000,
+    "priceYearly": 16800000,
     "deviceLimit": 1200,
     "featuresJson": [
       "Manajemen Anggota & Tabungan Siswa",
@@ -813,8 +813,8 @@ const plans = [
     "id": "KOPERASI_SEKOLAH_ENTERPRISE_BULANAN",
     "productId": "cakola",
     "name": "Koperasi Sekolah (Enterprise) - Bulanan",
-    "priceMonthly": 1750000,
-    "priceYearly": 16800000,
+    "priceMonthly": 2500000,
+    "priceYearly": 24000000,
     "deviceLimit": 0,
     "featuresJson": [
       "Manajemen Anggota & Tabungan Siswa",
@@ -833,8 +833,8 @@ const plans = [
     "id": "KOPERASI_SEKOLAH_ENTERPRISE_TAHUNAN",
     "productId": "cakola",
     "name": "Koperasi Sekolah (Enterprise) - Tahunan",
-    "priceMonthly": 1400000,
-    "priceYearly": 16800000,
+    "priceMonthly": 2000000,
+    "priceYearly": 24000000,
     "deviceLimit": 0,
     "featuresJson": [
       "Manajemen Anggota & Tabungan Siswa",
@@ -1578,7 +1578,6 @@ const plans = [
     "priceYearly": 1910400,
     "deviceLimit": 100,
     "featuresJson": [
-      "KOPERASI",
       "SARPRAS",
       "HUBIN",
       "WHATSAPP",
@@ -1602,7 +1601,6 @@ const plans = [
     "priceYearly": 1910400,
     "deviceLimit": 100,
     "featuresJson": [
-      "KOPERASI",
       "SARPRAS",
       "HUBIN",
       "WHATSAPP",
@@ -1626,7 +1624,6 @@ const plans = [
     "priceYearly": 4790400,
     "deviceLimit": 300,
     "featuresJson": [
-      "KOPERASI",
       "SARPRAS",
       "HUBIN",
       "WHATSAPP",
@@ -1650,7 +1647,6 @@ const plans = [
     "priceYearly": 4790400,
     "deviceLimit": 300,
     "featuresJson": [
-      "KOPERASI",
       "SARPRAS",
       "HUBIN",
       "WHATSAPP",
@@ -1674,7 +1670,6 @@ const plans = [
     "priceYearly": 8630400,
     "deviceLimit": 600,
     "featuresJson": [
-      "KOPERASI",
       "SARPRAS",
       "HUBIN",
       "WHATSAPP",
@@ -1698,7 +1693,6 @@ const plans = [
     "priceYearly": 8630400,
     "deviceLimit": 600,
     "featuresJson": [
-      "KOPERASI",
       "SARPRAS",
       "HUBIN",
       "WHATSAPP",
@@ -1722,7 +1716,6 @@ const plans = [
     "priceYearly": 15350400,
     "deviceLimit": 1200,
     "featuresJson": [
-      "KOPERASI",
       "SARPRAS",
       "HUBIN",
       "WHATSAPP",
@@ -1746,7 +1739,6 @@ const plans = [
     "priceYearly": 15350400,
     "deviceLimit": 1200,
     "featuresJson": [
-      "KOPERASI",
       "SARPRAS",
       "HUBIN",
       "WHATSAPP",
@@ -1770,7 +1762,6 @@ const plans = [
     "priceYearly": 28790400,
     "deviceLimit": 0,
     "featuresJson": [
-      "KOPERASI",
       "SARPRAS",
       "HUBIN",
       "WHATSAPP",
@@ -1794,7 +1785,6 @@ const plans = [
     "priceYearly": 28790400,
     "deviceLimit": 0,
     "featuresJson": [
-      "KOPERASI",
       "SARPRAS",
       "HUBIN",
       "WHATSAPP",
@@ -1818,7 +1808,6 @@ const plans = [
     "priceYearly": 2870400,
     "deviceLimit": 100,
     "featuresJson": [
-      "KOPERASI",
       "SARPRAS",
       "HUBIN",
       "WHATSAPP",
@@ -1894,7 +1883,6 @@ const plans = [
     "priceYearly": 2870400,
     "deviceLimit": 100,
     "featuresJson": [
-      "KOPERASI",
       "SARPRAS",
       "HUBIN",
       "WHATSAPP",
@@ -1918,7 +1906,6 @@ const plans = [
     "priceYearly": 5750400,
     "deviceLimit": 300,
     "featuresJson": [
-      "KOPERASI",
       "SARPRAS",
       "HUBIN",
       "WHATSAPP",
@@ -1942,7 +1929,6 @@ const plans = [
     "priceYearly": 5750400,
     "deviceLimit": 300,
     "featuresJson": [
-      "KOPERASI",
       "SARPRAS",
       "HUBIN",
       "WHATSAPP",
@@ -1966,7 +1952,6 @@ const plans = [
     "priceYearly": 10550400,
     "deviceLimit": 600,
     "featuresJson": [
-      "KOPERASI",
       "SARPRAS",
       "HUBIN",
       "WHATSAPP",
@@ -1990,7 +1975,6 @@ const plans = [
     "priceYearly": 10550400,
     "deviceLimit": 600,
     "featuresJson": [
-      "KOPERASI",
       "SARPRAS",
       "HUBIN",
       "WHATSAPP",
@@ -2014,7 +1998,6 @@ const plans = [
     "priceYearly": 19190400,
     "deviceLimit": 1200,
     "featuresJson": [
-      "KOPERASI",
       "SARPRAS",
       "HUBIN",
       "WHATSAPP",
@@ -2038,7 +2021,6 @@ const plans = [
     "priceYearly": 19190400,
     "deviceLimit": 1200,
     "featuresJson": [
-      "KOPERASI",
       "SARPRAS",
       "HUBIN",
       "WHATSAPP",
@@ -2062,7 +2044,6 @@ const plans = [
     "priceYearly": 38390400,
     "deviceLimit": 0,
     "featuresJson": [
-      "KOPERASI",
       "SARPRAS",
       "HUBIN",
       "WHATSAPP",
@@ -2086,7 +2067,6 @@ const plans = [
     "priceYearly": 38390400,
     "deviceLimit": 0,
     "featuresJson": [
-      "KOPERASI",
       "SARPRAS",
       "HUBIN",
       "WHATSAPP",
