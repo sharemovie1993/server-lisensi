@@ -10,8 +10,13 @@ import {
 interface MetricPoint {
   timestamp: string;
   cpuUsage: number;
+  maxCpuUsage?: number;
   memoryUsage: number;
+  maxMemoryUsage?: number;
+  memoryUsedMb?: number;
+  maxMemoryUsedMb?: number;
   responseTimeMs: number;
+  maxResponseTimeMs?: number;
   localLatencyMs: number;
   publicLatencyMs: number;
   requestsCount: number;
@@ -24,6 +29,9 @@ interface MetricSummary {
   maxCpu: number;
   avgMemory: number;
   maxMemory: number;
+  avgMemoryMb?: number;
+  maxMemoryMb?: number;
+  totalMemoryMb?: number;
   avgResponseTime: number;
   maxResponseTime: number;
   totalRequests: number;
@@ -309,17 +317,27 @@ export default function NodeMetricsModal({ isOpen, onClose, tenant }: NodeMetric
               <div className="text-slate-400 font-mono border-b border-slate-800 pb-1">
                 ⏱️ {new Date(hoveredPoint.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} ({new Date(hoveredPoint.timestamp).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })})
               </div>
-              {dataKeys.map((k) => (
-                <div key={String(k.key)} className="flex items-center justify-between gap-3">
-                  <span className="text-slate-300 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: k.color }} />
-                    {k.label}:
-                  </span>
-                  <span className="font-mono font-bold text-white">
-                    {Number(hoveredPoint[k.key]) || 0} {k.unit}
-                  </span>
-                </div>
-              ))}
+              {dataKeys.map((k) => {
+                const rawVal = Number(hoveredPoint[k.key]) || 0;
+                const extraMb =
+                  k.key === 'maxMemoryUsage' && hoveredPoint.maxMemoryUsedMb
+                    ? ` (${hoveredPoint.maxMemoryUsedMb.toLocaleString('id-ID')} MB)`
+                    : k.key === 'memoryUsage' && hoveredPoint.memoryUsedMb
+                    ? ` (${hoveredPoint.memoryUsedMb.toLocaleString('id-ID')} MB)`
+                    : '';
+                return (
+                  <div key={String(k.key)} className="flex items-center justify-between gap-3">
+                    <span className="text-slate-300 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: k.color }} />
+                      {k.label}:
+                    </span>
+                    <span className="font-mono font-bold text-white">
+                      {rawVal} {k.unit}
+                      {extraMb}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -431,16 +449,16 @@ export default function NodeMetricsModal({ isOpen, onClose, tenant }: NodeMetric
                 <span className="flex items-center gap-1">
                   <Cpu className="w-3.5 h-3.5 text-amber-400" /> Beban CPU
                 </span>
-                <span className="text-[10px] text-slate-500 font-mono">Avg</span>
+                <span className="text-[10px] text-slate-500 font-mono">Avg / Peak</span>
               </span>
               <div className="flex items-baseline gap-1.5">
                 <span className="text-xl font-bold font-mono text-white">
-                  {summary?.avgCpu ? `${summary.avgCpu}` : '0'}
+                  {summary?.avgCpu !== undefined ? `${summary.avgCpu}` : '0'}
                 </span>
                 <span className="text-xs text-slate-400">%</span>
               </div>
               <p className="text-[10.5px] text-slate-500 font-mono">
-                Puncak: <strong className="text-amber-400">{summary?.maxCpu || 0}%</strong>
+                Puncak (Spike): <strong className="text-amber-400">{summary?.maxCpu || 0}%</strong>
               </p>
             </div>
 
@@ -450,16 +468,27 @@ export default function NodeMetricsModal({ isOpen, onClose, tenant }: NodeMetric
                 <span className="flex items-center gap-1">
                   <Database className="w-3.5 h-3.5 text-emerald-400" /> Pemakaian RAM
                 </span>
-                <span className="text-[10px] text-slate-500 font-mono">Avg</span>
+                <span className="text-[10px] text-slate-500 font-mono">
+                  {summary?.totalMemoryMb ? `${Math.round(summary.totalMemoryMb / 1024)} GB` : 'Avg'}
+                </span>
               </span>
               <div className="flex items-baseline gap-1.5">
                 <span className="text-xl font-bold font-mono text-white">
-                  {summary?.avgMemory ? `${summary.avgMemory}` : '0'}
+                  {summary?.avgMemory !== undefined ? `${summary.avgMemory}` : '0'}
                 </span>
-                <span className="text-xs text-slate-400">MB</span>
+                <span className="text-xs text-slate-400">%</span>
+                {summary?.avgMemoryMb !== undefined && (
+                  <span className="text-[11px] font-mono text-slate-400">
+                    ({summary.avgMemoryMb.toLocaleString('id-ID')} MB)
+                  </span>
+                )}
               </div>
               <p className="text-[10.5px] text-slate-500 font-mono">
-                Puncak: <strong className="text-emerald-400">{summary?.maxMemory || 0}MB</strong>
+                Puncak:{' '}
+                <strong className="text-emerald-400">
+                  {summary?.maxMemory || 0}%
+                  {summary?.maxMemoryMb ? ` (${summary.maxMemoryMb.toLocaleString('id-ID')} MB)` : ''}
+                </strong>
               </p>
             </div>
 
@@ -469,7 +498,7 @@ export default function NodeMetricsModal({ isOpen, onClose, tenant }: NodeMetric
                 <span className="flex items-center gap-1">
                   <Users className="w-3.5 h-3.5 text-sky-400" /> Volume Beban
                 </span>
-                <span className="text-[10px] text-slate-500 font-mono">Reqs</span>
+                <span className="text-[10px] text-slate-500 font-mono">Cluster</span>
               </span>
               <div className="flex items-baseline gap-1.5">
                 <span className="text-xl font-bold font-mono text-white">
@@ -541,8 +570,9 @@ export default function NodeMetricsModal({ isOpen, onClose, tenant }: NodeMetric
           <div className="space-y-4">
             {(activeTab === 'all' || activeTab === 'latency') && (
               renderLineChart(
-                'Waktu Respons HTTP (Rata-rata ms)',
+                'Waktu Respons HTTP (Rata-rata & Puncak ms)',
                 [
+                  { key: 'maxResponseTimeMs', label: 'Puncak / Spike (ms)', color: '#f43f5e', unit: 'ms' },
                   { key: 'responseTimeMs', label: 'Total Avg (ms)', color: '#818cf8', unit: 'ms' },
                   { key: 'localLatencyMs', label: 'LAN / Lokal (ms)', color: '#34d399', unit: 'ms' },
                   { key: 'publicLatencyMs', label: 'Publik / Internet (ms)', color: '#f59e0b', unit: 'ms' },
@@ -553,17 +583,20 @@ export default function NodeMetricsModal({ isOpen, onClose, tenant }: NodeMetric
             {(activeTab === 'all' || activeTab === 'system') && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {renderLineChart(
-                  'Beban CPU (%)',
+                  'Beban CPU (% Avg & Spike)',
                   [
-                    { key: 'cpuUsage', label: 'CPU Usage', color: '#f59e0b', unit: '%' }
+                    { key: 'maxCpuUsage', label: 'Puncak Spike (%)', color: '#f43f5e', unit: '%' },
+                    { key: 'cpuUsage', label: 'Rata-rata (%)', color: '#f59e0b', unit: '%' }
                   ],
                   100
                 )}
                 {renderLineChart(
-                  'Pemakaian RAM (MB)',
+                  'Pemakaian RAM (% Avg & Puncak)',
                   [
-                    { key: 'memoryUsage', label: 'Memory (RAM)', color: '#10b981', unit: 'MB' }
-                  ]
+                    { key: 'maxMemoryUsage', label: 'Puncak RAM (%)', color: '#10b981', unit: '%' },
+                    { key: 'memoryUsage', label: 'Rata-rata RAM (%)', color: '#38bdf8', unit: '%' }
+                  ],
+                  100
                 )}
               </div>
             )}
@@ -571,13 +604,13 @@ export default function NodeMetricsModal({ isOpen, onClose, tenant }: NodeMetric
             {(activeTab === 'all' || activeTab === 'traffic') && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {renderLineChart(
-                  'Volume Permintaan / Request HTTP',
+                  'Volume Permintaan / Request HTTP (Seluruh Worker)',
                   [
                     { key: 'requestsCount', label: 'Jumlah Request', color: '#38bdf8', unit: 'req' }
                   ]
                 )}
                 {renderLineChart(
-                  'Pengguna Aktif (Concurrent Users)',
+                  'Pengguna Aktif (Concurrent Users Cluster)',
                   [
                     { key: 'activeUsers', label: 'Active Users', color: '#ec4899', unit: 'user' }
                   ]
@@ -590,10 +623,9 @@ export default function NodeMetricsModal({ isOpen, onClose, tenant }: NodeMetric
           <div className="p-3.5 bg-slate-950/40 border border-slate-800/80 rounded-xl flex items-start gap-3 text-xs text-slate-400">
             <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
             <div className="space-y-0.5">
-              <span className="font-semibold text-slate-300">Pencatatan Rolling Window 2-Menit:</span>
+              <span className="font-semibold text-slate-300">Pencatatan Continuous 5s Sampler & Agregasi Cluster Redis:</span>
               <p className="text-[11px] text-slate-400 leading-relaxed">
-                Data latensi dan beban dikumpulkan secara real-time dari middleware sistem di node server dan dikirimkan setiap siklus 2 menit. 
-                Data di-reset per siklus untuk memastikan setiap lonjakan (peak) performa terekam dengan akurat tanpa teredam oleh data lama.
+                CPU & RAM di-sampling setiap 5 detik secara kontinyu di node server, sedangkan trafik HTTP & pengguna aktif diagregasi dari seluruh worker PM2 cluster via Redis setiap siklus 2 menit untuk memastikan setiap lonjakan (spike) ujian terekam 100% akurat.
               </p>
             </div>
           </div>

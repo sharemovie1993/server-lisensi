@@ -585,19 +585,19 @@ export const registerTenantRoutes = (fastify: FastifyInstance) => {
           break;
         case '24h':
           fromTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-          bucketIntervalMs = 30 * 60 * 1000; // Tiap 30 menit
+          bucketIntervalMs = 15 * 60 * 1000; // Tiap 15 menit (resolusi tajam untuk tangkap spike ujian)
           break;
         case '7d':
           fromTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          bucketIntervalMs = 3 * 60 * 60 * 1000; // Tiap 3 jam
+          bucketIntervalMs = 2 * 60 * 60 * 1000; // Tiap 2 jam
           break;
         case '30d':
           fromTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-          bucketIntervalMs = 24 * 60 * 60 * 1000; // Tiap 24 jam
+          bucketIntervalMs = 12 * 60 * 60 * 1000; // Tiap 12 jam
           break;
         default:
           fromTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-          bucketIntervalMs = 30 * 60 * 1000;
+          bucketIntervalMs = 15 * 60 * 1000;
           break;
       }
 
@@ -609,20 +609,48 @@ export const registerTenantRoutes = (fastify: FastifyInstance) => {
         orderBy: { recordedAt: 'asc' }
       });
 
+      // Parse total RAM (GB -> MB) from activeOs string (e.g. "... | RAM: 23 GB | ...")
+      let totalMemoryMb = 24 * 1024; // Default 24 GB
+      if (license.activeOs) {
+        const ramMatch = String(license.activeOs).match(/RAM:\s*(\d+(?:\.\d+)?)\s*GB/i);
+        if (ramMatch && ramMatch[1]) {
+          const gb = parseFloat(ramMatch[1]);
+          if (gb > 0) totalMemoryMb = Math.round(gb * 1024);
+        }
+      }
+
+      // Normalisasi rasio 0.0 - 1.0 menjadi persentase 0.0 - 100.0%
+      const toPercent = (v: number | null | undefined): number | null => {
+        if (v === null || v === undefined || Number.isNaN(Number(v))) return null;
+        const n = Number(v);
+        const pct = n <= 1.0 ? n * 100 : n;
+        return Math.round(pct * 10) / 10;
+      };
+
+      const pctToMb = (pct: number): number => Math.round((pct / 100) * totalMemoryMb);
+
       const avg = (arr: number[]) => arr.length ? Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 10) / 10 : 0;
       const max = (arr: number[]) => arr.length ? Math.round(Math.max(...arr) * 10) / 10 : 0;
 
-      const allCpus = logs.map(l => l.cpuUsage).filter((v): v is number => v !== null && v !== undefined);
-      const allMems = logs.map(l => l.memoryUsage).filter((v): v is number => v !== null && v !== undefined);
+      const allCpus = logs.map(l => toPercent(l.cpuUsage)).filter((v): v is number => v !== null);
+      const allMems = logs.map(l => toPercent(l.memoryUsage)).filter((v): v is number => v !== null);
       const allResps = logs.map(l => l.responseTimeMs).filter((v): v is number => v !== null && v !== undefined);
       const allUsers = logs.map(l => l.activeUsers || 0);
       const totalRequests = logs.reduce((sum, l) => sum + (l.requestsCount || 0), 0);
 
+      const fallbackCpuPct = toPercent(license.cpuUsage) || 0;
+      const fallbackMemPct = toPercent(license.memoryUsage) || 0;
+      const avgMemPct = allMems.length ? avg(allMems) : fallbackMemPct;
+      const maxMemPct = allMems.length ? max(allMems) : fallbackMemPct;
+
       const summary = {
-        avgCpu: allCpus.length ? avg(allCpus) : (license.cpuUsage || 0),
-        maxCpu: allCpus.length ? max(allCpus) : (license.cpuUsage || 0),
-        avgMemory: allMems.length ? avg(allMems) : (license.memoryUsage || 0),
-        maxMemory: allMems.length ? max(allMems) : (license.memoryUsage || 0),
+        avgCpu: allCpus.length ? avg(allCpus) : fallbackCpuPct,
+        maxCpu: allCpus.length ? max(allCpus) : fallbackCpuPct,
+        avgMemory: avgMemPct,
+        maxMemory: maxMemPct,
+        avgMemoryMb: pctToMb(avgMemPct),
+        maxMemoryMb: pctToMb(maxMemPct),
+        totalMemoryMb,
         avgResponseTime: allResps.length ? avg(allResps) : (license.localAvgResponseTimeMs || 0),
         maxResponseTime: allResps.length ? max(allResps) : (license.localAvgResponseTimeMs || 0),
         totalRequests: totalRequests || ((license.localRequestsToday || 0) + (license.publicRequestsToday || 0)),
@@ -633,8 +661,13 @@ export const registerTenantRoutes = (fastify: FastifyInstance) => {
       let points: Array<{
         timestamp: string;
         cpuUsage: number;
+        maxCpuUsage: number;
         memoryUsage: number;
+        maxMemoryUsage: number;
+        memoryUsedMb: number;
+        maxMemoryUsedMb: number;
         responseTimeMs: number;
+        maxResponseTimeMs: number;
         localLatencyMs: number;
         publicLatencyMs: number;
         requestsCount: number;
@@ -643,17 +676,30 @@ export const registerTenantRoutes = (fastify: FastifyInstance) => {
       }> = [];
 
       if (bucketIntervalMs === 0) {
-        points = logs.map(l => ({
-          timestamp: l.recordedAt.toISOString(),
-          cpuUsage: l.cpuUsage != null ? Math.round(l.cpuUsage * 10) / 10 : 0,
-          memoryUsage: l.memoryUsage != null ? Math.round(l.memoryUsage * 10) / 10 : 0,
-          responseTimeMs: l.responseTimeMs != null ? Math.round(l.responseTimeMs * 10) / 10 : 0,
-          localLatencyMs: l.localLatencyMs != null ? Math.round(l.localLatencyMs * 10) / 10 : 0,
-          publicLatencyMs: l.publicLatencyMs != null ? Math.round(l.publicLatencyMs * 10) / 10 : 0,
-          requestsCount: l.requestsCount || 0,
-          activeUsers: l.activeUsers || 0,
-          dbSize: l.dbSize || 0
-        }));
+        points = logs.map(l => {
+          const cpuPct = toPercent(l.cpuUsage) ?? 0;
+          const memPct = toPercent(l.memoryUsage) ?? 0;
+          const respMs = l.responseTimeMs != null ? Math.round(l.responseTimeMs * 10) / 10 : 0;
+          const locMs = l.localLatencyMs != null ? Math.round(l.localLatencyMs * 10) / 10 : 0;
+          const pubMs = l.publicLatencyMs != null ? Math.round(l.publicLatencyMs * 10) / 10 : 0;
+          const peakMs = Math.max(respMs, locMs, pubMs);
+          return {
+            timestamp: l.recordedAt.toISOString(),
+            cpuUsage: cpuPct,
+            maxCpuUsage: cpuPct,
+            memoryUsage: memPct,
+            maxMemoryUsage: memPct,
+            memoryUsedMb: pctToMb(memPct),
+            maxMemoryUsedMb: pctToMb(memPct),
+            responseTimeMs: respMs,
+            maxResponseTimeMs: peakMs,
+            localLatencyMs: locMs,
+            publicLatencyMs: pubMs,
+            requestsCount: l.requestsCount || 0,
+            activeUsers: l.activeUsers || 0,
+            dbSize: l.dbSize || 0
+          };
+        });
       } else {
         const bucketMap = new Map<number, typeof logs>();
         for (const l of logs) {
@@ -663,8 +709,8 @@ export const registerTenantRoutes = (fastify: FastifyInstance) => {
         }
 
         points = Array.from(bucketMap.entries()).map(([ts, group]) => {
-          const cpuList = group.map(g => g.cpuUsage).filter((v): v is number => v !== null && v !== undefined);
-          const memList = group.map(g => g.memoryUsage).filter((v): v is number => v !== null && v !== undefined);
+          const cpuList = group.map(g => toPercent(g.cpuUsage)).filter((v): v is number => v !== null);
+          const memList = group.map(g => toPercent(g.memoryUsage)).filter((v): v is number => v !== null);
           const respList = group.map(g => g.responseTimeMs).filter((v): v is number => v !== null && v !== undefined);
           const locList = group.map(g => g.localLatencyMs).filter((v): v is number => v !== null && v !== undefined);
           const pubList = group.map(g => g.publicLatencyMs).filter((v): v is number => v !== null && v !== undefined);
@@ -672,11 +718,20 @@ export const registerTenantRoutes = (fastify: FastifyInstance) => {
           const userMax = Math.max(...group.map(g => g.activeUsers || 0), 0);
           const lastDb = group[group.length - 1]?.dbSize || 0;
 
+          const avgMem = avg(memList);
+          const peakMem = max(memList);
+          const peakResp = Math.max(max(respList), max(locList), max(pubList));
+
           return {
             timestamp: new Date(ts).toISOString(),
             cpuUsage: avg(cpuList),
-            memoryUsage: avg(memList),
+            maxCpuUsage: max(cpuList),
+            memoryUsage: avgMem,
+            maxMemoryUsage: peakMem,
+            memoryUsedMb: pctToMb(avgMem),
+            maxMemoryUsedMb: pctToMb(peakMem),
             responseTimeMs: avg(respList),
+            maxResponseTimeMs: peakResp,
             localLatencyMs: avg(locList),
             publicLatencyMs: avg(pubList),
             requestsCount: reqSum,
